@@ -1,0 +1,71 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "notify · QA (debug)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "args": [
+        "--flavor", "qa",
+        "--dart-define-from-file=flavors/qa.json"
+      ]
+    },
+    {
+      "name": "notify · QA (profile)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "profile",
+      "args": [
+        "--flavor", "qa",
+        "--dart-define-from-file=flavors/qa.json"
+      ]
+    },
+    {
+      "name": "notify · QA (release)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "release",
+      "args": [
+        "--flavor", "qa",
+        "--dart-define-from-file=flavors/qa.json"
+      ]
+    },
+    {
+      "name": "notify · Production (debug)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "args": [
+        "--flavor", "production",
+        "--dart-define-from-file=flavors/production.json"
+      ]
+    },
+    {
+      "name": "notify · Production (profile)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "profile",
+      "args": [
+        "--flavor", "production",
+        "--dart-define-from-file=flavors/production.json"
+      ]
+    },
+    {
+      "name": "notify · Production (release)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "release",
+      "args": [
+        "--flavor", "production",
+        "--dart-define-from-file=flavors/production.json"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,117 @@
+appId: com.example.notify
+name: Version History Flows
+---
+
+# ============================================================
+# Flow 1: Open note detail -> version history
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+# Open an existing note
+- tapOn: "Auto-Save Test Note"
+- waitForAnimationToEnd
+
+# Open version history
+- tapOn:
+    id: ".*history.*"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: version_history_screen
+
+# ============================================================
+# Flow 2: Verify timeline with revisions
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+- tapOn: "Auto-Save Test Note"
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*history.*"
+    optional: true
+- waitForAnimationToEnd
+
+# Timeline should show revision entries with timestamps
+- takeScreenshot: version_history_timeline
+
+# ============================================================
+# Flow 3: Tap revision to preview
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+- tapOn: "Auto-Save Test Note"
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*history.*"
+    optional: true
+- waitForAnimationToEnd
+
+# Tap on a revision entry
+- tapOn:
+    id: ".*revision.*"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: version_history_preview
+
+# ============================================================
+# Flow 4: Compare revisions
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+- tapOn: "Auto-Save Test Note"
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*history.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "Compare"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: version_history_compare
+
+# ============================================================
+# Flow 5: Restore revision (confirm dialog)
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+- tapOn: "Auto-Save Test Note"
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*history.*"
+    optional: true
+- waitForAnimationToEnd
+
+# Select a revision
+- tapOn:
+    id: ".*revision.*"
+    optional: true
+- waitForAnimationToEnd
+
+# Tap restore
+- tapOn:
+    text: "Restore"
+    optional: true
+- waitForAnimationToEnd
+
+# Confirm restore
+- tapOn:
+    text: "Restore"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: version_history_restored

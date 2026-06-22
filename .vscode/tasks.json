@@ -1,0 +1,102 @@
+{
+  "version": "2.0.0",
+
+  "inputs": [
+    {
+      "id": "releaseNotes",
+      "type": "promptString",
+      "description": "Release notes shown in the in-app update dialog",
+      "default": "Bug fixes and improvements"
+    }
+  ],
+
+  "tasks": [
+    // ── Deploy: Production ───────────────────────────────────────────────────
+    {
+      "label": "Deploy: Production",
+      "detail": "Bump build number → build production APK → upload to S3",
+      "type": "shell",
+      "command": "python3 scripts/bump_version.py && bash scripts/build_and_upload.sh production \"${input:releaseNotes}\"",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "shell": {
+          "executable": "C:\\Program Files\\Git\\bin\\bash.exe",
+          "args": ["-c"]
+        },
+        "env": {
+          "AWS_PROFILE": "selah",
+          "S3_BUCKET": "selah-app-builds",
+          "S3_REGION": "ap-south-1"
+        }
+      },
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "problemMatcher": []
+    },
+
+    // ── Deploy: QA ───────────────────────────────────────────────────────────
+    {
+      "label": "Deploy: QA",
+      "detail": "Bump build number → build QA APK → upload to S3",
+      "type": "shell",
+      "command": "python3 scripts/bump_version.py && bash scripts/build_and_upload.sh qa \"${input:releaseNotes}\"",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "shell": {
+          "executable": "C:\\Program Files\\Git\\bin\\bash.exe",
+          "args": ["-c"]
+        },
+        "env": {
+          "AWS_PROFILE": "selah",
+          "S3_BUCKET": "selah-app-builds",
+          "S3_REGION": "ap-south-1"
+        }
+      },
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "problemMatcher": []
+    },
+
+    // ── Deploy: Both Flavors ─────────────────────────────────────────────────
+    // Bumps the build number ONCE, then builds and uploads both flavors.
+    {
+      "label": "Deploy: Both Flavors",
+      "detail": "Bump build number once → build production + QA APKs → upload both to S3",
+      "type": "shell",
+      "command": "python3 scripts/bump_version.py && bash scripts/build_and_upload.sh production \"${input:releaseNotes}\" && bash scripts/build_and_upload.sh qa \"${input:releaseNotes}\"",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "shell": {
+          "executable": "C:\\Program Files\\Git\\bin\\bash.exe",
+          "args": ["-c"]
+        },
+        "env": {
+          "AWS_PROFILE": "selah",
+          "S3_BUCKET": "selah-app-builds",
+          "S3_REGION": "ap-south-1"
+        }
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "problemMatcher": []
+    }
+  ]
+}

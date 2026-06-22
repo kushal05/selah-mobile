@@ -1,0 +1,12 @@
+appId: com.example.notify
+name: "Utility: Go offline via TestBridge"
+---
+- runScript:
+    script: |
+      const response = await fetch('http://localhost:8081/test/offline', {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        throw new Error(`Go offline failed: ${response.status}`);
+      }
+      console.log('App now offline');

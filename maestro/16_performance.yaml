@@ -1,0 +1,155 @@
+appId: com.example.notify
+name: Performance Smoke Tests
+---
+
+# ============================================================
+# Flow 1: App startup time verification
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+# Splash should appear quickly and transition to home
+- assertVisible: "Notify"
+- takeScreenshot: perf_startup_splash
+
+# Wait for transition to home
+- waitForAnimationToEnd
+- takeScreenshot: perf_startup_home
+
+# ============================================================
+# Flow 2: Scroll through long lists - Notes
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+# Scroll down through notes list
+- scroll:
+    direction: DOWN
+- scroll:
+    direction: DOWN
+- scroll:
+    direction: DOWN
+- waitForAnimationToEnd
+- takeScreenshot: perf_scroll_notes
+
+# Scroll back up
+- scroll:
+    direction: UP
+- scroll:
+    direction: UP
+- scroll:
+    direction: UP
+- waitForAnimationToEnd
+- takeScreenshot: perf_scroll_notes_back
+
+# ============================================================
+# Flow 3: Scroll through long lists - Prayers
+# ============================================================
+- launchApp
+- tapOn: "Prayers"
+- waitForAnimationToEnd
+
+- scroll:
+    direction: DOWN
+- scroll:
+    direction: DOWN
+- scroll:
+    direction: DOWN
+- waitForAnimationToEnd
+- takeScreenshot: perf_scroll_prayers
+
+# ============================================================
+# Flow 4: Scroll through long lists - Bible books
+# ============================================================
+- launchApp
+- tapOn: "Bible"
+- waitForAnimationToEnd
+
+- scroll:
+    direction: DOWN
+- scroll:
+    direction: DOWN
+- scroll:
+    direction: DOWN
+- waitForAnimationToEnd
+- takeScreenshot: perf_scroll_bible
+
+# ============================================================
+# Flow 5: Rapid navigation between tabs
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+
+- tapOn: "Notes"
+- tapOn: "Prayers"
+- tapOn: "Bible"
+- tapOn: "Promises"
+- tapOn: "Songs"
+- tapOn: "People"
+- tapOn: "Home"
+- tapOn: "Notes"
+- tapOn: "Bible"
+- tapOn: "Prayers"
+- tapOn: "Home"
+- waitForAnimationToEnd
+- takeScreenshot: perf_rapid_tab_switch
+
+# ============================================================
+# Flow 6: Search performance - Global
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*search.*"
+    optional: true
+- waitForAnimationToEnd
+
+# Type a query and verify results appear promptly
+- inputText: "test"
+- waitForAnimationToEnd
+- takeScreenshot: perf_search_global
+
+# ============================================================
+# Flow 7: Search performance - Bible FTS
+# ============================================================
+- launchApp
+- tapOn: "Bible"
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*search.*"
+    optional: true
+- waitForAnimationToEnd
+
+- inputText: "the Lord God"
+- waitForAnimationToEnd
+- takeScreenshot: perf_search_bible_fts
+
+# ============================================================
+# Flow 8: Scroll through Bible chapter (many verses)
+# ============================================================
+- launchApp
+- tapOn: "Bible"
+- waitForAnimationToEnd
+
+- tapOn: "Psalms"
+- waitForAnimationToEnd
+
+# Psalm 119 is the longest chapter
+- tapOn: "119"
+- waitForAnimationToEnd
+
+- scroll:
+    direction: DOWN
+- scroll:
+    direction: DOWN
+- scroll:
+    direction: DOWN
+- scroll:
+    direction: DOWN
+- scroll:
+    direction: DOWN
+- waitForAnimationToEnd
+- takeScreenshot: perf_scroll_psalm_119

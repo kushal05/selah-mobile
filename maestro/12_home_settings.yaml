@@ -1,0 +1,192 @@
+appId: com.example.notify
+name: Home Dashboard and Settings Flows
+---
+
+# ============================================================
+# Flow 1: Verify home dashboard (greeting, date, quick actions, overview grid)
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+
+# Verify greeting based on time of day
+- assertVisible:
+    text: "Good (Morning|Afternoon|Evening)"
+    optional: true
+- takeScreenshot: home_dashboard
+
+# ============================================================
+# Flow 2: Tap quick action buttons
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+
+# Quick actions are on the home dashboard
+- tapOn:
+    text: "New Note"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: home_quick_action_new_note
+
+- back
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "New Prayer"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: home_quick_action_new_prayer
+
+# ============================================================
+# Flow 3: Navigate to Settings
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+
+# Tap settings icon
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+- assertVisible: "Settings"
+- takeScreenshot: settings_screen
+
+# ============================================================
+# Flow 4: Verify all settings options
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+- assertVisible: "Account"
+- assertVisible: "Devices"
+- assertVisible: "Sign Out"
+- assertVisible: "My Profile"
+- assertVisible: "Friends"
+- assertVisible: "Groups"
+- assertVisible: "Sync Status"
+- assertVisible: "Tags"
+- assertVisible: "Export All Data (JSON)"
+- assertVisible: "Export Prayers (PDF)"
+- takeScreenshot: settings_all_options
+
+# ============================================================
+# Flow 5: Account info bottom sheet
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Account"
+- waitForAnimationToEnd
+- takeScreenshot: settings_account_info
+
+# ============================================================
+# Flow 6: Sign out flow - cancel
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Sign Out"
+- waitForAnimationToEnd
+# Cancel dialog
+- tapOn: "Cancel"
+- waitForAnimationToEnd
+- assertVisible: "Settings"
+- takeScreenshot: settings_signout_cancelled
+
+# ============================================================
+# Flow 7: Sign out flow - confirm
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Sign Out"
+- waitForAnimationToEnd
+# Confirm sign out
+- tapOn:
+    text: "Sign Out"
+- waitForAnimationToEnd
+# Should navigate to login/onboarding
+- takeScreenshot: settings_signed_out
+
+# ============================================================
+# Flow 8: Sync status screen
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Sync Status"
+- waitForAnimationToEnd
+- takeScreenshot: settings_sync_status
+
+# ============================================================
+# Flow 9: Devices management screen
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Devices"
+- waitForAnimationToEnd
+- takeScreenshot: settings_devices
+
+# ============================================================
+# Flow 10: Data export - JSON
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Export All Data (JSON)"
+- waitForAnimationToEnd
+- takeScreenshot: settings_export_json
+
+# ============================================================
+# Flow 11: Data export - PDF
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Export Prayers (PDF)"
+- waitForAnimationToEnd
+- takeScreenshot: settings_export_pdf
+
+# ============================================================
+# Flow 12: About dialog
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+# Scroll down to find About
+- scroll:
+    direction: DOWN
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "About"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: settings_about

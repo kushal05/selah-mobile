@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Home-screen widget palette (light). Night variants in values-night/.
+         Colors mirror AppTheme: notes=brandPurple, prayers=brandBlue,
+         songs=orange. -->
+    <color name="widget_surface">#FFFFFFFF</color>
+    <color name="widget_text_primary">#FF14121F</color>
+    <color name="widget_text_secondary">#FF6B6878</color>
+    <color name="widget_accent">#FF7B61FF</color>
+    <color name="widget_divider">#14000000</color>
+
+    <!-- Prayer-feature accent (brandBlue) for prayer widgets -->
+    <color name="widget_accent_blue">#FF2D6CDF</color>
+    <color name="widget_accent_blue_soft">#1F2D6CDF</color>
+
+    <!-- White content drawn on top of a colored gradient -->
+    <color name="widget_on_accent">#FFFFFFFF</color>
+    <color name="widget_on_accent_dim">#E6FFFFFF</color>
+    <!-- Frosted badge / decorative circle on a gradient -->
+    <color name="widget_badge_overlay">#33FFFFFF</color>
+    <color name="widget_texture_strong">#1FFFFFFF</color>
+    <color name="widget_texture_soft">#0FFFFFFF</color>
+
+    <!-- Soft accent fill for icon badges / pills on a card surface -->
+    <color name="widget_accent_soft">#1F7B61FF</color>
+
+    <!-- Action-tile gradients (AppTheme brand colours) -->
+    <color name="widget_grad_note_start">#FF7B61FF</color>
+    <color name="widget_grad_note_end">#FF5B3FD9</color>
+    <color name="widget_grad_prayer_start">#FF2D6CDF</color>
+    <color name="widget_grad_prayer_end">#FF1A4FA8</color>
+    <color name="widget_grad_songs_start">#FFFF9F43</color>
+    <color name="widget_grad_songs_end">#FFE67E22</color>
+</resources>

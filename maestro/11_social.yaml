@@ -1,0 +1,144 @@
+appId: com.example.notify
+name: Social Features Flows
+---
+
+# ============================================================
+# Flow 1: Navigate to Settings -> Friends
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Friends"
+- waitForAnimationToEnd
+- takeScreenshot: social_friends_list
+
+# ============================================================
+# Flow 2: Verify friends list (or empty state)
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Friends"
+- waitForAnimationToEnd
+# Should show friends list or empty state
+- takeScreenshot: social_friends_state
+
+# ============================================================
+# Flow 3: Navigate to friend requests
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Friends"
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "Requests"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: social_friend_requests
+
+# ============================================================
+# Flow 4: Navigate to username search
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Friends"
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*search.*"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: social_username_search
+
+# ============================================================
+# Flow 5: Navigate to Settings -> Groups
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Groups"
+- waitForAnimationToEnd
+- takeScreenshot: social_groups_list
+
+# ============================================================
+# Flow 6: Verify groups list (or empty state)
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Groups"
+- waitForAnimationToEnd
+# Should show groups or empty state
+- takeScreenshot: social_groups_state
+
+# ============================================================
+# Flow 7: Join group dialog
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Groups"
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "Join"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: social_join_group_dialog
+
+# ============================================================
+# Flow 8: Profile settings screen
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "My Profile"
+- waitForAnimationToEnd
+- takeScreenshot: social_profile_settings
+
+# ============================================================
+# Flow 9: Blocked users sheet
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Friends"
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "Blocked"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: social_blocked_users

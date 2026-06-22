@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Default app name — overridden per flavor via resValue() in build.gradle.kts -->
+    <string name="app_name">Notify</string>
+
+    <!-- ===== Home-screen widgets ===== -->
+
+    <!-- Create note (action) -->
+    <string name="widget_create_note_label">Note</string>
+    <string name="widget_create_note_desc">Quickly start a new note</string>
+
+    <!-- Create prayer (action) -->
+    <string name="widget_create_prayer_label">Prayer</string>
+    <string name="widget_create_prayer_desc">Quickly add a new prayer</string>
+
+    <!-- Songs shortcut (action) -->
+    <string name="widget_songs_label">Songs</string>
+    <string name="widget_songs_desc">Open the Songs book</string>
+
+    <!-- Pinned note (display) -->
+    <string name="widget_note_pin_eyebrow">NOTE</string>
+    <string name="widget_note_pin_label">Pinned note</string>
+    <string name="widget_note_pin_desc">Keep one note on your home screen</string>
+    <string name="widget_note_pin_empty">Untitled note</string>
+    <string name="widget_note_pin_hint">Tap to open Notes</string>
+    <string name="widget_note_pin_pick">Pick a note to pin</string>
+    <string name="widget_note_pin_config_empty">No notes yet. Create a note in Selah, then add this widget.</string>
+
+    <!-- Pinned prayer (display) -->
+    <string name="widget_prayer_pin_eyebrow">PRAYER</string>
+    <string name="widget_prayer_pin_label">Pinned prayer</string>
+    <string name="widget_prayer_pin_desc">Keep one prayer on your home screen</string>
+    <string name="widget_prayer_pin_empty">Untitled prayer</string>
+    <string name="widget_prayer_pin_hint">Tap to open Prayers</string>
+    <string name="widget_prayer_pin_pick">Pick a prayer to pin</string>
+    <string name="widget_prayer_pin_config_empty">No prayers yet. Create a prayer in Selah, then add this widget.</string>
+
+    <!-- Today's prayers (list) -->
+    <string name="widget_pray_today_label">Pray Today</string>
+    <string name="widget_pray_today_desc">Today\'s prayers at a glance</string>
+    <string name="widget_pray_today_empty">No prayers for today</string>
+    <string name="widget_pray_today_more">+%1$d more</string>
+    <string name="widget_log_prayer">Log prayer</string>
+
+    <!-- Shared -->
+    <string name="widget_pin_unconfigured">Tap to set up</string>
+    <string name="widget_untitled">Untitled</string>
+</resources>

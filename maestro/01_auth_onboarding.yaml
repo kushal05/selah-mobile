@@ -1,0 +1,234 @@
+appId: com.example.notify
+name: Auth and Onboarding Flows
+---
+
+# ============================================================
+# Flow 1: Splash screen verification
+# ============================================================
+- launchApp
+- assertVisible: "Notify"
+- assertVisible: "Your spiritual companion"
+- takeScreenshot: splash_screen
+
+# ============================================================
+# Flow 2: Onboarding - swipe through all 3 slides, tap Next, Get Started
+# ============================================================
+- launchApp
+- assertVisible: "Welcome to Notify"
+- assertVisible: "Your spiritual companion for notes, prayers, promises, and songs"
+- assertVisible: "Next"
+- assertVisible: "Skip"
+- takeScreenshot: onboarding_slide_1
+
+# Tap Next to go to slide 2
+- tapOn: "Next"
+- waitForAnimationToEnd
+- assertVisible: "Stay Organized"
+- assertVisible: "Keep sermon notes, track prayer requests"
+- takeScreenshot: onboarding_slide_2
+
+# Tap Next to go to slide 3
+- tapOn: "Next"
+- waitForAnimationToEnd
+- assertVisible: "Sync Everywhere"
+- assertVisible: "Your data syncs across all your devices"
+- assertVisible: "Get Started"
+- takeScreenshot: onboarding_slide_3
+
+# Tap Get Started -> navigate to Register
+- tapOn: "Get Started"
+- waitForAnimationToEnd
+- assertVisible: "Create Account"
+- assertVisible: "Sign up to get started"
+- takeScreenshot: onboarding_complete_to_register
+
+# ============================================================
+# Flow 3: Onboarding - tap Skip -> navigate to Register
+# ============================================================
+- launchApp
+- assertVisible: "Welcome to Notify"
+- tapOn: "Skip"
+- waitForAnimationToEnd
+- assertVisible: "Create Account"
+- takeScreenshot: onboarding_skip_to_register
+
+# ============================================================
+# Flow 4: Login - valid email/password, toggle visibility, tap Sign In
+# ============================================================
+- launchApp
+- assertVisible: "Welcome Back"
+- assertVisible: "Sign in to continue"
+
+# Enter email
+- tapOn: "Email"
+- inputText: "test@example.com"
+- hideKeyboard
+
+# Enter password
+- tapOn: "Password"
+- inputText: "TestPassword123"
+- hideKeyboard
+
+# Toggle password visibility
+- tapOn:
+    id: ".*visibility.*"
+    optional: true
+- waitForAnimationToEnd
+
+# Tap Sign In
+- tapOn: "Sign In"
+- waitForAnimationToEnd
+- takeScreenshot: login_valid_credentials
+
+# ============================================================
+# Flow 5: Login - empty fields show validation errors
+# ============================================================
+- launchApp
+- assertVisible: "Welcome Back"
+
+# Tap Sign In without entering anything
+- tapOn: "Sign In"
+- waitForAnimationToEnd
+- assertVisible: "Please enter your email"
+- assertVisible: "Please enter your password"
+- takeScreenshot: login_empty_validation
+
+# ============================================================
+# Flow 6: Login - invalid email format shows error
+# ============================================================
+- launchApp
+- assertVisible: "Welcome Back"
+
+- tapOn: "Email"
+- inputText: "notanemail"
+- hideKeyboard
+
+- tapOn: "Password"
+- inputText: "TestPassword123"
+- hideKeyboard
+
+- tapOn: "Sign In"
+- waitForAnimationToEnd
+- assertVisible: "Please enter a valid email"
+- takeScreenshot: login_invalid_email
+
+# ============================================================
+# Flow 7: Login - tap Forgot Password navigates
+# ============================================================
+- launchApp
+- assertVisible: "Welcome Back"
+
+- tapOn: "Forgot password?"
+- waitForAnimationToEnd
+- assertVisible: "Reset Password"
+- assertVisible: "Enter your email and we'll send you a link"
+- takeScreenshot: login_to_forgot_password
+
+# ============================================================
+# Flow 8: Login - tap Register navigates
+# ============================================================
+- launchApp
+- assertVisible: "Welcome Back"
+
+- tapOn: "Register"
+- waitForAnimationToEnd
+- assertVisible: "Create Account"
+- assertVisible: "Sign up to get started"
+- takeScreenshot: login_to_register
+
+# ============================================================
+# Flow 9: Register - fill all fields, tap Create Account
+# ============================================================
+- launchApp
+- assertVisible: "Create Account"
+
+- tapOn: "Full Name"
+- inputText: "Test User"
+- hideKeyboard
+
+- tapOn: "Email"
+- inputText: "newuser@example.com"
+- hideKeyboard
+
+- tapOn: "Password"
+- inputText: "SecurePass123"
+- hideKeyboard
+
+- tapOn: "Confirm Password"
+- inputText: "SecurePass123"
+- hideKeyboard
+
+- tapOn: "Create Account"
+- waitForAnimationToEnd
+- takeScreenshot: register_filled
+
+# ============================================================
+# Flow 10: Register - validation for empty/invalid fields, password mismatch
+# ============================================================
+- launchApp
+- assertVisible: "Create Account"
+
+# Submit empty form
+- tapOn: "Create Account"
+- waitForAnimationToEnd
+- assertVisible: "Please enter your name"
+- assertVisible: "Please enter your email"
+- assertVisible: "Please enter a password"
+- takeScreenshot: register_empty_validation
+
+# Fill with mismatched passwords
+- tapOn: "Full Name"
+- inputText: "Test User"
+- hideKeyboard
+
+- tapOn: "Email"
+- inputText: "test@example.com"
+- hideKeyboard
+
+- tapOn: "Password"
+- inputText: "Password123"
+- hideKeyboard
+
+- tapOn: "Confirm Password"
+- inputText: "DifferentPassword"
+- hideKeyboard
+
+- tapOn: "Create Account"
+- waitForAnimationToEnd
+- assertVisible: "Passwords do not match"
+- takeScreenshot: register_password_mismatch
+
+# ============================================================
+# Flow 11: Forgot Password - enter email, tap Send Reset Link, verify success
+# ============================================================
+- launchApp
+- assertVisible: "Reset Password"
+
+- tapOn: "Email"
+- inputText: "user@example.com"
+- hideKeyboard
+
+- tapOn: "Send Reset Link"
+- waitForAnimationToEnd
+- assertVisible: "Check Your Email"
+- assertVisible: "Back to Sign In"
+- takeScreenshot: forgot_password_success
+
+# ============================================================
+# Flow 12: Complete Profile - valid username and display name
+# ============================================================
+- launchApp
+- assertVisible: "Complete Your Profile"
+- assertVisible: "Choose a username and display name to get started"
+
+- tapOn: "Username"
+- inputText: "testuser123"
+- hideKeyboard
+
+- tapOn: "Display Name"
+- inputText: "Test User"
+- hideKeyboard
+
+- tapOn: "Continue"
+- waitForAnimationToEnd
+- takeScreenshot: complete_profile

@@ -1,0 +1,9 @@
+{
+  "FLAVOR": "qa",
+  "APP_NAME": "Selah QA",
+  "API_BASE_URL": "https://api-qa.selahapp.in",
+  "DB_NAME": "selah-qa_sync.db",
+  "GOOGLE_SERVER_CLIENT_ID": "290254642130-8ceig7g9gg5idj75c8jhbh3dsohag0qa.apps.googleusercontent.com",
+  "UPDATE_METADATA_URL": "https://selah-app-builds.s3.ap-south-1.amazonaws.com/app-updates/metadata-qa.json",
+  "BIBLE_DB_URL": "https://selah-app-builds.s3.ap-south-1.amazonaws.com/bible/NKJV.db"
+}

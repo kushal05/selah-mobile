@@ -1,0 +1,261 @@
+appId: com.example.notify
+name: Prayers Feature Flows
+---
+
+# ============================================================
+# Flow 1: Navigate to Prayers tab
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+- tapOn: "Prayers"
+- waitForAnimationToEnd
+- assertVisible: "Prayers"
+- takeScreenshot: prayers_tab
+
+# ============================================================
+# Flow 2: Verify dashboard (Pray Today banner, category cards, people section)
+# ============================================================
+- launchApp
+- tapOn: "Prayers"
+- waitForAnimationToEnd
+- assertVisible: "Prayers"
+- assertVisible: "Pray Today"
+- assertVisible: "Categories"
+- takeScreenshot: prayers_dashboard
+
+# ============================================================
+# Flow 3: Tap category card (Active/Answered/Archived/All)
+# ============================================================
+- launchApp
+- tapOn: "Prayers"
+- waitForAnimationToEnd
+
+- tapOn: "Active"
+- waitForAnimationToEnd
+- takeScreenshot: prayers_active_list
+
+- back
+- waitForAnimationToEnd
+
+- tapOn: "Answered"
+- waitForAnimationToEnd
+- takeScreenshot: prayers_answered_list
+
+- back
+- waitForAnimationToEnd
+
+- tapOn: "Archived"
+- waitForAnimationToEnd
+- takeScreenshot: prayers_archived_list
+
+- back
+- waitForAnimationToEnd
+
+- tapOn: "All"
+- waitForAnimationToEnd
+- takeScreenshot: prayers_all_list
+
+# ============================================================
+# Flow 4: Create new prayer via FAB
+# ============================================================
+- launchApp
+- tapOn: "Prayers"
+- waitForAnimationToEnd
+
+# Tap FAB (+ button)
+- tapOn:
+    id: ".*fab.*"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: prayers_add_screen
+
+# ============================================================
+# Flow 5: Fill prayer title and save
+# ============================================================
+- launchApp
+- tapOn: "Prayers"
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*fab.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Title"
+- inputText: "Test Prayer Request"
+- hideKeyboard
+
+- tapOn: "Save"
+- waitForAnimationToEnd
+- takeScreenshot: prayers_saved_simple
+
+# ============================================================
+# Flow 6: Fill prayer with all fields (title, content, frequency, category)
+# ============================================================
+- launchApp
+- tapOn: "Prayers"
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*fab.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Title"
+- inputText: "Detailed Prayer Request"
+- hideKeyboard
+
+# Add content/description
+- tapOn: "Content"
+- inputText: "Lord, please help with this specific situation. I trust in Your plan."
+- hideKeyboard
+
+# Select frequency if available
+- tapOn:
+    text: "Frequency"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    text: "Daily"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Save"
+- waitForAnimationToEnd
+- takeScreenshot: prayers_saved_detailed
+
+# ============================================================
+# Flow 7: Mark prayer as answered
+# ============================================================
+- launchApp
+- tapOn: "Prayers"
+- waitForAnimationToEnd
+
+- tapOn: "Active"
+- waitForAnimationToEnd
+
+# Tap on a prayer
+- tapOn: "Test Prayer Request"
+- waitForAnimationToEnd
+
+# Mark as answered
+- tapOn:
+    text: "Answered"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: prayers_marked_answered
+
+# ============================================================
+# Flow 8: Archive prayer
+# ============================================================
+- launchApp
+- tapOn: "Prayers"
+- waitForAnimationToEnd
+
+- tapOn: "Active"
+- waitForAnimationToEnd
+
+- tapOn: "Detailed Prayer Request"
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "Archive"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: prayers_archived
+
+# ============================================================
+# Flow 9: Delete prayer
+# ============================================================
+- launchApp
+- tapOn: "Prayers"
+- waitForAnimationToEnd
+
+- tapOn: "All"
+- waitForAnimationToEnd
+
+- tapOn: "Detailed Prayer Request"
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "Delete"
+    optional: true
+- waitForAnimationToEnd
+
+# Confirm
+- tapOn: "Delete"
+- waitForAnimationToEnd
+- takeScreenshot: prayers_deleted
+
+# ============================================================
+# Flow 10: Pray Today screen - mark prayers as prayed
+# ============================================================
+- launchApp
+- tapOn: "Prayers"
+- waitForAnimationToEnd
+
+- tapOn: "Pray Today"
+- waitForAnimationToEnd
+- takeScreenshot: prayers_pray_today
+
+# Mark a prayer as prayed
+- tapOn:
+    id: ".*check.*"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: prayers_marked_prayed
+
+# ============================================================
+# Flow 11: Prayer updates - create and view
+# ============================================================
+- launchApp
+- tapOn: "Prayers"
+- waitForAnimationToEnd
+
+- tapOn: "Active"
+- waitForAnimationToEnd
+
+- tapOn: "Test Prayer Request"
+- waitForAnimationToEnd
+
+# Add an update
+- tapOn:
+    text: "Add Update"
+    optional: true
+- waitForAnimationToEnd
+
+- inputText: "God has been moving in this situation!"
+- hideKeyboard
+
+- tapOn: "Save"
+- waitForAnimationToEnd
+- takeScreenshot: prayers_update_added
+
+# ============================================================
+# Flow 12: Prayer analytics screen (stat cards, heatmap)
+# ============================================================
+- launchApp
+- tapOn: "Prayers"
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "Analytics"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: prayers_analytics
+
+# ============================================================
+# Flow 13: Prayer search
+# ============================================================
+- launchApp
+- tapOn: "Prayers"
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*search.*"
+    optional: true
+- waitForAnimationToEnd
+
+- inputText: "Test Prayer"
+- waitForAnimationToEnd
+- takeScreenshot: prayers_search_results

@@ -1,0 +1,747 @@
+<div
+  class="export-wrapper"
+  style="
+    width: 375px;
+    min-height: 812px;
+    position: relative;
+    font-family: var(--font-family-body);
+    background-color: var(--background);
+  "
+>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@100;200;300;400;500;600;700;800;900&family=Geist:wght@100;200;300;400;500;600;700;800;900&family=IBM+Plex+Mono:wght@100;200;300;400;500;600;700&family=IBM+Plex+Sans:wght@100;200;300;400;500;600;700&family=Inter:wght@100;200;300;400;500;600;700;800;900&family=Nunito:wght@200;300;400;500;600;700;800;900&family=PT+Serif:wght@400;700&family=Roboto+Slab:wght@100;200;300;400;500;600;700;800;900&family=Roboto:wght@100;300;400;500;700;900&family=Shantell+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <html>
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=375, initial-scale=1.0" />
+      <title>Notes Folder Split</title>
+      <style>
+        :root,
+        :host {
+          --background: #ffffff;
+          --foreground: #09090b;
+          --card: #ffffff;
+          --card-foreground: #09090b;
+          --popover: #ffffff;
+          --popover-foreground: #09090b;
+          --primary: #18181b;
+          --primary-foreground: #fafafa;
+          --secondary: #f4f4f5;
+          --secondary-foreground: #18181b;
+          --muted: #f4f4f5;
+          --muted-foreground: #71717a;
+          --accent: #f4f4f5;
+          --accent-foreground: #18181b;
+          --destructive: #ef4444;
+          --destructive-foreground: #fafafa;
+          --border: #e4e4e7;
+          --input: #e4e4e7;
+          --ring: #18181b;
+          --radius-sm: 0.25rem;
+          --radius-md: 0.5rem;
+          --radius-lg: 0.75rem;
+          --radius-xl: 1rem;
+          --font-family-body:
+            -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+            Arial, sans-serif;
+        }
+
+        * {
+          box-sizing: border-box;
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .export-wrapper {
+          margin: 0;
+          padding: 0;
+          font-family: var(--font-family-body);
+          background-color: var(--background);
+          color: var(--foreground);
+          font-size: 15px;
+          line-height: 1.5;
+          /* Full viewport layout for split screen */
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
+
+        /* Top App Bar */
+        .top-app-bar {
+          height: 56px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 16px;
+          padding-top: env(safe-area-inset-top);
+          background: var(--background);
+          border-bottom: 1px solid var(--border);
+          flex-shrink: 0;
+          z-index: 10;
+        }
+
+        .app-title {
+          font-size: 20px;
+          font-weight: 700;
+          margin: 0;
+          flex: 1;
+        }
+
+        .app-actions {
+          display: flex;
+          gap: 16px;
+        }
+
+        /* Split Container */
+        .split-container {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          position: relative;
+        }
+
+        /* Folder Section (~45%) */
+        .folder-section {
+          flex: 0 0 45%;
+          background-color: var(--secondary);
+          overflow-y: auto;
+          border-bottom: 1px solid var(--border);
+          display: flex;
+          flex-direction: column;
+        }
+
+        .section-header {
+          position: sticky;
+          top: 0;
+          background-color: inherit;
+          padding: 12px 16px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-weight: 600;
+          font-size: 13px;
+          color: var(--muted-foreground);
+          border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+          z-index: 5;
+          backdrop-filter: blur(8px);
+        }
+
+        .folder-item {
+          height: 56px;
+          display: flex;
+          align-items: center;
+          padding: 0 16px;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+
+        .folder-item.active {
+          background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .folder-item:active {
+          background-color: rgba(0, 0, 0, 0.08);
+        }
+
+        .folder-indent-1 {
+          padding-left: 16px;
+        }
+        .folder-indent-2 {
+          padding-left: 32px;
+        }
+        .folder-indent-3 {
+          padding-left: 48px;
+        }
+
+        .folder-icon {
+          margin-right: 12px;
+          color: var(--foreground);
+          display: flex;
+        }
+
+        .folder-info {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
+
+        .folder-name {
+          font-weight: 500;
+          font-size: 15px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .folder-meta {
+          font-size: 12px;
+          color: var(--muted-foreground);
+        }
+
+        /* Notes Section (~55%) */
+        .notes-section {
+          flex: 1;
+          background-color: var(--background);
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .notes-header-bg {
+          background-color: var(--background);
+        }
+
+        .note-item {
+          padding: 16px;
+          border-bottom: 1px solid var(--border);
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .note-item:active {
+          background-color: var(--secondary);
+        }
+
+        .note-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: baseline;
+        }
+
+        .note-title {
+          font-weight: 600;
+          font-size: 16px;
+          color: var(--foreground);
+        }
+
+        .note-time {
+          font-size: 12px;
+          color: var(--muted-foreground);
+          white-space: nowrap;
+          margin-left: 8px;
+        }
+
+        .note-preview {
+          font-size: 14px;
+          color: var(--muted-foreground);
+          line-height: 1.4;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+
+        .note-tags {
+          display: flex;
+          gap: 8px;
+          margin-top: 4px;
+        }
+
+        .chip {
+          background-color: var(--secondary);
+          color: var(--secondary-foreground);
+          font-size: 11px;
+          padding: 2px 8px;
+          border-radius: var(--radius-sm);
+          font-weight: 500;
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+          height: 60px;
+          flex-shrink: 0;
+          border-top: 1px solid var(--border);
+          background: var(--background);
+          display: flex;
+          justify-content: space-around;
+          align-items: center;
+          padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        .nav-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
+          color: var(--muted-foreground);
+          font-size: 10px;
+          font-weight: 500;
+          width: 64px;
+          cursor: pointer;
+        }
+
+        .nav-item.active {
+          color: var(--primary);
+        }
+
+        /* Utilities */
+        .icon-btn {
+          background: none;
+          border: none;
+          padding: 4px;
+          cursor: pointer;
+          display: flex;
+          color: var(--foreground);
+        }
+      </style>
+    </head>
+    <body>
+      <!-- Top App Bar -->
+      <header class="top-app-bar">
+        <h1 class="app-title">Notes</h1>
+        <div class="app-actions">
+          <button class="icon-btn" data-media-type="banani-button">
+            <div
+              style="
+                width: 24px;
+                height: 24px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "
+            >
+              <iconify-icon
+                icon="lucide:search"
+                style="font-size: 24px; color: currentColor"
+              ></iconify-icon>
+            </div>
+          </button>
+          <button class="icon-btn" data-media-type="banani-button">
+            <div
+              style="
+                width: 24px;
+                height: 24px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "
+            >
+              <iconify-icon
+                icon="lucide:more-vertical"
+                style="font-size: 24px; color: currentColor"
+              ></iconify-icon>
+            </div>
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Split Layout -->
+      <div class="split-container">
+        <!-- Folder Section (Top Half) -->
+        <section class="folder-section">
+          <div class="section-header">
+            <span>FOLDERS (12)</span>
+            <button class="icon-btn" data-media-type="banani-button">
+              <div
+                style="
+                  width: 20px;
+                  height: 20px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                "
+              >
+                <iconify-icon
+                  icon="lucide:folder-plus"
+                  style="font-size: 20px; color: var(--primary)"
+                ></iconify-icon>
+              </div>
+            </button>
+          </div>
+
+          <div
+            class="folder-item active folder-indent-1"
+            data-media-type="banani-button"
+          >
+            <div class="folder-icon">
+              <div
+                style="
+                  width: 24px;
+                  height: 24px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                "
+              >
+                <iconify-icon
+                  icon="lucide:folder-open"
+                  style="font-size: 24px; color: currentColor"
+                ></iconify-icon>
+              </div>
+            </div>
+            <div class="folder-info">
+              <span class="folder-name">Sermon Notes</span>
+              <span class="folder-meta">12 notes</span>
+            </div>
+            <div
+              style="
+                width: 20px;
+                height: 20px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: var(--muted-foreground);
+              "
+            >
+              <iconify-icon
+                icon="lucide:chevron-down"
+                style="font-size: 20px; color: currentColor"
+              ></iconify-icon>
+            </div>
+          </div>
+
+          <div
+            class="folder-item folder-indent-2"
+            data-media-type="banani-button"
+          >
+            <div class="folder-icon">
+              <div
+                style="
+                  width: 24px;
+                  height: 24px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                "
+              >
+                <iconify-icon
+                  icon="lucide:folder"
+                  style="font-size: 24px; color: currentColor"
+                ></iconify-icon>
+              </div>
+            </div>
+            <div class="folder-info">
+              <span class="folder-name">Series: Romans</span>
+              <span class="folder-meta">4 notes</span>
+            </div>
+          </div>
+
+          <div
+            class="folder-item folder-indent-2"
+            data-media-type="banani-button"
+          >
+            <div class="folder-icon">
+              <div
+                style="
+                  width: 24px;
+                  height: 24px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                "
+              >
+                <iconify-icon
+                  icon="lucide:folder"
+                  style="font-size: 24px; color: currentColor"
+                ></iconify-icon>
+              </div>
+            </div>
+            <div class="folder-info">
+              <span class="folder-name">Series: Genesis</span>
+              <span class="folder-meta">8 notes</span>
+            </div>
+          </div>
+
+          <div
+            class="folder-item folder-indent-1"
+            data-media-type="banani-button"
+          >
+            <div class="folder-icon">
+              <div
+                style="
+                  width: 24px;
+                  height: 24px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                "
+              >
+                <iconify-icon
+                  icon="lucide:folder"
+                  style="font-size: 24px; color: currentColor"
+                ></iconify-icon>
+              </div>
+            </div>
+            <div class="folder-info">
+              <span class="folder-name">Bible Study</span>
+              <span class="folder-meta">5 notes</span>
+            </div>
+          </div>
+
+          <div
+            class="folder-item folder-indent-1"
+            data-media-type="banani-button"
+          >
+            <div class="folder-icon">
+              <div
+                style="
+                  width: 24px;
+                  height: 24px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                "
+              >
+                <iconify-icon
+                  icon="lucide:folder"
+                  style="font-size: 24px; color: currentColor"
+                ></iconify-icon>
+              </div>
+            </div>
+            <div class="folder-info">
+              <span class="folder-name">Journal</span>
+              <span class="folder-meta">156 notes</span>
+            </div>
+          </div>
+
+          <!-- Padding to ensure content isn't cut off at bottom of section -->
+          <div style="height: 16px"></div>
+        </section>
+
+        <!-- Notes Section (Bottom Half) -->
+        <section class="notes-section">
+          <div class="section-header notes-header-bg">
+            <span>ALL NOTES (12)</span>
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                color: var(--primary);
+                cursor: pointer;
+              "
+              data-media-type="banani-button"
+            >
+              <span style="font-size: 12px">Last Edited</span>
+              <div
+                style="
+                  width: 16px;
+                  height: 16px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                "
+              >
+                <iconify-icon
+                  icon="lucide:arrow-down-up"
+                  style="font-size: 14px; color: currentColor"
+                ></iconify-icon>
+              </div>
+            </div>
+          </div>
+
+          <div class="note-item" data-media-type="banani-button">
+            <div class="note-top">
+              <span class="note-title">The Power of Grace</span>
+              <span class="note-time">2h ago</span>
+            </div>
+            <div class="note-preview">
+              Grace is not just unmerited favor, it is the empowering presence
+              of God to do what we cannot do on our own.
+            </div>
+            <div class="note-tags">
+              <span class="chip">#sermon</span>
+              <span class="chip">#grace</span>
+            </div>
+          </div>
+
+          <div class="note-item" data-media-type="banani-button">
+            <div class="note-top">
+              <span class="note-title">Romans 8 Reflection</span>
+              <span class="note-time">Yesterday</span>
+            </div>
+            <div class="note-preview">
+              No condemnation now exists for those in Christ Jesus, because the
+              Spirit's law of life...
+            </div>
+            <div class="note-tags">
+              <span class="chip">#devotional</span>
+            </div>
+          </div>
+
+          <div class="note-item" data-media-type="banani-button">
+            <div class="note-top">
+              <span class="note-title">Prayer for Community</span>
+              <span class="note-time">Oct 24</span>
+            </div>
+            <div class="note-preview">
+              Lord, help us to be a light in our neighborhood. Let our actions
+              speak louder than our words.
+            </div>
+            <div class="note-tags">
+              <span class="chip">#prayer</span>
+              <span class="chip">#outreach</span>
+            </div>
+          </div>
+
+          <div class="note-item" data-media-type="banani-button">
+            <div class="note-top">
+              <span class="note-title">Identity in Christ</span>
+              <span class="note-time">Oct 20</span>
+            </div>
+            <div class="note-preview">
+              I am chosen, royal, holy, and special. Not because of what I've
+              done, but because of who He is.
+            </div>
+            <div class="note-tags">
+              <span class="chip">#identity</span>
+            </div>
+          </div>
+
+          <div class="note-item" data-media-type="banani-button">
+            <div class="note-top">
+              <span class="note-title">Sunday Service Notes</span>
+              <span class="note-time">Oct 15</span>
+            </div>
+            <div class="note-preview">
+              Pastor mentioned 3 keys to faithfulness: 1. Consistency in small
+              things, 2. Reliance on Spirit...
+            </div>
+            <div class="note-tags">
+              <span class="chip">#sermon</span>
+            </div>
+          </div>
+
+          <!-- Padding at bottom -->
+          <div style="height: 80px"></div>
+        </section>
+      </div>
+
+      <!-- Bottom Navigation -->
+      <nav class="bottom-nav">
+        <div class="nav-item">
+          <div
+            style="
+              width: 24px;
+              height: 24px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            "
+          >
+            <iconify-icon
+              icon="lucide:layout-dashboard"
+              style="font-size: 24px; color: currentColor"
+            ></iconify-icon>
+          </div>
+          <span>Home</span>
+        </div>
+        <div class="nav-item active" data-media-type="banani-button">
+          <div
+            style="
+              width: 24px;
+              height: 24px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            "
+          >
+            <iconify-icon
+              icon="lucide:file-text"
+              style="font-size: 24px; color: currentColor"
+            ></iconify-icon>
+          </div>
+          <span>Notes</span>
+        </div>
+        <div class="nav-item" data-media-type="banani-button">
+          <div
+            style="
+              width: 24px;
+              height: 24px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            "
+          >
+            <iconify-icon
+              icon="lucide:heart"
+              style="font-size: 24px; color: currentColor"
+            ></iconify-icon>
+          </div>
+          <span>Prayers</span>
+        </div>
+        <div class="nav-item" data-media-type="banani-button">
+          <div
+            style="
+              width: 24px;
+              height: 24px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            "
+          >
+            <iconify-icon
+              icon="lucide:bookmark"
+              style="font-size: 24px; color: currentColor"
+            ></iconify-icon>
+          </div>
+          <span>Promises</span>
+        </div>
+        <div class="nav-item" data-media-type="banani-button">
+          <div
+            style="
+              width: 24px;
+              height: 24px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            "
+          >
+            <iconify-icon
+              icon="lucide:menu"
+              style="font-size: 24px; color: currentColor"
+            ></iconify-icon>
+          </div>
+          <span>More</span>
+        </div>
+      </nav>
+
+      <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    </body>
+  </html>
+  <script src="https://code.iconify.design/iconify-icon/3.0.0/iconify-icon.min.js"></script>
+  <style>
+    :root {
+      --background: #fbfaf8;
+      --foreground: #111827;
+      --border: #00000014;
+      --input: #ffffff;
+      --primary: #8b5cf6;
+      --primary-foreground: #ffffff;
+      --secondary: #f3e8ff;
+      --secondary-foreground: #5b21b6;
+      --muted: #f3f4f6;
+      --muted-foreground: #9ca3af;
+      --success: #10b981;
+      --success-foreground: #ffffff;
+      --accent: #f59e0b;
+      --accent-foreground: #92400e;
+      --destructive: #ef4444;
+      --destructive-foreground: #ffffff;
+      --warning: #fbbf24;
+      --warning-foreground: #92400e;
+      --card: #ffffff;
+      --card-foreground: #111827;
+      --sidebar: #f8f6f4;
+      --sidebar-foreground: #374151;
+      --sidebar-primary: #ede9fe;
+      --sidebar-primary-foreground: #5b21b6;
+      --radius-sm: 4px;
+      --radius-md: 6px;
+      --radius-lg: 8px;
+      --radius-xl: 12px;
+      --font-family-body: Inter;
+    }
+  </style>
+</div>

@@ -1,0 +1,5 @@
+#include "Generated.xcconfig"
+
+// QA flavor overrides — points at the staging backend
+PRODUCT_BUNDLE_IDENTIFIER = in.selahapp.qa
+APP_DISPLAY_NAME = Selah QA

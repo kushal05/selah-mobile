@@ -1,0 +1,11 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    # integration_test/ depends on the `integration_test` SDK package, which
+    # can't be added to dev_dependencies without Flutter auto-registering it
+    # in GeneratedPluginRegistrant.java and breaking release Android builds.
+    # These tests are run out-of-tree with `flutter test integration_test/`
+    # where the SDK package is available; the analyzer doesn't need to see
+    # them during app builds.
+    - integration_test/**

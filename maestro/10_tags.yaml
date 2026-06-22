@@ -1,0 +1,143 @@
+appId: com.example.notify
+name: Tags Management Flows
+---
+
+# ============================================================
+# Flow 1: Navigate to Settings -> Tags
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+
+# Navigate to Settings from Home
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Tags"
+- waitForAnimationToEnd
+- takeScreenshot: tags_management_screen
+
+# ============================================================
+# Flow 2: Create new tag
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Tags"
+- waitForAnimationToEnd
+
+# Tap add tag button
+- tapOn:
+    id: ".*add.*"
+    optional: true
+- waitForAnimationToEnd
+
+- inputText: "Sermon"
+- hideKeyboard
+
+- tapOn: "Save"
+- waitForAnimationToEnd
+- assertVisible: "Sermon"
+- takeScreenshot: tags_created
+
+# ============================================================
+# Flow 3: Edit tag name
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Tags"
+- waitForAnimationToEnd
+
+# Tap on tag to edit
+- tapOn: "Sermon"
+- waitForAnimationToEnd
+
+# Edit the name
+- tapOn:
+    text: "Rename"
+    optional: true
+- waitForAnimationToEnd
+
+- inputText: "Sunday Sermon"
+- hideKeyboard
+
+- tapOn: "Save"
+- waitForAnimationToEnd
+- assertVisible: "Sunday Sermon"
+- takeScreenshot: tags_renamed
+
+# ============================================================
+# Flow 4: Delete tag
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Tags"
+- waitForAnimationToEnd
+
+# Long press or tap delete on tag
+- longPressOn:
+    text: "Sunday Sermon"
+- waitForAnimationToEnd
+
+- tapOn: "Delete"
+- waitForAnimationToEnd
+
+# Confirm deletion
+- tapOn: "Delete"
+- waitForAnimationToEnd
+- takeScreenshot: tags_deleted
+
+# ============================================================
+# Flow 5: Verify tag appears in note/prayer/song tag pickers
+# ============================================================
+- launchApp
+
+# Create a tag first
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+- tapOn: "Tags"
+- waitForAnimationToEnd
+- tapOn:
+    id: ".*add.*"
+    optional: true
+- waitForAnimationToEnd
+- inputText: "TestTag"
+- hideKeyboard
+- tapOn: "Save"
+- waitForAnimationToEnd
+
+# Go back to home
+- back
+- waitForAnimationToEnd
+- back
+- waitForAnimationToEnd
+
+# Navigate to Notes and create a note
+- tapOn: "Notes"
+- waitForAnimationToEnd
+- tapOn:
+    id: ".*fab.*"
+    optional: true
+- waitForAnimationToEnd
+
+# Look for tag picker in note editor
+- tapOn:
+    text: "Tags"
+    optional: true
+- waitForAnimationToEnd
+- assertVisible: "TestTag"
+- takeScreenshot: tags_in_note_picker

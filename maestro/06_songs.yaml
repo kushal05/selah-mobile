@@ -1,0 +1,169 @@
+appId: com.example.notify
+name: Songs Feature Flows
+---
+
+# ============================================================
+# Flow 1: Navigate to Songs tab
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+- tapOn: "Songs"
+- waitForAnimationToEnd
+- takeScreenshot: songs_tab
+
+# ============================================================
+# Flow 2: Verify songs list with folders and favorites
+# ============================================================
+- launchApp
+- tapOn: "Songs"
+- waitForAnimationToEnd
+- takeScreenshot: songs_list
+
+# ============================================================
+# Flow 3: Create new song (title, lyrics, chords)
+# ============================================================
+- launchApp
+- tapOn: "Songs"
+- waitForAnimationToEnd
+
+# Tap FAB to create new song
+- tapOn:
+    id: ".*fab.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Title"
+- inputText: "Amazing Grace"
+- hideKeyboard
+
+# Enter lyrics
+- tapOn: "Lyrics"
+- inputText: "Amazing grace how sweet the sound\nThat saved a wretch like me\nI once was lost but now am found\nWas blind but now I see"
+- hideKeyboard
+
+# Enter chords if field available
+- tapOn:
+    text: "Chords"
+    optional: true
+- inputText: "G C G D"
+- hideKeyboard
+
+- tapOn: "Save"
+- waitForAnimationToEnd
+- assertVisible: "Amazing Grace"
+- takeScreenshot: songs_created
+
+# ============================================================
+# Flow 4: Toggle favorite
+# ============================================================
+- launchApp
+- tapOn: "Songs"
+- waitForAnimationToEnd
+
+# Tap favorite icon on a song
+- tapOn:
+    id: ".*favorite.*"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: songs_favorited
+
+# ============================================================
+# Flow 5: Song detail - display lyrics with chords
+# ============================================================
+- launchApp
+- tapOn: "Songs"
+- waitForAnimationToEnd
+
+- tapOn: "Amazing Grace"
+- waitForAnimationToEnd
+- assertVisible: "Amazing grace how sweet the sound"
+- takeScreenshot: songs_detail
+
+# ============================================================
+# Flow 6: Transpose chords up/down
+# ============================================================
+- launchApp
+- tapOn: "Songs"
+- waitForAnimationToEnd
+
+- tapOn: "Amazing Grace"
+- waitForAnimationToEnd
+
+# Transpose up
+- tapOn:
+    text: "+"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: songs_transposed_up
+
+# Transpose down
+- tapOn:
+    text: "-"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: songs_transposed_down
+
+# ============================================================
+# Flow 7: Song search
+# ============================================================
+- launchApp
+- tapOn: "Songs"
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*search.*"
+    optional: true
+- waitForAnimationToEnd
+
+- inputText: "Amazing"
+- waitForAnimationToEnd
+- assertVisible: "Amazing Grace"
+- takeScreenshot: songs_search_results
+
+# ============================================================
+# Flow 8: Multi-select and delete
+# ============================================================
+- launchApp
+- tapOn: "Songs"
+- waitForAnimationToEnd
+
+# Long press to enter selection mode
+- longPressOn:
+    text: "Amazing Grace"
+- waitForAnimationToEnd
+- takeScreenshot: songs_multi_select
+
+# Tap delete action
+- tapOn:
+    text: "Delete"
+    optional: true
+- waitForAnimationToEnd
+
+# Confirm
+- tapOn: "Delete"
+- waitForAnimationToEnd
+- takeScreenshot: songs_multi_deleted
+
+# ============================================================
+# Flow 9: Swipe actions (move/delete)
+# ============================================================
+- launchApp
+- tapOn: "Songs"
+- waitForAnimationToEnd
+
+# Swipe right to reveal actions
+- swipe:
+    start: "10%, 50%"
+    end: "80%, 50%"
+    duration: 500
+- waitForAnimationToEnd
+- takeScreenshot: songs_swipe_actions
+
+# ============================================================
+# Flow 10: Empty state
+# ============================================================
+- launchApp
+- tapOn: "Songs"
+- waitForAnimationToEnd
+# Verify empty state when no songs exist
+- takeScreenshot: songs_empty_state

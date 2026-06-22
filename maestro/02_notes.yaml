@@ -1,0 +1,280 @@
+appId: com.example.notify
+name: Notes Feature Flows
+---
+
+# ============================================================
+# Flow 1: Navigate to Notes tab
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+- tapOn: "Notes"
+- waitForAnimationToEnd
+- takeScreenshot: notes_tab
+
+# ============================================================
+# Flow 2: Verify notes list displays
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+# Notes home screen should be visible with title or empty state
+- takeScreenshot: notes_list
+
+# ============================================================
+# Flow 3: Tap FAB to create new note
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+# Tap the floating action button (+ icon)
+- tapOn:
+    id: ".*fab.*"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: notes_new_note_editor
+
+# ============================================================
+# Flow 4: Enter title, type content in editor
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*fab.*"
+    optional: true
+- waitForAnimationToEnd
+
+# Type title
+- tapOn: "Title"
+- inputText: "My Test Note"
+- hideKeyboard
+
+# Type content in editor area
+- tapOn: "Start writing..."
+- inputText: "This is the content of my test note. It has some text that I typed."
+- hideKeyboard
+- takeScreenshot: notes_editor_with_content
+
+# ============================================================
+# Flow 5: Verify auto-save (navigate back, note appears in list)
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*fab.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Title"
+- inputText: "Auto-Save Test Note"
+- hideKeyboard
+
+- tapOn: "Start writing..."
+- inputText: "This note should auto-save."
+- hideKeyboard
+
+# Wait for auto-save debounce
+- swipe:
+    direction: RIGHT
+    duration: 300
+- waitForAnimationToEnd
+- back
+- waitForAnimationToEnd
+
+# Verify note appears in list
+- assertVisible: "Auto-Save Test Note"
+- takeScreenshot: notes_auto_saved
+
+# ============================================================
+# Flow 6: Open existing note, verify detail screen
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+# Tap on the first note in the list
+- tapOn: "Auto-Save Test Note"
+- waitForAnimationToEnd
+- takeScreenshot: notes_detail_screen
+
+# ============================================================
+# Flow 7: Edit note, change title
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+- tapOn: "Auto-Save Test Note"
+- waitForAnimationToEnd
+
+# Tap title field to edit
+- tapOn: "Auto-Save Test Note"
+- inputText: " - Edited"
+- hideKeyboard
+- takeScreenshot: notes_edited_title
+
+# ============================================================
+# Flow 8: Sort notes (Last Edited, Title, Created Date)
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+# Open sort options (sort icon in app bar)
+- tapOn:
+    id: ".*sort.*"
+    optional: true
+- waitForAnimationToEnd
+- assertVisible: "Last Edited"
+- assertVisible: "Title (A-Z)"
+- assertVisible: "Created Date"
+- takeScreenshot: notes_sort_options
+
+- tapOn: "Title (A-Z)"
+- waitForAnimationToEnd
+- takeScreenshot: notes_sorted_by_title
+
+# ============================================================
+# Flow 9: Filter notes by tag, preacher, date range
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+# Open filter panel
+- tapOn:
+    id: ".*filter.*"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: notes_filter_panel
+
+# ============================================================
+# Flow 10: Multi-select mode (long press, select multiple, move, delete)
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+# Long press to enter selection mode
+- longPressOn:
+    text: "Auto-Save Test Note"
+- waitForAnimationToEnd
+- takeScreenshot: notes_multi_select_mode
+
+# ============================================================
+# Flow 11: Swipe right on note -> Move/Delete actions
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+# Swipe right on a note to reveal actions
+- swipe:
+    start: "10%, 50%"
+    end: "80%, 50%"
+    duration: 500
+- waitForAnimationToEnd
+- takeScreenshot: notes_swipe_actions
+
+# ============================================================
+# Flow 12: Delete note with confirmation
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+# Swipe to reveal delete
+- swipe:
+    start: "90%, 50%"
+    end: "10%, 50%"
+    duration: 500
+- waitForAnimationToEnd
+- tapOn: "Delete"
+- waitForAnimationToEnd
+# Confirm deletion in dialog
+- tapOn: "Delete"
+- waitForAnimationToEnd
+- takeScreenshot: notes_deleted
+
+# ============================================================
+# Flow 13: Folder navigation (expand/collapse, select folder)
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+# Expand folder section
+- tapOn: "Folders"
+- waitForAnimationToEnd
+- takeScreenshot: notes_folders_expanded
+
+# ============================================================
+# Flow 14: Note editor - block types
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*fab.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Title"
+- inputText: "Block Types Test"
+- hideKeyboard
+
+# Type some text content
+- tapOn: "Start writing..."
+- inputText: "Regular paragraph text"
+- hideKeyboard
+- takeScreenshot: notes_editor_blocks
+
+# ============================================================
+# Flow 15: Note editor - rich text formatting toolbar
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*fab.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Start writing..."
+- inputText: "Text to format"
+
+# The formatting toolbar should be visible when editor is focused
+- takeScreenshot: notes_editor_toolbar
+
+# ============================================================
+# Flow 16: Note editor - Bible reference insertion (@-trigger)
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*fab.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Start writing..."
+- inputText: "@"
+- waitForAnimationToEnd
+# Bible reference picker should appear
+- takeScreenshot: notes_bible_reference_picker
+
+# ============================================================
+# Flow 17: Empty state when no notes
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+# If no notes exist, empty state should show
+- takeScreenshot: notes_empty_state

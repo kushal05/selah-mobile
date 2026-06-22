@@ -1,0 +1,52 @@
+appId: com.example.notify
+name: "Smoke: Notes CRUD"
+---
+# Smoke test: Create, view, and verify a note via UI
+
+- launchApp
+- waitForAnimationToEnd
+
+# Skip onboarding/splash if present
+- tapOn:
+    text: "Skip.*"
+    optional: true
+- waitForAnimationToEnd
+
+# Navigate to Notes tab
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+# Tap FAB or add button to create a new note
+- tapOn:
+    id: ".*fab.*|.*add.*"
+    optional: true
+- waitForAnimationToEnd
+
+# If we need to select a folder first, tap the first available one
+- tapOn:
+    text: ".*Folder.*|.*Default.*|.*General.*"
+    optional: true
+- waitForAnimationToEnd
+
+# Enter note title
+- tapOn:
+    text: "Title|Untitled"
+    optional: true
+- inputText: "Smoke Test Note"
+- hideKeyboard
+- waitForAnimationToEnd
+
+# Enter note content
+- tapOn:
+    text: "Start writing.*|Type here.*"
+    optional: true
+- inputText: "This is a smoke test note created by Maestro."
+- hideKeyboard
+- waitForAnimationToEnd
+
+# Navigate back to notes list
+- back
+- waitForAnimationToEnd
+
+# Verify the note appears in the list
+- assertVisible: "Smoke Test Note"

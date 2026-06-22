@@ -1,0 +1,126 @@
+appId: com.example.notify
+name: Promises Feature Flows
+---
+
+# ============================================================
+# Flow 1: Navigate to Promises tab
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+- tapOn: "Promises"
+- waitForAnimationToEnd
+- takeScreenshot: promises_tab
+
+# ============================================================
+# Flow 2: Verify promises list
+# ============================================================
+- launchApp
+- tapOn: "Promises"
+- waitForAnimationToEnd
+- takeScreenshot: promises_list
+
+# ============================================================
+# Flow 3: Create new promise (reference + content)
+# ============================================================
+- launchApp
+- tapOn: "Promises"
+- waitForAnimationToEnd
+
+# Tap FAB to add new promise
+- tapOn:
+    id: ".*fab.*"
+    optional: true
+- waitForAnimationToEnd
+
+# Enter Bible reference
+- tapOn: "Reference"
+- inputText: "Jeremiah 29:11"
+- hideKeyboard
+
+# Enter promise content
+- tapOn: "Content"
+- inputText: "For I know the plans I have for you, declares the Lord, plans to prosper you and not to harm you."
+- hideKeyboard
+
+- tapOn: "Save"
+- waitForAnimationToEnd
+- assertVisible: "Jeremiah 29:11"
+- takeScreenshot: promises_created
+
+# ============================================================
+# Flow 4: Toggle favorite
+# ============================================================
+- launchApp
+- tapOn: "Promises"
+- waitForAnimationToEnd
+
+# Tap the favorite/heart icon on a promise
+- tapOn:
+    id: ".*favorite.*"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: promises_favorited
+
+# ============================================================
+# Flow 5: View promise detail
+# ============================================================
+- launchApp
+- tapOn: "Promises"
+- waitForAnimationToEnd
+
+- tapOn: "Jeremiah 29:11"
+- waitForAnimationToEnd
+- assertVisible: "For I know the plans I have for you"
+- takeScreenshot: promises_detail
+
+# ============================================================
+# Flow 6: Add/update promise conditions
+# ============================================================
+- launchApp
+- tapOn: "Promises"
+- waitForAnimationToEnd
+
+- tapOn: "Jeremiah 29:11"
+- waitForAnimationToEnd
+
+# Tap edit or conditions section
+- tapOn:
+    text: "Conditions"
+    optional: true
+- waitForAnimationToEnd
+
+- inputText: "Trust in the Lord and follow His ways"
+- hideKeyboard
+
+- tapOn: "Save"
+- waitForAnimationToEnd
+- takeScreenshot: promises_conditions_updated
+
+# ============================================================
+# Flow 7: Delete promise
+# ============================================================
+- launchApp
+- tapOn: "Promises"
+- waitForAnimationToEnd
+
+- tapOn: "Jeremiah 29:11"
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "Delete"
+    optional: true
+- waitForAnimationToEnd
+
+# Confirm deletion
+- tapOn: "Delete"
+- waitForAnimationToEnd
+- takeScreenshot: promises_deleted
+
+# ============================================================
+# Flow 8: Empty state
+# ============================================================
+- launchApp
+- tapOn: "Promises"
+- waitForAnimationToEnd
+# Verify empty state displays when no promises exist
+- takeScreenshot: promises_empty_state

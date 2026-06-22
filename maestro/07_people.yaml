@@ -1,0 +1,132 @@
+appId: com.example.notify
+name: People Feature Flows
+---
+
+# ============================================================
+# Flow 1: Navigate to People tab
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+- tapOn: "People"
+- waitForAnimationToEnd
+- takeScreenshot: people_tab
+
+# ============================================================
+# Flow 2: Verify people list
+# ============================================================
+- launchApp
+- tapOn: "People"
+- waitForAnimationToEnd
+- takeScreenshot: people_list
+
+# ============================================================
+# Flow 3: Create new person (name, relation)
+# ============================================================
+- launchApp
+- tapOn: "People"
+- waitForAnimationToEnd
+
+# Tap FAB to add person
+- tapOn:
+    id: ".*fab.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Name"
+- inputText: "John Smith"
+- hideKeyboard
+
+# Select relation type
+- tapOn:
+    text: "Relation"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    text: "Friend"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Save"
+- waitForAnimationToEnd
+- assertVisible: "John Smith"
+- takeScreenshot: people_created
+
+# ============================================================
+# Flow 4: View person detail with linked prayers
+# ============================================================
+- launchApp
+- tapOn: "People"
+- waitForAnimationToEnd
+
+- tapOn: "John Smith"
+- waitForAnimationToEnd
+- takeScreenshot: people_detail
+
+# ============================================================
+# Flow 5: Link prayer to person
+# ============================================================
+- launchApp
+- tapOn: "People"
+- waitForAnimationToEnd
+
+- tapOn: "John Smith"
+- waitForAnimationToEnd
+
+# Tap link prayer button
+- tapOn:
+    text: "Link Prayer"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: people_link_prayer
+
+# Select a prayer from the list
+- tapOn:
+    text: "Test Prayer Request"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: people_prayer_linked
+
+# ============================================================
+# Flow 6: Delete person
+# ============================================================
+- launchApp
+- tapOn: "People"
+- waitForAnimationToEnd
+
+- tapOn: "John Smith"
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "Delete"
+    optional: true
+- waitForAnimationToEnd
+
+# Confirm deletion
+- tapOn: "Delete"
+- waitForAnimationToEnd
+- takeScreenshot: people_deleted
+
+# ============================================================
+# Flow 7: Search people
+# ============================================================
+- launchApp
+- tapOn: "People"
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*search.*"
+    optional: true
+- waitForAnimationToEnd
+
+- inputText: "John"
+- waitForAnimationToEnd
+- takeScreenshot: people_search_results
+
+# ============================================================
+# Flow 8: Empty state
+# ============================================================
+- launchApp
+- tapOn: "People"
+- waitForAnimationToEnd
+# Verify empty state when no people exist
+- takeScreenshot: people_empty_state

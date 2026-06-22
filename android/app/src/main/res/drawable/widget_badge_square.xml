@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Solid-accent rounded square holding a white icon on a card. Solid (not
+     tinted) so the icon color never depends on RemoteViews honoring tint. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/widget_accent" />
+    <corners android:radius="11dp" />
+</shape>

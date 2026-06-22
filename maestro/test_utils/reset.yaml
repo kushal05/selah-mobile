@@ -1,0 +1,15 @@
+appId: com.example.notify
+name: "Utility: Reset test state via TestBridge"
+---
+# Calls the TestBridge HTTP endpoint to reset DB and clock.
+# Requires the app to be running in debug mode with TestBridge started.
+
+- runScript:
+    script: |
+      const response = await fetch('http://localhost:8081/test/reset', {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        throw new Error(`Reset failed: ${response.status}`);
+      }
+      console.log('Test state reset');

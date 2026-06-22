@@ -1,0 +1,12 @@
+appId: com.example.notify
+name: "Utility: Go online via TestBridge"
+---
+- runScript:
+    script: |
+      const response = await fetch('http://localhost:8081/test/online', {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        throw new Error(`Go online failed: ${response.status}`);
+      }
+      console.log('App now online');

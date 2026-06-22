@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!--
+        Maps the app's cache directory (getCacheDir()) for APK downloads.
+        Flutter's getTemporaryDirectory() resolves to the same location.
+        Path must match the subdirectory used in AppUpdateService.downloadApk().
+    -->
+    <cache-path name="apk_downloads" path="apk_downloads/"/>
+</paths>

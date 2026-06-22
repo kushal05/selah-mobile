@@ -1,0 +1,184 @@
+appId: com.example.notify
+name: Folder Management Flows
+---
+
+# ============================================================
+# Flow 1: Open folder management from notes screen
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+# Expand folder section
+- tapOn: "Folders"
+- waitForAnimationToEnd
+
+# Tap manage/edit icon for folder management
+- tapOn:
+    id: ".*manage.*folder.*"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: folder_management_screen
+
+# ============================================================
+# Flow 2: Create root folder
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+- tapOn: "Folders"
+- waitForAnimationToEnd
+
+# Tap add folder button
+- tapOn:
+    id: ".*add.*folder.*"
+    optional: true
+- waitForAnimationToEnd
+
+# Enter folder name
+- inputText: "Test Root Folder"
+- hideKeyboard
+
+# Confirm creation
+- tapOn: "Create"
+- waitForAnimationToEnd
+- assertVisible: "Test Root Folder"
+- takeScreenshot: folder_created_root
+
+# ============================================================
+# Flow 3: Create subfolder
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+- tapOn: "Folders"
+- waitForAnimationToEnd
+
+# Expand parent folder
+- tapOn: "Test Root Folder"
+- waitForAnimationToEnd
+
+# Add subfolder
+- tapOn:
+    id: ".*add.*folder.*"
+    optional: true
+- waitForAnimationToEnd
+
+- inputText: "Test Subfolder"
+- hideKeyboard
+
+- tapOn: "Create"
+- waitForAnimationToEnd
+- takeScreenshot: folder_created_subfolder
+
+# ============================================================
+# Flow 4: Rename folder
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+- tapOn: "Folders"
+- waitForAnimationToEnd
+
+# Long press folder to show options
+- longPressOn:
+    text: "Test Root Folder"
+- waitForAnimationToEnd
+
+- tapOn: "Rename"
+- waitForAnimationToEnd
+
+- inputText: "Renamed Folder"
+- hideKeyboard
+
+- tapOn: "Save"
+- waitForAnimationToEnd
+- assertVisible: "Renamed Folder"
+- takeScreenshot: folder_renamed
+
+# ============================================================
+# Flow 5: Move folder to different parent
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+- tapOn: "Folders"
+- waitForAnimationToEnd
+
+- longPressOn:
+    text: "Test Subfolder"
+- waitForAnimationToEnd
+
+- tapOn: "Move"
+- waitForAnimationToEnd
+# Folder selection dialog should appear
+- takeScreenshot: folder_move_dialog
+
+# ============================================================
+# Flow 6: Delete folder (cascade options)
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+- tapOn: "Folders"
+- waitForAnimationToEnd
+
+- longPressOn:
+    text: "Renamed Folder"
+- waitForAnimationToEnd
+
+- tapOn: "Delete"
+- waitForAnimationToEnd
+# Confirm deletion dialog
+- takeScreenshot: folder_delete_confirm
+- tapOn: "Delete"
+- waitForAnimationToEnd
+- takeScreenshot: folder_deleted
+
+# ============================================================
+# Flow 7: Trash view and restore
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+# Navigate to trash/deleted items
+- tapOn:
+    id: ".*trash.*"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: folder_trash_view
+
+# ============================================================
+# Flow 8: Folder tree expand/collapse
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+- tapOn: "Folders"
+- waitForAnimationToEnd
+
+# Tap expand icon on a folder with children
+- tapOn:
+    id: ".*expand.*"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: folder_tree_expanded
+
+# Tap again to collapse
+- tapOn:
+    id: ".*expand.*"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: folder_tree_collapsed
+
+# ============================================================
+# Flow 9: Verify note counts per folder
+# ============================================================
+- launchApp
+- tapOn: "Notes"
+- waitForAnimationToEnd
+- tapOn: "Folders"
+- waitForAnimationToEnd
+# Each folder should show note count badge
+- takeScreenshot: folder_note_counts

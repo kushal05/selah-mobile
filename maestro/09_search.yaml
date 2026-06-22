@@ -1,0 +1,154 @@
+appId: com.example.notify
+name: Search Feature Flows
+---
+
+# ============================================================
+# Flow 1: Open global search from home (search icon)
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+
+# Tap search icon in app bar
+- tapOn:
+    id: ".*search.*"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: search_global_screen
+
+# ============================================================
+# Flow 2: Type search query
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*search.*"
+    optional: true
+- waitForAnimationToEnd
+
+- inputText: "test"
+- waitForAnimationToEnd
+- takeScreenshot: search_query_results
+
+# ============================================================
+# Flow 3: Verify results grouped by entity type
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*search.*"
+    optional: true
+- waitForAnimationToEnd
+
+- inputText: "prayer"
+- waitForAnimationToEnd
+# Results should be grouped by type (Notes, Prayers, Songs, etc.)
+- takeScreenshot: search_grouped_results
+
+# ============================================================
+# Flow 4: Tap note result -> NoteDetailScreen
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*search.*"
+    optional: true
+- waitForAnimationToEnd
+
+- inputText: "Auto-Save Test Note"
+- waitForAnimationToEnd
+
+# Tap on a note result
+- tapOn: "Auto-Save Test Note"
+- waitForAnimationToEnd
+- takeScreenshot: search_note_detail
+
+# ============================================================
+# Flow 5: Tap prayer result -> PrayerDetailScreen
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*search.*"
+    optional: true
+- waitForAnimationToEnd
+
+- inputText: "Test Prayer"
+- waitForAnimationToEnd
+
+- tapOn: "Test Prayer Request"
+- waitForAnimationToEnd
+- takeScreenshot: search_prayer_detail
+
+# ============================================================
+# Flow 6: Tap song result -> SongDetailScreen
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*search.*"
+    optional: true
+- waitForAnimationToEnd
+
+- inputText: "Amazing Grace"
+- waitForAnimationToEnd
+
+- tapOn: "Amazing Grace"
+- waitForAnimationToEnd
+- takeScreenshot: search_song_detail
+
+# ============================================================
+# Flow 7: Toggle entity type filters
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*search.*"
+    optional: true
+- waitForAnimationToEnd
+
+- inputText: "test"
+- waitForAnimationToEnd
+
+# Toggle filter chips for entity types
+- tapOn:
+    text: "Notes"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: search_filter_notes_only
+
+- tapOn:
+    text: "Prayers"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: search_filter_prayers
+
+# ============================================================
+# Flow 8: Clear search
+# ============================================================
+- launchApp
+- tapOn:
+    id: ".*search.*"
+    optional: true
+- waitForAnimationToEnd
+
+- inputText: "some query"
+- waitForAnimationToEnd
+
+# Clear the search field
+- tapOn:
+    id: ".*clear.*"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: search_cleared
+
+# ============================================================
+# Flow 9: Song search (separate from global)
+# ============================================================
+- launchApp
+- tapOn: "Songs"
+- waitForAnimationToEnd
+
+# Open song-specific search
+- tapOn:
+    id: ".*search.*"
+    optional: true
+- waitForAnimationToEnd
+
+- inputText: "Amazing"
+- waitForAnimationToEnd
+- assertVisible: "Amazing Grace"
+- takeScreenshot: search_songs_dedicated

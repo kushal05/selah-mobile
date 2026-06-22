@@ -1,0 +1,52 @@
+appId: com.example.notify
+name: "Smoke: Prayers CRUD"
+---
+# Smoke test: Create a prayer and verify it appears in the list
+
+- launchApp
+- waitForAnimationToEnd
+
+# Skip onboarding/splash if present
+- tapOn:
+    text: "Skip.*"
+    optional: true
+- waitForAnimationToEnd
+
+# Navigate to Prayers tab
+- tapOn: "Prayers"
+- waitForAnimationToEnd
+
+# Tap FAB or add button
+- tapOn:
+    id: ".*fab.*|.*add.*"
+    optional: true
+- waitForAnimationToEnd
+
+# Enter prayer title
+- tapOn:
+    text: "Title|Prayer title.*|What.*pray.*"
+    optional: true
+- inputText: "Smoke Test Prayer"
+- hideKeyboard
+
+# Enter prayer content if field is visible
+- tapOn:
+    text: "Details|Content|Description|Add details.*"
+    optional: true
+- inputText: "Lord, bless this smoke test."
+- hideKeyboard
+- waitForAnimationToEnd
+
+# Save the prayer
+- tapOn:
+    text: "Save|Done|Create"
+    optional: true
+- waitForAnimationToEnd
+
+# Navigate back if needed
+- back:
+    optional: true
+- waitForAnimationToEnd
+
+# Verify the prayer appears
+- assertVisible: "Smoke Test Prayer"

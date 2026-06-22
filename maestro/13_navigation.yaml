@@ -1,0 +1,147 @@
+appId: com.example.notify
+name: Navigation Flows
+---
+
+# ============================================================
+# Flow 1: Verify all 7 bottom tabs
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+
+- assertVisible: "Home"
+- assertVisible: "Notes"
+- assertVisible: "Prayers"
+- assertVisible: "Bible"
+- assertVisible: "Promises"
+- assertVisible: "Songs"
+- assertVisible: "People"
+- takeScreenshot: navigation_all_tabs
+
+# ============================================================
+# Flow 2: Navigate between tabs, verify content preservation
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+
+# Start on Home tab
+- tapOn: "Home"
+- waitForAnimationToEnd
+- takeScreenshot: navigation_home_tab
+
+# Switch to Notes
+- tapOn: "Notes"
+- waitForAnimationToEnd
+- takeScreenshot: navigation_notes_tab
+
+# Switch to Prayers
+- tapOn: "Prayers"
+- waitForAnimationToEnd
+- takeScreenshot: navigation_prayers_tab
+
+# Switch to Bible
+- tapOn: "Bible"
+- waitForAnimationToEnd
+- takeScreenshot: navigation_bible_tab
+
+# Switch to Promises
+- tapOn: "Promises"
+- waitForAnimationToEnd
+- takeScreenshot: navigation_promises_tab
+
+# Switch to Songs
+- tapOn: "Songs"
+- waitForAnimationToEnd
+- takeScreenshot: navigation_songs_tab
+
+# Switch to People
+- tapOn: "People"
+- waitForAnimationToEnd
+- takeScreenshot: navigation_people_tab
+
+# Go back to Home - content should be preserved
+- tapOn: "Home"
+- waitForAnimationToEnd
+- takeScreenshot: navigation_back_to_home
+
+# ============================================================
+# Flow 3: Back button behavior within tab
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+
+# Navigate into Notes tab
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+# Open a note (deep navigation)
+- tapOn:
+    id: ".*fab.*"
+    optional: true
+- waitForAnimationToEnd
+
+# Press back to return to notes list
+- back
+- waitForAnimationToEnd
+- takeScreenshot: navigation_back_within_tab
+
+# ============================================================
+# Flow 4: Back button on home (double-tap to exit)
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+- tapOn: "Home"
+- waitForAnimationToEnd
+
+# First back press should show snackbar
+- back
+- waitForAnimationToEnd
+- assertVisible: "Press back again to exit"
+- takeScreenshot: navigation_back_on_home
+
+# ============================================================
+# Flow 5: Deep navigation within a tab (Notes -> NoteDetail -> NoteEditor)
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+# Create a note first
+- tapOn:
+    id: ".*fab.*"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: navigation_deep_editor
+
+# Navigate back through the stack
+- back
+- waitForAnimationToEnd
+- takeScreenshot: navigation_deep_back_to_list
+
+# ============================================================
+# Flow 6: Return to previous screen in stack
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+
+# Navigate to Settings -> Sync Status
+- tapOn:
+    id: ".*settings.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Sync Status"
+- waitForAnimationToEnd
+- takeScreenshot: navigation_deep_sync_status
+
+# Back to Settings
+- back
+- waitForAnimationToEnd
+- assertVisible: "Settings"
+- takeScreenshot: navigation_back_to_settings
+
+# Back to Home
+- back
+- waitForAnimationToEnd
+- takeScreenshot: navigation_back_to_home_from_settings

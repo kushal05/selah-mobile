@@ -1,0 +1,121 @@
+appId: com.example.notify
+name: Offline Mode Flows
+---
+
+# ============================================================
+# Flow 1: Toggle airplane mode, verify offline banner appears
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+
+# Enable airplane mode
+- toggleAirplaneMode
+- waitForAnimationToEnd
+
+# Verify offline banner appears (ConnectivityBanner)
+- takeScreenshot: offline_banner_visible
+
+# ============================================================
+# Flow 2: Create note while offline
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+- toggleAirplaneMode
+- waitForAnimationToEnd
+
+- tapOn: "Notes"
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*fab.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Title"
+- inputText: "Offline Note"
+- hideKeyboard
+
+- tapOn: "Start writing..."
+- inputText: "This note was created while offline."
+- hideKeyboard
+
+- back
+- waitForAnimationToEnd
+
+- assertVisible: "Offline Note"
+- takeScreenshot: offline_note_created
+
+# ============================================================
+# Flow 3: Create prayer while offline
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+- toggleAirplaneMode
+- waitForAnimationToEnd
+
+- tapOn: "Prayers"
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*fab.*"
+    optional: true
+- waitForAnimationToEnd
+
+- tapOn: "Title"
+- inputText: "Offline Prayer"
+- hideKeyboard
+
+- tapOn: "Save"
+- waitForAnimationToEnd
+- takeScreenshot: offline_prayer_created
+
+# ============================================================
+# Flow 4: Bible search while offline
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+- toggleAirplaneMode
+- waitForAnimationToEnd
+
+- tapOn: "Bible"
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*search.*"
+    optional: true
+- waitForAnimationToEnd
+
+- inputText: "love"
+- waitForAnimationToEnd
+# Bible search uses local SQLite DB, should work offline
+- takeScreenshot: offline_bible_search
+
+# ============================================================
+# Flow 5: Verify data persists after offline operations
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+- toggleAirplaneMode
+- waitForAnimationToEnd
+
+# Verify the offline note still exists
+- tapOn: "Notes"
+- waitForAnimationToEnd
+- assertVisible: "Offline Note"
+- takeScreenshot: offline_data_persists
+
+# ============================================================
+# Flow 6: Toggle airplane mode off, verify offline banner disappears
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+
+# First ensure airplane mode is on
+- toggleAirplaneMode
+- waitForAnimationToEnd
+- takeScreenshot: offline_banner_before
+
+# Disable airplane mode
+- toggleAirplaneMode
+- waitForAnimationToEnd
+- takeScreenshot: offline_banner_gone

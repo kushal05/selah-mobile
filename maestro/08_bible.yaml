@@ -1,0 +1,267 @@
+appId: com.example.notify
+name: Bible Feature Flows
+---
+
+# ============================================================
+# Flow 1: Navigate to Bible tab
+# ============================================================
+- launchApp
+- waitForAnimationToEnd
+- tapOn: "Bible"
+- waitForAnimationToEnd
+- takeScreenshot: bible_tab
+
+# ============================================================
+# Flow 2: Verify 66 books displayed
+# ============================================================
+- launchApp
+- tapOn: "Bible"
+- waitForAnimationToEnd
+# First book of OT should be visible
+- assertVisible: "Genesis"
+- takeScreenshot: bible_books_list
+
+# ============================================================
+# Flow 3: Switch OT/NT tabs
+# ============================================================
+- launchApp
+- tapOn: "Bible"
+- waitForAnimationToEnd
+
+# Default should show OT
+- assertVisible: "Genesis"
+
+# Tap NT tab
+- tapOn: "New Testament"
+- waitForAnimationToEnd
+- assertVisible: "Matthew"
+- takeScreenshot: bible_new_testament
+
+# Switch back to OT
+- tapOn: "Old Testament"
+- waitForAnimationToEnd
+- assertVisible: "Genesis"
+- takeScreenshot: bible_old_testament
+
+# ============================================================
+# Flow 4: Tap book to expand chapter grid
+# ============================================================
+- launchApp
+- tapOn: "Bible"
+- waitForAnimationToEnd
+
+- tapOn: "Genesis"
+- waitForAnimationToEnd
+# Chapter numbers should be visible (Genesis has 50 chapters)
+- assertVisible: "1"
+- assertVisible: "2"
+- assertVisible: "3"
+- takeScreenshot: bible_chapter_grid
+
+# ============================================================
+# Flow 5: Tap chapter to read
+# ============================================================
+- launchApp
+- tapOn: "Bible"
+- waitForAnimationToEnd
+
+- tapOn: "Genesis"
+- waitForAnimationToEnd
+
+# Tap chapter 1
+- tapOn: "1"
+- waitForAnimationToEnd
+# Verify we're on the chapter reading screen
+- assertVisible: "Genesis 1"
+- takeScreenshot: bible_chapter_reading
+
+# ============================================================
+# Flow 6: Verify verse display
+# ============================================================
+- launchApp
+- tapOn: "Bible"
+- waitForAnimationToEnd
+
+- tapOn: "Genesis"
+- waitForAnimationToEnd
+- tapOn: "1"
+- waitForAnimationToEnd
+
+# Verify verse text is displayed
+- assertVisible: "In the beginning"
+- takeScreenshot: bible_verse_display
+
+# ============================================================
+# Flow 7: Navigate previous/next chapter
+# ============================================================
+- launchApp
+- tapOn: "Bible"
+- waitForAnimationToEnd
+
+- tapOn: "Genesis"
+- waitForAnimationToEnd
+- tapOn: "1"
+- waitForAnimationToEnd
+
+# Navigate to next chapter
+- tapOn:
+    id: ".*next.*"
+    optional: true
+- waitForAnimationToEnd
+- assertVisible: "Genesis 2"
+- takeScreenshot: bible_next_chapter
+
+# Navigate to previous chapter
+- tapOn:
+    id: ".*prev.*"
+    optional: true
+- waitForAnimationToEnd
+- assertVisible: "Genesis 1"
+- takeScreenshot: bible_prev_chapter
+
+# ============================================================
+# Flow 8: Switch translation
+# ============================================================
+- launchApp
+- tapOn: "Bible"
+- waitForAnimationToEnd
+
+- tapOn: "Genesis"
+- waitForAnimationToEnd
+- tapOn: "1"
+- waitForAnimationToEnd
+
+# Tap translation selector
+- tapOn: "KJV"
+- waitForAnimationToEnd
+- takeScreenshot: bible_translation_picker
+
+# ============================================================
+# Flow 9: Long-press verse to highlight
+# ============================================================
+- launchApp
+- tapOn: "Bible"
+- waitForAnimationToEnd
+
+- tapOn: "Genesis"
+- waitForAnimationToEnd
+- tapOn: "1"
+- waitForAnimationToEnd
+
+# Long press on a verse
+- longPressOn:
+    text: "In the beginning"
+- waitForAnimationToEnd
+- takeScreenshot: bible_verse_highlight_options
+
+# ============================================================
+# Flow 10: Select highlight color
+# ============================================================
+- launchApp
+- tapOn: "Bible"
+- waitForAnimationToEnd
+
+- tapOn: "Genesis"
+- waitForAnimationToEnd
+- tapOn: "1"
+- waitForAnimationToEnd
+
+- longPressOn:
+    text: "In the beginning"
+- waitForAnimationToEnd
+
+# Tap a highlight color (yellow/green/blue/pink)
+- tapOn:
+    id: ".*highlight.*color.*"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: bible_verse_highlighted
+
+# ============================================================
+# Flow 11: Add note to highlight
+# ============================================================
+- launchApp
+- tapOn: "Bible"
+- waitForAnimationToEnd
+
+- tapOn: "Genesis"
+- waitForAnimationToEnd
+- tapOn: "1"
+- waitForAnimationToEnd
+
+- longPressOn:
+    text: "In the beginning"
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "Add Note"
+    optional: true
+- waitForAnimationToEnd
+
+- inputText: "God created everything from nothing. What an amazing start!"
+- hideKeyboard
+
+- tapOn: "Save"
+- waitForAnimationToEnd
+- takeScreenshot: bible_note_added_to_highlight
+
+# ============================================================
+# Flow 12: Bible search - type query, verify results
+# ============================================================
+- launchApp
+- tapOn: "Bible"
+- waitForAnimationToEnd
+
+# Tap search icon
+- tapOn:
+    id: ".*search.*"
+    optional: true
+- waitForAnimationToEnd
+
+- inputText: "love"
+- waitForAnimationToEnd
+- takeScreenshot: bible_search_results
+
+# ============================================================
+# Flow 13: Bible search - filter by testament, book
+# ============================================================
+- launchApp
+- tapOn: "Bible"
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*search.*"
+    optional: true
+- waitForAnimationToEnd
+
+- inputText: "faith"
+- waitForAnimationToEnd
+
+# Toggle testament filter
+- tapOn:
+    text: "New Testament"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: bible_search_filtered_nt
+
+# ============================================================
+# Flow 14: Clear search
+# ============================================================
+- launchApp
+- tapOn: "Bible"
+- waitForAnimationToEnd
+
+- tapOn:
+    id: ".*search.*"
+    optional: true
+- waitForAnimationToEnd
+
+- inputText: "hope"
+- waitForAnimationToEnd
+
+# Clear search
+- tapOn:
+    id: ".*clear.*"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: bible_search_cleared

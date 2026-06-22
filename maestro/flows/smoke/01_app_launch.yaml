@@ -1,0 +1,41 @@
+appId: com.example.notify
+name: "Smoke: App Launch & Navigation"
+---
+# Smoke test: App launches, splash completes, bottom nav is visible
+
+- launchApp
+- waitForAnimationToEnd
+
+# Wait for splash screen to finish (may have skip button in test builds)
+- extendedWaitUntil:
+    visible: "Skip.*|Notes|Home"
+    timeout: 10000
+
+# Tap skip if present (test/debug builds show a skip button)
+- tapOn:
+    text: "Skip.*"
+    optional: true
+- waitForAnimationToEnd
+
+# Verify bottom navigation bar tabs are visible
+- assertVisible: "Notes"
+- assertVisible: "Prayers"
+- assertVisible: "Home"
+
+# Navigate through each main tab
+- tapOn: "Notes"
+- waitForAnimationToEnd
+- assertVisible: "Notes"
+
+- tapOn: "Prayers"
+- waitForAnimationToEnd
+- assertVisible: "Prayers"
+
+- tapOn: "Home"
+- waitForAnimationToEnd
+- assertVisible: "Home"
+
+# Verify Settings is reachable
+- tapOn:
+    id: ".*settings.*"
+    optional: true
