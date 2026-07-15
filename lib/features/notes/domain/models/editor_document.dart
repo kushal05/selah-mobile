@@ -114,10 +114,18 @@ class EditorDocument extends Equatable {
   /// Numbers are derived based on position within same indent level
   int calculateListNumber(String blockId) {
     final block = getBlockById(blockId);
-    final index = getBlockIndex(blockId);
-    if (block == null || index == null || block.type != BlockType.numberedList) {
+    if (block == null || block.type != BlockType.numberedList) {
       return 1;
     }
+
+    // Walk within the block's own section, not the global `blocks` array.
+    // Blocks are persisted with per-section order indices and re-loaded
+    // ordered by orderIndex alone, so blocks from different sections can
+    // interleave in `blocks`. A foreign-section block landing between two
+    // numbered items would otherwise reset the count to 1 on every item.
+    final sectionBlocks = getBlocksForSection(block.section);
+    final index = sectionBlocks.indexWhere((b) => b.id == blockId);
+    if (index < 0) return 1;
 
     int number = 1;
     final targetIndent = block.indentLevel;
@@ -126,7 +134,7 @@ class EditorDocument extends Equatable {
     // Skip over children (higher indent) regardless of their type,
     // so nested bullet lists inside a numbered list don't break the count.
     for (int i = index - 1; i >= 0; i--) {
-      final prev = blocks[i];
+      final prev = sectionBlocks[i];
       // Skip children (higher indent) - continue loop
       if (prev.indentLevel > targetIndent) continue;
       // Stop if we hit parent level (lower indent)
@@ -145,14 +153,20 @@ class EditorDocument extends Equatable {
   /// Check if block can be indented (needs previous sibling at same level)
   bool canIndent(String blockId) {
     final block = getBlockById(blockId);
-    final index = getBlockIndex(blockId);
-    if (block == null || index == null || !block.type.isList || index == 0) {
+    if (block == null || !block.type.isList) {
       return false;
     }
 
+    // Indentation siblings live within the same section — walk the section's
+    // blocks so interleaved foreign-section blocks (see [calculateListNumber])
+    // don't affect the result.
+    final sectionBlocks = getBlocksForSection(block.section);
+    final index = sectionBlocks.indexWhere((b) => b.id == blockId);
+    if (index <= 0) return false;
+
     // Check for previous sibling at same or lower indent level
     for (int i = index - 1; i >= 0; i--) {
-      final prev = blocks[i];
+      final prev = sectionBlocks[i];
       // Not a list block - can't indent
       if (!prev.type.isList) return false;
       // Found sibling at same level - can indent

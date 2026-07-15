@@ -100,14 +100,16 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
             _focusNode.requestFocus();
             // Show keyboard explicitly
             SystemChannels.textInput.invokeMethod('TextInput.show');
-            // Restore cursor position in the next frame
+            // Restore cursor position in the next frame — but only if the
+            // controller lost its selection. Overwriting a still-valid
+            // selection collapses ranges and can jump the caret (the same
+            // controller instance survives a block type change, so its
+            // selection is normally still intact here).
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!mounted || !_focusNode.hasFocus) return;
-              final currentOffset = _controller.selection.isValid
-                  ? _controller.selection.baseOffset
-                  : _controller.text.length;
+              if (_controller.selection.isValid) return;
               _controller.selection = TextSelection.collapsed(
-                offset: currentOffset.clamp(0, _controller.text.length),
+                offset: _controller.text.length,
               );
             });
           }
@@ -128,14 +130,12 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
         // Show keyboard explicitly to ensure cursor becomes visible
         SystemChannels.textInput.invokeMethod('TextInput.show');
 
-        // Get current selection position, default to end of text
-        final currentOffset = _controller.selection.isValid
-            ? _controller.selection.baseOffset
-            : _controller.text.length;
-
-        // Re-set the selection to ensure cursor blink timer starts
+        // Only place a caret when the controller has no valid selection.
+        // Reassigning an existing selection collapses range selections (e.g.
+        // text selected for formatting) and can jump the caret on refocus.
+        if (_controller.selection.isValid) return;
         _controller.selection = TextSelection.collapsed(
-          offset: currentOffset.clamp(0, _controller.text.length),
+          offset: _controller.text.length,
         );
       });
     }

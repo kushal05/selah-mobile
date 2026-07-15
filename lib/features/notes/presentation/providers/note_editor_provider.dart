@@ -308,6 +308,35 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     return _blockFocusNodes[blockId]!;
   }
 
+  /// Focus [blockId] after the current frame, optionally moving the caret to
+  /// [caretOffset] (clamped to the text length).
+  ///
+  /// A freshly created controller starts with an invalid selection (offset -1);
+  /// on focus the field then defaults the caret to the END of the text. Pass
+  /// [caretOffset] whenever the block's controller was just (re)created or had
+  /// its text replaced, so the caret lands at the intended position. Omit it to
+  /// keep the field's current selection (e.g. when only the block's type or
+  /// indent changed and the same controller is reused).
+  void _focusBlock(String blockId, {int? caretOffset}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // The editor may be disposed (autoDispose) before this frame callback
+      // runs. dispose() disposes the focus nodes and controllers, so touching
+      // them here would throw "used after being disposed".
+      if (_disposed) return;
+      final focusNode = getBlockFocusNode(blockId);
+      if (focusNode.canRequestFocus) {
+        focusNode.requestFocus();
+      }
+      if (caretOffset != null) {
+        final controller = _blockControllers[blockId];
+        if (controller != null) {
+          final clamped = caretOffset.clamp(0, controller.text.length);
+          controller.selection = TextSelection.collapsed(offset: clamped);
+        }
+      }
+    });
+  }
+
   Future<void> _initialize() async {
     if (_noteId != null) {
       await _loadNote(_noteId);
@@ -483,20 +512,8 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
       uiState: state.uiState.copyWith(focusedBlockId: blockId),
     );
 
-    // Request focus and set text selection to end
-    // Schedule focus after the current frame completes
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final focusNode = _blockFocusNodes[blockId];
-      final controller = _blockControllers[blockId];
-
-      if (focusNode != null && focusNode.canRequestFocus) {
-        focusNode.requestFocus();
-      }
-
-      if (controller != null) {
-        controller.selection = TextSelection.collapsed(offset: contentLength);
-      }
-    });
+    // Request focus and set the caret to the end of the last block
+    _focusBlock(blockId, caretOffset: contentLength);
   }
 
   /// Get the focus node, cursor offset, and block ID for refocusing
@@ -803,14 +820,8 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     );
     _scheduleSave();
 
-    // Request focus on new block after state update
-    // Schedule focus after the current frame completes
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final focusNode = _blockFocusNodes[newBlock.id];
-      if (focusNode != null && focusNode.canRequestFocus) {
-        focusNode.requestFocus();
-      }
-    });
+    // Focus the new block with the caret at the start of the moved content.
+    _focusBlock(newBlock.id, caretOffset: 0);
   }
 
   void mergeWithPreviousBlock(String blockId) {
@@ -982,14 +993,8 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     );
     _scheduleSave();
 
-    // Request focus on the block after state update
-    // Schedule focus after the current frame completes
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final focusNode = _blockFocusNodes[blockId];
-      if (focusNode != null && focusNode.canRequestFocus) {
-        focusNode.requestFocus();
-      }
-    });
+    // Refocus the block, keeping the caret where it was (same controller).
+    _focusBlock(blockId);
   }
 
   void toggleCheckbox(String blockId) {
@@ -1044,14 +1049,8 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     );
     _scheduleSave();
 
-    // Request focus on the block after state update
-    // Schedule focus after the current frame completes
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final focusNode = _blockFocusNodes[blockId];
-      if (focusNode != null && focusNode.canRequestFocus) {
-        focusNode.requestFocus();
-      }
-    });
+    // Refocus the block, keeping the caret where it was (same controller).
+    _focusBlock(blockId);
   }
 
   /// Outdent a list block (Shift+Tab key)
@@ -1125,14 +1124,8 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     }
     _scheduleSave();
 
-    // Request focus on the block after state update
-    // Schedule focus after the current frame completes
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final focusNode = _blockFocusNodes[blockId];
-      if (focusNode != null && focusNode.canRequestFocus) {
-        focusNode.requestFocus();
-      }
-    });
+    // Refocus the block, keeping the caret where it was (same controller).
+    _focusBlock(blockId);
   }
 
   // ==================== Formatting Operations ====================
@@ -1572,18 +1565,7 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     );
 
     // Set cursor to start of second block after frame renders
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final focusNode = _blockFocusNodes[op.secondBlockAfter.id];
-      final controller = _blockControllers[op.secondBlockAfter.id];
-
-      if (focusNode != null && focusNode.canRequestFocus) {
-        focusNode.requestFocus();
-      }
-
-      if (controller != null) {
-        controller.selection = TextSelection.collapsed(offset: 0);
-      }
-    });
+    _focusBlock(op.secondBlockAfter.id, caretOffset: 0);
   }
 
   void _applyMergeBlocks(MergeBlocksOperation op) {
@@ -1616,19 +1598,7 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     );
 
     // Set cursor to the merge point after frame renders
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final focusNode = _blockFocusNodes[op.firstBlockId];
-      final controller = _blockControllers[op.firstBlockId];
-
-      if (focusNode != null && focusNode.canRequestFocus) {
-        focusNode.requestFocus();
-      }
-
-      if (controller != null) {
-        final clampedOffset = op.mergeOffset.clamp(0, controller.text.length);
-        controller.selection = TextSelection.collapsed(offset: clampedOffset);
-      }
-    });
+    _focusBlock(op.firstBlockId, caretOffset: op.mergeOffset);
   }
 
   void _applyChangeBlockType(ChangeBlockTypeOperation op) {
@@ -1666,6 +1636,11 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
       document: doc,
       uiState: state.uiState.copyWith(focusedBlockId: op.block.id),
     );
+
+    // Focus the re-inserted block with the caret at the end of its restored
+    // content, matching the other undo/redo handlers. The fresh controller
+    // starts with an invalid selection, so the offset must be set explicitly.
+    _focusBlock(op.block.id, caretOffset: op.block.content.length);
   }
 
   void _applyDeleteBlock(DeleteBlockOperation op) {
@@ -1806,21 +1781,7 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     );
 
     // Set cursor position after frame renders to ensure text is updated
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final focusNode = _blockFocusNodes[op.blockId];
-      final controller = _blockControllers[op.blockId];
-
-      // Request focus on the block
-      if (focusNode != null && focusNode.canRequestFocus) {
-        focusNode.requestFocus();
-      }
-
-      // Set cursor to the stored position
-      if (controller != null) {
-        final clampedOffset = op.cursorOffsetAfter.clamp(0, controller.text.length);
-        controller.selection = TextSelection.collapsed(offset: clampedOffset);
-      }
-    });
+    _focusBlock(op.blockId, caretOffset: op.cursorOffsetAfter);
   }
 
   // ==================== Persistence ====================
@@ -2074,13 +2035,8 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
       ),
     );
 
-    // Explicitly request focus on the new block after the widget tree rebuilds
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final focusNode = getBlockFocusNode(trailingBlock.id);
-      if (focusNode.canRequestFocus) {
-        focusNode.requestFocus();
-      }
-    });
+    // Explicitly focus the new block after the widget tree rebuilds.
+    _focusBlock(trailingBlock.id);
 
     _scheduleSave();
   }
@@ -2159,13 +2115,8 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     );
     _scheduleSave();
 
-    // Request focus on new block
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final focusNode = _blockFocusNodes[newBlock.id];
-      if (focusNode != null && focusNode.canRequestFocus) {
-        focusNode.requestFocus();
-      }
-    });
+    // Focus the new (empty) block.
+    _focusBlock(newBlock.id);
 
     return newBlock.id;
   }
@@ -2208,12 +2159,7 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
 
     _scheduleSave();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final focusNode = getBlockFocusNode(firstTrailing.id);
-      if (focusNode.canRequestFocus) {
-        focusNode.requestFocus();
-      }
-    });
+    _focusBlock(firstTrailing.id);
 
     return true;
   }

@@ -18,6 +18,7 @@ import '../../../../shared/widgets/dialogs/move_to_folder_sheet.dart';
 import '../../../../shared/widgets/lists/metadata_row.dart';
 import '../widgets/backlinks_panel.dart';
 import '../widgets/editor/bible_reference_block_widget.dart';
+import '../widgets/editor/formatted_text_span.dart';
 import 'note_editor_screen.dart';
 import 'note_version_history_screen.dart';
 import 'note_activity_screen.dart';
@@ -177,6 +178,21 @@ class NoteDetailScreen extends ConsumerWidget {
     );
   }
 
+  /// Render a block's text with its inline formatting (bold/italic/etc.)
+  /// applied. Falls back to a plain [Text] when the block has no formats.
+  Widget _formattedText(EditorBlock block, TextStyle? style) {
+    if (block.formats.isEmpty) {
+      return Text(block.content, style: style);
+    }
+    return Text.rich(
+      buildFormattedTextSpan(
+        text: block.content,
+        formats: block.formats,
+        baseStyle: style ?? const TextStyle(),
+      ),
+    );
+  }
+
   Widget _buildBlock(BuildContext context, WidgetRef ref, EditorBlock block, dynamic document) {
     final theme = Theme.of(context);
     final indent = block.indentLevel * 24.0;
@@ -185,9 +201,9 @@ class NoteDetailScreen extends ConsumerWidget {
       case BlockType.heading1:
         return Padding(
           padding: EdgeInsets.only(left: indent, top: 16, bottom: 8),
-          child: Text(
-            block.content,
-            style: theme.textTheme.headlineSmall?.copyWith(
+          child: _formattedText(
+            block,
+            theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -196,9 +212,9 @@ class NoteDetailScreen extends ConsumerWidget {
       case BlockType.heading2:
         return Padding(
           padding: EdgeInsets.only(left: indent, top: 12, bottom: 6),
-          child: Text(
-            block.content,
-            style: theme.textTheme.titleLarge?.copyWith(
+          child: _formattedText(
+            block,
+            theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -207,9 +223,9 @@ class NoteDetailScreen extends ConsumerWidget {
       case BlockType.heading3:
         return Padding(
           padding: EdgeInsets.only(left: indent, top: 8, bottom: 4),
-          child: Text(
-            block.content,
-            style: theme.textTheme.titleMedium?.copyWith(
+          child: _formattedText(
+            block,
+            theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -221,10 +237,7 @@ class NoteDetailScreen extends ConsumerWidget {
         }
         return Padding(
           padding: EdgeInsets.only(left: indent, bottom: 8),
-          child: Text(
-            block.content,
-            style: theme.textTheme.bodyLarge,
-          ),
+          child: _formattedText(block, theme.textTheme.bodyLarge),
         );
 
       case BlockType.bulletList:
@@ -238,10 +251,7 @@ class NoteDetailScreen extends ConsumerWidget {
                 child: Icon(Icons.circle, size: 6),
               ),
               Expanded(
-                child: Text(
-                  block.content,
-                  style: theme.textTheme.bodyLarge,
-                ),
+                child: _formattedText(block, theme.textTheme.bodyLarge),
               ),
             ],
           ),
@@ -262,10 +272,7 @@ class NoteDetailScreen extends ConsumerWidget {
                 ),
               ),
               Expanded(
-                child: Text(
-                  block.content,
-                  style: theme.textTheme.bodyLarge,
-                ),
+                child: _formattedText(block, theme.textTheme.bodyLarge),
               ),
             ],
           ),
@@ -291,9 +298,9 @@ class NoteDetailScreen extends ConsumerWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    block.content,
-                    style: theme.textTheme.bodyLarge?.copyWith(
+                  child: _formattedText(
+                    block,
+                    theme.textTheme.bodyLarge?.copyWith(
                       decoration: isChecked ? TextDecoration.lineThrough : null,
                       color: isChecked
                           ? theme.colorScheme.onSurface.withValues(alpha: 0.6)
