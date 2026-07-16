@@ -128,6 +128,10 @@ class _NoteSubSectionEditorState extends ConsumerState<NoteSubSectionEditor> {
               children: [
                 for (int i = 0; i < sectionBlocks.length; i++)
                   Padding(
+                    // Key by block id so inserting/splitting a block keeps each
+                    // EditorBlockWidget's State (controller, focus node, cursor)
+                    // bound to its block instead of being reused positionally.
+                    key: ValueKey(sectionBlocks[i].id),
                     padding: const EdgeInsets.only(bottom: 4),
                     child: EditorBlockWidget(
                       block: sectionBlocks[i],

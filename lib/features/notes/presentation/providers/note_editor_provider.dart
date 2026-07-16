@@ -583,6 +583,20 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     // Skip if content hasn't actually changed
     if (block.content == content) return;
 
+    // Newlines in a block's content mean Enter (mobile soft keyboards insert a
+    // literal '\n' rather than delivering a key event to onKeyEvent) or a
+    // multi-line paste (e.g. pasted markdown). Blocks are single-line, so split
+    // into one block per line instead of storing the newlines. Deferred to a
+    // post-frame callback because modifying this controller mid-onChanged is
+    // unsafe.
+    if (content.contains('\n')) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_disposed) return;
+        _splitBlockOnNewlines(blockId);
+      });
+      return;
+    }
+
     final previousContent = block.content;
 
     // Initialize committed content if not set
@@ -745,9 +759,28 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
       }
     }
 
-    // Split content
-    final firstContent = block.content.substring(0, offset);
-    final secondContent = block.content.substring(offset);
+    // Split the content at the cursor.
+    _splitBlockInto(
+      block,
+      block.content.substring(0, offset),
+      block.content.substring(offset),
+      splitOffset: offset,
+    );
+  }
+
+  /// Split [block] into two: [firstContent] stays in place and [secondContent]
+  /// moves into a new block inserted after it, with the caret at the start of
+  /// the new block. [splitOffset] is recorded on the undo operation.
+  ///
+  /// Shared by [splitBlock] (Enter via key event) and the newline handler in
+  /// [updateBlockContent] (Enter inserted as a literal '\n' on mobile).
+  void _splitBlockInto(
+    EditorBlock block,
+    String firstContent,
+    String secondContent, {
+    required int splitOffset,
+  }) {
+    final blockId = block.id;
 
     // Determine new block type and properties
     BlockType newBlockType;
@@ -760,9 +793,8 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
       if (block.type == BlockType.checkbox) {
         newIsChecked = false; // New checkbox is unchecked
       }
-    } else if (block.type.isHeading) {
-      newBlockType = BlockType.paragraph;
     } else {
+      // Headings and paragraphs both continue as a paragraph.
       newBlockType = BlockType.paragraph;
     }
 
@@ -786,7 +818,7 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     // Create operation for undo
     final operation = SplitBlockOperation(
       blockId: blockId,
-      splitOffset: offset,
+      splitOffset: splitOffset,
       blockBefore: block,
       firstBlockAfter: updatedFirstBlock,
       secondBlockAfter: newBlock,
@@ -822,6 +854,55 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
 
     // Focus the new block with the caret at the start of the moved content.
     _focusBlock(newBlock.id, caretOffset: 0);
+  }
+
+  /// Split a block whose content received one or more newlines into separate
+  /// blocks — one per line. Handles a single Enter (one '\n') and a multi-line
+  /// paste (several '\n' arriving in one change, e.g. pasted markdown), which
+  /// would otherwise all land in a single block.
+  void _splitBlockOnNewlines(String blockId) {
+    // Read the CURRENT controller text rather than the value captured at
+    // onChanged time. If the key-event path (splitBlock) already handled this
+    // Enter — as happens on keyboards that emit both a key event and an IME
+    // newline — the controller no longer contains a newline and we skip,
+    // avoiding a double split.
+    final newText = _blockControllers[blockId]?.text ?? '';
+    if (!newText.contains('\n')) return;
+
+    _commitTextChanges(blockId);
+
+    final block = state.document.getBlockById(blockId);
+    if (block == null) return;
+
+    // Enter on an empty list item -> outdent / convert (matches splitBlock).
+    if (block.type.isList && newText == '\n') {
+      if (block.indentLevel > 0) {
+        outdentBlock(blockId);
+      } else {
+        changeBlockType(blockId, BlockType.paragraph);
+      }
+      return;
+    }
+
+    // Repeatedly split off the tail after each newline. Each split reuses
+    // _splitBlockInto so controllers, undo ops, and focus are handled the same
+    // way as a normal Enter. Focus ends on the last line's block.
+    var currentId = blockId;
+    var remaining = newText;
+    while (true) {
+      final idx = remaining.indexOf('\n');
+      if (idx == -1) break;
+      final current = state.document.getBlockById(currentId);
+      if (current == null) break;
+      _splitBlockInto(
+        current,
+        remaining.substring(0, idx),
+        remaining.substring(idx + 1),
+        splitOffset: idx,
+      );
+      currentId = state.uiState.focusedBlockId ?? currentId;
+      remaining = remaining.substring(idx + 1);
+    }
   }
 
   void mergeWithPreviousBlock(String blockId) {
@@ -879,6 +960,12 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     _committedContent[previousBlock.id] = mergedContent;
     _committedCursorOffset[previousBlock.id] = mergeOffset;
 
+    // Move focus to the merge target BEFORE disposing the deleted block's
+    // focus node. Disposing a node that currently holds focus makes the
+    // framework hand focus to an arbitrary block, which scrolls the view and
+    // drops the caret into the middle of some other block.
+    getBlockFocusNode(previousBlock.id).requestFocus();
+
     // Clean up removed block's controller and committed state
     _blockControllers[blockId]?.dispose();
     _blockControllers.remove(blockId);
@@ -895,6 +982,9 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
       isDirty: true,
     );
     _scheduleSave();
+
+    // Place the caret at the merge point once the merged text has rendered.
+    _focusBlock(previousBlock.id, caretOffset: mergeOffset);
   }
 
   /// Delete a block by ID regardless of its content (e.g. Bible reference blocks).
@@ -937,6 +1027,17 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     final previousBlock = state.document.getPreviousBlock(blockId);
     final nextBlock = state.document.getNextBlock(blockId);
 
+    // Cursor moves to the previous block (end) or, if none, the next (start).
+    final targetBlock = previousBlock ?? nextBlock;
+
+    // Move focus to the target BEFORE disposing the deleted block's focus
+    // node. Disposing a node that currently holds focus makes the framework
+    // hand focus to an arbitrary block, scrolling the view and dropping the
+    // caret into some other block.
+    if (targetBlock != null) {
+      getBlockFocusNode(targetBlock.id).requestFocus();
+    }
+
     // Delete block
     final updatedDocument = state.document.deleteBlock(blockId);
 
@@ -948,10 +1049,10 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     _committedContent.remove(blockId);
     _committedCursorOffset.remove(blockId);
 
-    // Move cursor to previous or next block
-    final targetBlock = previousBlock ?? nextBlock;
     if (targetBlock == null) return;
 
+    final caretOffset =
+        previousBlock != null ? previousBlock.content.length : 0;
     final newCursor = previousBlock != null
         ? EditorCursor.atEnd(previousBlock.id, previousBlock.content.length)
         : EditorCursor.atStart(nextBlock!.id);
@@ -964,6 +1065,9 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
       isDirty: true,
     );
     _scheduleSave();
+
+    // Place the caret at the join point once the update has rendered.
+    _focusBlock(targetBlock.id, caretOffset: caretOffset);
   }
 
   // ==================== Block Type Operations ====================
