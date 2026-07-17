@@ -137,6 +137,12 @@ class _NoteSubSectionEditorState extends ConsumerState<NoteSubSectionEditor> {
                       block: sectionBlocks[i],
                       noteId: widget.noteId,
                       blockIndex: i,
+                      // Without these, a long-press would add the block to
+                      // selectedBlockIds with no highlight and no tap-to-toggle
+                      // — leaving it invisibly selected and silently deleted.
+                      isSelected: editorState.uiState.selectedBlockIds
+                          .contains(sectionBlocks[i].id),
+                      isMultiSelectActive: editorState.uiState.isMultiSelectActive,
                     ),
                   ),
               ],

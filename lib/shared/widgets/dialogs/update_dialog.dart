@@ -25,7 +25,10 @@ class UpdateDialog extends StatefulWidget {
   ) {
     return showDialog<void>(
       context: context,
-      barrierDismissible: !result.isForced,
+      // Never dismiss on a barrier tap — the prompt stays until the user makes
+      // an explicit choice ("Later" or install). Forced updates additionally
+      // block the back button via PopScope below.
+      barrierDismissible: false,
       builder: (_) => UpdateDialog._(result: result, service: service),
     );
   }
@@ -194,6 +197,13 @@ class _UpdateDialogState extends State<UpdateDialog> {
             ] else if (_downloading) ...[
               const SizedBox(height: 16),
               _DownloadProgressBar(progress: _progress),
+            ] else if (!result.isForced) ...[
+              const SizedBox(height: 12),
+              const Text(
+                'Not now? You can install it any time from '
+                'Settings → Check for Updates.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+              ),
             ],
           ],
         ),

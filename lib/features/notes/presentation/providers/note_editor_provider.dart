@@ -573,6 +573,30 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
 
   // ==================== Document Operations ====================
 
+  /// Number of leading code units [a] and [b] share.
+  static int _commonPrefixLength(String a, String b) {
+    final max = a.length < b.length ? a.length : b.length;
+    var i = 0;
+    while (i < max && a.codeUnitAt(i) == b.codeUnitAt(i)) {
+      i++;
+    }
+    return i;
+  }
+
+  /// Number of trailing code units [a] and [b] share, not counting the first
+  /// [prefix] code units (so prefix + suffix can never overlap).
+  static int _commonSuffixLength(String a, String b, int prefix) {
+    final maxA = a.length - prefix;
+    final maxB = b.length - prefix;
+    final max = maxA < maxB ? maxA : maxB;
+    var i = 0;
+    while (i < max &&
+        a.codeUnitAt(a.length - 1 - i) == b.codeUnitAt(b.length - 1 - i)) {
+      i++;
+    }
+    return i;
+  }
+
   void updateBlockContent(String blockId, String content) {
     // Skip if we're applying an undo/redo operation
     // (the controller text change triggers onChanged, but we don't want to push new operations)
@@ -586,14 +610,44 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
 
     // Newlines in a block's content mean Enter (mobile soft keyboards insert a
     // literal '\n' rather than delivering a key event to onKeyEvent) or a
-    // multi-line paste (e.g. pasted markdown). Blocks are single-line, so split
-    // into one block per line instead of storing the newlines. Deferred to a
-    // post-frame callback because modifying this controller mid-onChanged is
-    // unsafe.
+    // multi-line paste (e.g. pasted markdown). Blocks are single-line, so
+    // neither may be stored as-is.
+    //
+    // This is the ONE point every paste reaches: the context menu and Ctrl+V
+    // are intercepted explicitly, but the IME/keyboard clipboard chip — the
+    // most common way to paste on Android — just drops the text into the field
+    // and fires onChanged. So markdown has to be handled here too, or pasted
+    // markdown stays literal.
+    //
+    // Enter inserts exactly one '\n' and nothing else; anything larger is a
+    // paste. Deferred to a post-frame callback because modifying this
+    // controller mid-onChanged is unsafe.
     if (content.contains('\n')) {
+      final previous = block.content;
+      final prefix = _commonPrefixLength(previous, content);
+      final suffix = _commonSuffixLength(previous, content, prefix);
+      final inserted = content.substring(prefix, content.length - suffix);
+
+      if (inserted == '\n') {
+        // Plain Enter — split into two blocks, no markdown interpretation.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_disposed) return;
+          _splitBlockOnNewlines(blockId);
+        });
+        return;
+      }
+
+      // A paste. The document still holds `previous` (this method returns
+      // before updating it), so hand the replaced range to pasteText and let it
+      // parse the markdown and rewrite the controller.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_disposed) return;
-        _splitBlockOnNewlines(blockId);
+        pasteText(
+          blockId: blockId,
+          selectionStart: prefix,
+          selectionEnd: previous.length - suffix,
+          rawText: inserted,
+        );
       });
       return;
     }

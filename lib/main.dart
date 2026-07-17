@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/config/app_config.dart';
 import 'core/config/remote/remote_config_keys.dart';
 import 'core/config/remote/remote_config_providers.dart';
 import 'core/navigation/app_router.dart';
+import 'core/navigation/routes.dart';
 import 'core/providers/app_info_providers.dart';
 import 'core/services/app_update_service.dart';
 import 'core/services/deep_link_service.dart';
@@ -92,6 +94,26 @@ class _SelahAppState extends ConsumerState<SelahApp>
   bool _deepLinksInitialized = false;
   bool _updateDialogShown = false;
 
+  /// An available update waiting to be shown. Held until the router settles on
+  /// a route that won't be replaced out from under the dialog (see
+  /// [_deferredUpdateLocations]).
+  AppUpdateResult? _pendingUpdateResult;
+  GoRouter? _router;
+
+  /// Routes where the update prompt must not be shown. The splash and auth
+  /// screens finish by calling `context.go(...)`, which rebuilds the root
+  /// navigator's stack from the new location — silently discarding any
+  /// imperatively pushed dialog. Showing the prompt here made it flash on
+  /// screen and vanish within milliseconds.
+  static const _deferredUpdateLocations = <String>{
+    Routes.splash,
+    Routes.onboarding,
+    Routes.login,
+    Routes.register,
+    Routes.forgotPassword,
+    Routes.completeProfile,
+  };
+
   // Minimum interval between update checks on app resume (1 hour)
   static const _updateCheckInterval = Duration(hours: 1);
 
@@ -111,6 +133,12 @@ class _SelahAppState extends ConsumerState<SelahApp>
     // critical path. No-ops if the bible.db is not yet downloaded.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+
+      // Retry a deferred update prompt once the router leaves splash/auth.
+      final router = ref.read(appRouterProvider);
+      _router = router;
+      router.routerDelegate.addListener(_onRouteChanged);
+
       if (!ref.read(bibleDatabaseServiceProvider).isOpen) return;
       // ignore: discarded_futures
       ref.read(bibleSearchServiceProvider).getVerseCount();
@@ -119,8 +147,20 @@ class _SelahAppState extends ConsumerState<SelahApp>
 
   @override
   void dispose() {
+    _router?.routerDelegate.removeListener(_onRouteChanged);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  /// The router moved to a new location — a pending update prompt may now be
+  /// safe to show.
+  void _onRouteChanged() {
+    if (_pendingUpdateResult == null) return;
+    // Defer: never push a dialog synchronously from a router notification.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _tryShowPendingUpdate();
+    });
   }
 
   @override
@@ -178,25 +218,46 @@ class _SelahAppState extends ConsumerState<SelahApp>
   }
 
   void _onUpdateResult(AppUpdateResult? result) {
-    if (result == null || _updateDialogShown) return;
-    _updateDialogShown = true;
+    if (result == null) {
+      // No update (any more). Drop anything still queued so a re-check that
+      // clears the update can't leave a stale prompt to fire on route change.
+      _pendingUpdateResult = null;
+      return;
+    }
+    if (_updateDialogShown) return;
+    _pendingUpdateResult = result;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _tryShowPendingUpdate();
+    });
+  }
 
-    // Record the check time so resume throttling works
-    final prefs = ref.read(sharedPreferencesProvider);
-    prefs.setInt('last_update_check_ms', DateTime.now().millisecondsSinceEpoch);
+  /// Shows the pending update prompt, but only once the router has settled on a
+  /// route that won't replace the navigator stack underneath it. If we're still
+  /// on splash/auth the result stays pending and [_onRouteChanged] retries.
+  void _tryShowPendingUpdate() {
+    final result = _pendingUpdateResult;
+    if (result == null || _updateDialogShown) return;
+
+    final GoRouter router = _router ?? ref.read(appRouterProvider);
+    final location = router.routerDelegate.currentConfiguration.uri.path;
+    if (_deferredUpdateLocations.contains(location)) return;
 
     // Use rootNavigatorKey so the dialog is shown above all routes
     final ctx = rootNavigatorKey.currentContext;
     if (ctx == null || !ctx.mounted) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (rootNavigatorKey.currentContext?.mounted == true) {
-        UpdateDialog.show(
-          rootNavigatorKey.currentContext!,
-          result,
-          ref.read(appUpdateServiceProvider),
-        );
-      }
-    });
+
+    _updateDialogShown = true;
+    _pendingUpdateResult = null;
+
+    // Record the check time only now that the prompt is actually on screen.
+    // Recording it at check time meant a prompt the user never saw still armed
+    // the resume throttle, suppressing it for the next hour.
+    ref
+        .read(sharedPreferencesProvider)
+        .setInt('last_update_check_ms', DateTime.now().millisecondsSinceEpoch);
+
+    UpdateDialog.show(ctx, result, ref.read(appUpdateServiceProvider));
   }
 
   @override
