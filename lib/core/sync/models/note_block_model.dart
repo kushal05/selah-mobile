@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'sync_entity.dart';
+import '../../../features/bible/domain/models/bible_reference.dart';
 import '../../testing/test_clock.dart';
 
 /// Block types supported in notes
@@ -18,6 +19,7 @@ enum BlockType {
   code,
   divider,
   image,
+  table,
   bibleReference;
 
   String toDbValue() => name;
@@ -94,7 +96,21 @@ class NoteBlockModel implements SyncEntity {
   /// Get content as JSON string (for database storage)
   String get contentJson => jsonEncode(content);
 
-  /// Get plain text from content (for search)
+  /// Human-readable text for this block — use this for anything a USER sees
+  /// (previews, version history, diffs, exports).
+  ///
+  /// Unlike [plainText], this unwraps block types that store structured JSON in
+  /// `content['text']` (bible references), so the raw payload can never leak
+  /// into the UI. Table blocks already persist readable text.
+  String get displayText {
+    final text = plainText;
+    return BibleReference.tryParse(text)?.plainSummary ?? text;
+  }
+
+  /// Raw text straight out of `content['text']`.
+  ///
+  /// NOTE: for bible reference blocks this is the JSON payload, not display
+  /// text — prefer [displayText] when showing it to a user.
   String get plainText {
     if (content.containsKey('text')) {
       return content['text'] as String? ?? '';

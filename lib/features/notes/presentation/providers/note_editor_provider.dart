@@ -15,6 +15,7 @@ import '../../domain/models/editor_operation.dart';
 import '../../domain/models/note.dart';
 import '../../domain/models/note_section.dart';
 import '../../domain/models/text_span_format.dart';
+import '../../data/converters/markdown_block_converter.dart';
 import '../widgets/editor/formatted_text_controller.dart';
 import 'database_provider.dart';
 
@@ -905,6 +906,280 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     }
   }
 
+  // ==================== Markdown paste ====================
+
+  /// Paste [rawText] into [blockId], replacing the range
+  /// [[selectionStart], [selectionEnd]).
+  ///
+  /// When [asMarkdown] is true the text is parsed as Markdown and spliced in as
+  /// typed blocks with inline formatting; when false it is inserted verbatim as
+  /// one paragraph per line. Undoable as a single operation either way.
+  void pasteText({
+    required String blockId,
+    required int selectionStart,
+    required int selectionEnd,
+    required String rawText,
+    bool asMarkdown = true,
+  }) {
+    if (rawText.isEmpty) return;
+
+    // Flush any pending typing so committed content is accurate.
+    _commitTextChanges(blockId);
+    _textCommitTimer?.cancel();
+
+    final block = state.document.getBlockById(blockId);
+    final index = state.document.getBlockIndex(blockId);
+    if (block == null || index == null) return;
+
+    final parsed = asMarkdown
+        ? MarkdownBlockConverter.parse(rawText, section: block.section)
+        : MarkdownBlockConverter.parsePlain(rawText, section: block.section);
+    // Drop a single trailing empty paragraph produced by a trailing newline so
+    // "foo\n" doesn't leave a stray empty block.
+    if (parsed.length > 1 &&
+        parsed.last.type == BlockType.paragraph &&
+        parsed.last.content.isEmpty) {
+      parsed.removeLast();
+    }
+    if (parsed.isEmpty) return;
+
+    // Non-editable cards (bible reference, table) have no caret and store JSON
+    // in `content` — insert the parsed blocks after the card rather than
+    // splicing text into their payload.
+    if (block.type.isAtomic) {
+      final caret = EditorCursor(
+        blockId: parsed.last.id,
+        offset: parsed.last.content.length,
+      );
+      _spliceBlocks(index + 1, 0, parsed, cursorAfter: caret);
+      return;
+    }
+
+    final len = block.content.length;
+    final s = selectionStart.clamp(0, len);
+    final e = selectionEnd.clamp(s, len);
+
+    final head = block.content.substring(0, s);
+    final tail = block.content.substring(e);
+    final headFormats = _sliceFormats(block.formats, 0, s);
+    final tailFormats = _sliceFormats(block.formats, e, len); // rebased to 0
+
+    final inserted = <EditorBlock>[];
+    late final EditorCursor caret;
+
+    if (parsed.length == 1 && !parsed.first.type.isAtomic) {
+      // Fast path: a single text block merges inline with head/tail.
+      final p = parsed.first;
+      final merged = head + p.content + tail;
+      final mergedFormats = <TextSpanFormat>[
+        ...headFormats,
+        ..._shiftFormats(p.formats, head.length),
+        ..._shiftFormats(tailFormats, head.length + p.content.length),
+      ];
+      // Adopt the pasted block's type only when the target was empty / fully
+      // replaced; otherwise a heading pasted mid-paragraph stays inline text.
+      final adopt = head.isEmpty && tail.isEmpty;
+      final block0 = adopt
+          ? p.copyWith(
+              id: block.id, section: block.section,
+              content: merged, formats: mergedFormats)
+          : block.copyWith(content: merged, formats: mergedFormats);
+      inserted.add(block0);
+      caret = EditorCursor(
+          blockId: block.id, offset: head.length + p.content.length);
+    } else {
+      final work = List<EditorBlock>.from(parsed);
+
+      // --- Head ---
+      if (head.isEmpty) {
+        // Nothing to keep: the first pasted block takes over the target's id so
+        // its controller survives.
+        final first = work.removeAt(0);
+        inserted.add(first.copyWith(id: block.id, section: block.section));
+      } else if (!work.first.type.isAtomic) {
+        final first = work.removeAt(0);
+        inserted.add(block.copyWith(
+          content: head + first.content,
+          formats: [
+            ...headFormats,
+            ..._shiftFormats(first.formats, head.length),
+          ],
+        ));
+      } else {
+        // An atomic block can't absorb the head — keep the head as its own
+        // block and let the card follow it.
+        inserted.add(block.copyWith(content: head, formats: headFormats));
+      }
+
+      // --- Tail ---
+      EditorBlock? tailBlock;
+      var tailCaret = 0;
+      if (work.isNotEmpty && !work.last.type.isAtomic) {
+        final last = work.removeLast();
+        tailBlock = last.copyWith(
+          content: last.content + tail,
+          formats: [
+            ...last.formats,
+            ..._shiftFormats(tailFormats, last.content.length),
+          ],
+        );
+        tailCaret = last.content.length;
+      } else if (tail.isNotEmpty) {
+        // Trailing text can't merge into an atomic block — give it its own
+        // paragraph after the card.
+        tailBlock = EditorBlock(
+          id: const Uuid().v4(),
+          type: BlockType.paragraph,
+          content: tail,
+          formats: tailFormats,
+          section: block.section,
+        );
+      }
+
+      inserted.addAll(work);
+      if (tailBlock != null) inserted.add(tailBlock);
+
+      // A note must not end on a caret-less card, or there is nowhere left to
+      // type (mirrors the trailing block added after a Bible reference).
+      if (tailBlock == null && inserted.last.type.isAtomic) {
+        tailBlock = EditorBlock(
+          id: const Uuid().v4(),
+          type: BlockType.paragraph,
+          content: '',
+          section: block.section,
+        );
+        inserted.add(tailBlock);
+      }
+
+      caret = tailBlock != null
+          ? EditorCursor(blockId: tailBlock.id, offset: tailCaret)
+          : EditorCursor(
+              blockId: inserted.last.id,
+              offset: inserted.last.content.length,
+            );
+    }
+
+    _spliceBlocks(index, 1, inserted, cursorAfter: caret, removed: [block]);
+  }
+
+  /// Serialize the currently multi-selected blocks (in document order) to
+  /// Markdown for "Copy as Markdown".
+  String selectedBlocksMarkdown() {
+    final selected = state.uiState.selectedBlockIds;
+    final blocks =
+        state.document.blocks.where((b) => selected.contains(b.id)).toList();
+    return MarkdownBlockConverter.toMarkdown(blocks);
+  }
+
+  /// Splice [inserted] into the document in place of [removeCount] blocks
+  /// starting at [index]. Reconciles controllers/committed maps and (unless
+  /// [pushUndo] is false) records a [PasteBlocksOperation].
+  void _spliceBlocks(
+    int index,
+    int removeCount,
+    List<EditorBlock> inserted, {
+    required EditorCursor cursorAfter,
+    List<EditorBlock>? removed,
+    bool pushUndo = true,
+  }) {
+    final blocks = List<EditorBlock>.from(state.document.blocks);
+    if (index < 0 || index + removeCount > blocks.length) return;
+
+    final removedBlocks =
+        removed ?? blocks.sublist(index, index + removeCount);
+    final cursorBefore = state.cursor;
+
+    blocks.replaceRange(index, index + removeCount, inserted);
+    final doc = EditorDocument(blocks: blocks);
+
+    final removedIds = removedBlocks.map((b) => b.id).toSet();
+    final insertedIds = inserted.map((b) => b.id).toSet();
+
+    // Create or refresh controllers for inserted blocks.
+    for (final b in inserted) {
+      final existing = _blockControllers[b.id];
+      if (existing is FormattedTextEditingController) {
+        existing.text = b.content;
+        existing.updateFormats(b.formats);
+      } else {
+        _blockControllers[b.id] = FormattedTextEditingController(
+          text: b.content,
+          formats: b.formats,
+        );
+        _blockFocusNodes[b.id] = FocusNode();
+      }
+      _committedContent[b.id] = b.content;
+      _committedCursorOffset[b.id] = b.content.length;
+    }
+
+    // Move focus to the surviving caret block BEFORE disposing any node. This
+    // matters on undo, where the block that currently holds focus is one of the
+    // blocks being removed: disposing a focused node makes the framework hand
+    // focus to an arbitrary block, scrolling the view and dropping the caret
+    // (same hazard guarded against in [mergeWithPreviousBlock]).
+    getBlockFocusNode(cursorAfter.blockId).requestFocus();
+
+    // Dispose controllers for blocks that are gone.
+    for (final id in removedIds.difference(insertedIds)) {
+      _blockControllers[id]?.dispose();
+      _blockControllers.remove(id);
+      _blockFocusNodes[id]?.dispose();
+      _blockFocusNodes.remove(id);
+      _committedContent.remove(id);
+      _committedCursorOffset.remove(id);
+    }
+
+    if (pushUndo) {
+      _pushUndo(PasteBlocksOperation(
+        index: index,
+        removed: removedBlocks,
+        inserted: inserted,
+        cursorBefore: cursorBefore,
+        cursorAfter: cursorAfter,
+      ));
+    }
+
+    state = state.copyWith(
+      document: doc,
+      cursor: cursorAfter,
+      selection: EditorSelection.collapsed(cursorAfter),
+      uiState: state.uiState.copyWith(focusedBlockId: cursorAfter.blockId),
+      isDirty: true,
+    );
+    _scheduleSave();
+    _focusBlock(cursorAfter.blockId, caretOffset: cursorAfter.offset);
+  }
+
+  /// Clip [formats] to [[from], [to]) and rebase so `from` -> 0.
+  List<TextSpanFormat> _sliceFormats(
+      List<TextSpanFormat> formats, int from, int to) {
+    final out = <TextSpanFormat>[];
+    for (final f in formats) {
+      final a = f.start < from ? from : f.start;
+      final b = f.end > to ? to : f.end;
+      if (a < b) out.add(f.copyWith(start: a - from, end: b - from));
+    }
+    return out;
+  }
+
+  /// Shift all offsets in [formats] by [delta].
+  List<TextSpanFormat> _shiftFormats(List<TextSpanFormat> formats, int delta) {
+    return formats
+        .map((f) => f.copyWith(start: f.start + delta, end: f.end + delta))
+        .toList();
+  }
+
+  void _applyPasteBlocks(PasteBlocksOperation op) {
+    _spliceBlocks(
+      op.index,
+      op.removed.length,
+      op.inserted,
+      cursorAfter: op.cursorAfter,
+      removed: op.removed,
+      pushUndo: false,
+    );
+  }
+
   void mergeWithPreviousBlock(String blockId) {
     // Commit any pending text changes first
     _commitTextChanges(blockId);
@@ -1623,6 +1898,9 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
           break;
         case TextContentOperation op:
           _applyTextContent(op);
+          break;
+        case PasteBlocksOperation op:
+          _applyPasteBlocks(op);
           break;
         default:
           // Unknown operation type

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../domain/models/block_type.dart';
 import '../../domain/models/note_section.dart';
+import '../../domain/models/note_table.dart';
 import '../../../bible/domain/models/bible_reference.dart';
 import '../../../../core/navigation/routes.dart';
 import '../../../../core/sync/models/note_model.dart';
@@ -346,6 +347,18 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
           final json = jsonDecode(block.content) as Map<String, dynamic>;
           final ref = BibleReference.fromJson(json);
           preview = ref.displayReference;
+          break;
+        } catch (_) {
+          continue;
+        }
+      }
+      // Tables also store JSON in `content` — preview their cell text.
+      if (block.type == BlockType.table) {
+        try {
+          final json = jsonDecode(block.content) as Map<String, dynamic>;
+          final text = NoteTable.fromJson(json).plainText;
+          if (text.isEmpty) continue;
+          preview = text;
           break;
         } catch (_) {
           continue;

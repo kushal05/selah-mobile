@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/navigation/routes.dart';
@@ -11,8 +13,11 @@ import '../../../bible/presentation/providers/bible_providers.dart';
 import '../../../bible/domain/models/bible_reference.dart';
 import '../../domain/models/block_type.dart';
 import '../../domain/models/editor_block.dart';
+import '../../data/converters/markdown_block_converter.dart';
 import '../../domain/models/note.dart' as domain;
 import '../../domain/models/note_section.dart';
+import '../../domain/models/note_table.dart';
+import '../widgets/editor/note_table_widget.dart';
 import '../providers/database_provider.dart';
 import '../../../../shared/widgets/dialogs/move_to_folder_sheet.dart';
 import '../../../../shared/widgets/lists/metadata_row.dart';
@@ -179,18 +184,29 @@ class NoteDetailScreen extends ConsumerWidget {
   }
 
   /// Render a block's text with its inline formatting (bold/italic/etc.)
-  /// applied. Falls back to a plain [Text] when the block has no formats.
+  /// applied. Links are tappable here (unlike in the editor, where a tap places
+  /// the caret); [FormattedText] owns the gesture recognizers' lifecycle.
   Widget _formattedText(EditorBlock block, TextStyle? style) {
-    if (block.formats.isEmpty) {
-      return Text(block.content, style: style);
-    }
-    return Text.rich(
-      buildFormattedTextSpan(
-        text: block.content,
-        formats: block.formats,
-        baseStyle: style ?? const TextStyle(),
-      ),
+    return FormattedText(
+      text: block.content,
+      formats: block.formats,
+      style: style,
+      onLinkTap: _openLink,
     );
+  }
+
+  Future<void> _openLink(String url) async {
+    // Link targets can arrive from a pasted or SHARED note, so treat them as
+    // untrusted: only hand well-formed, known-safe schemes to the OS. Without
+    // this, a shared note could carry javascript:/intent:/file: targets.
+    if (!isSafeNoteLink(url)) return;
+    final uri = Uri.parse(url.trim());
+    // Best effort: an unlaunchable link must never throw into the widget tree.
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      // Ignored — nothing sensible to show for a bad link in a note.
+    }
   }
 
   Widget _buildBlock(BuildContext context, WidgetRef ref, EditorBlock block, dynamic document) {
@@ -313,6 +329,62 @@ class NoteDetailScreen extends ConsumerWidget {
           ),
         );
 
+      case BlockType.quote:
+        return Padding(
+          padding: EdgeInsets.only(left: indent, bottom: 8),
+          child: Container(
+            padding: const EdgeInsets.only(left: 12),
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                  width: 3,
+                ),
+              ),
+            ),
+            child: _formattedText(
+              block,
+              theme.textTheme.bodyLarge?.copyWith(
+                fontStyle: FontStyle.italic,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+              ),
+            ),
+          ),
+        );
+
+      case BlockType.code:
+        return Padding(
+          padding: EdgeInsets.only(left: indent, bottom: 8),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: _formattedText(
+              block,
+              theme.textTheme.bodyMedium?.copyWith(
+                fontFamily: 'monospace',
+                fontFamilyFallback: kMonospaceFallback,
+              ),
+            ),
+          ),
+        );
+
+      case BlockType.table:
+        NoteTable table;
+        try {
+          table = NoteTable.fromJson(
+              jsonDecode(block.content) as Map<String, dynamic>);
+        } catch (_) {
+          table = NoteTable.empty;
+        }
+        return Padding(
+          padding: EdgeInsets.only(left: indent, bottom: 8),
+          child: NoteTableWidget(table: table, onLinkTap: _openLink),
+        );
+
       case BlockType.bibleReference:
         BibleReference reference;
         try {
@@ -377,6 +449,14 @@ class NoteDetailScreen extends ConsumerWidget {
               onTap: () {
                 Navigator.pop(sheetContext);
                 _shareNote(context, ref);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.data_object),
+              title: const Text('Copy as Markdown'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _copyAsMarkdown(context, ref);
               },
             ),
             ListTile(
@@ -469,6 +549,21 @@ class NoteDetailScreen extends ConsumerWidget {
         case BlockType.checkbox:
           final check = block.isChecked == true ? '✓' : '○';
           buffer.writeln('  [$check] ${block.content}');
+        case BlockType.quote:
+          buffer.writeln('  ▏${block.content}');
+        case BlockType.code:
+          buffer.writeln(block.content);
+        case BlockType.table:
+          // `content` is JSON — share the cell text, never the raw payload.
+          try {
+            final table = NoteTable.fromJson(
+                jsonDecode(block.content) as Map<String, dynamic>);
+            for (final row in table.rows) {
+              buffer.writeln(row.map((c) => c.text).join('  |  '));
+            }
+          } catch (_) {
+            buffer.writeln('[Table]');
+          }
         case BlockType.bibleReference:
           try {
             final contentMap = jsonDecode(block.content) as Map<String, dynamic>;
@@ -485,6 +580,26 @@ class NoteDetailScreen extends ConsumerWidget {
     buffer.writeln();
     buffer.write(Routes.noteDeepLink(noteId));
     Share.share(buffer.toString().trimRight(), subject: note.title);
+  }
+
+  void _copyAsMarkdown(BuildContext context, WidgetRef ref) {
+    final note = ref.read(noteDetailProvider(noteId)).valueOrNull;
+    if (note == null) return;
+
+    final buffer = StringBuffer();
+    if (note.title.isNotEmpty) {
+      buffer.writeln('# ${note.title}');
+      buffer.writeln();
+    }
+    buffer.write(MarkdownBlockConverter.toMarkdown(note.document.blocks));
+
+    Clipboard.setData(ClipboardData(text: buffer.toString().trimRight()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Copied as Markdown'),
+        duration: Duration(seconds: 1),
+      ),
+    );
   }
 
   Future<void> _moveNoteToFolder(BuildContext context, WidgetRef ref) async {

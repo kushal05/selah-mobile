@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show SystemChannels;
+import 'package:flutter/services.dart' show Clipboard, ClipboardData, SystemChannels;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/sync/providers/sync_providers.dart';
@@ -501,6 +501,28 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                GestureDetector(
+                  onTap: () {
+                    // Serialize and clear selection synchronously — touching the
+                    // notifier after the clipboard await could hit a disposed
+                    // (autoDispose) notifier if the screen closes meanwhile.
+                    final markdown = notifier.selectedBlocksMarkdown();
+                    notifier.clearBlockSelection();
+                    Clipboard.setData(ClipboardData(text: markdown));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Copied as Markdown'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                  child: Icon(
+                    Icons.copy_outlined,
+                    size: 22,
                     color: theme.colorScheme.onSurface,
                   ),
                 ),

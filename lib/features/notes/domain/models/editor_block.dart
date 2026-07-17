@@ -139,13 +139,17 @@ class EditorBlock extends Equatable {
     );
   }
 
-  /// Copy with modifications
+  /// Copy with modifications.
+  ///
+  /// [isChecked] uses a sentinel so an explicit `null` clears the flag (e.g.
+  /// when a checkbox becomes a paragraph) while omitting it preserves the
+  /// current value.
   EditorBlock copyWith({
     String? id,
     BlockType? type,
     String? content,
     List<TextSpanFormat>? formats,
-    bool? isChecked,
+    Object? isChecked = _sentinel,
     int? indentLevel,
     NoteSection? section,
   }) {
@@ -154,7 +158,8 @@ class EditorBlock extends Equatable {
       type: type ?? this.type,
       content: content ?? this.content,
       formats: formats ?? this.formats,
-      isChecked: isChecked ?? this.isChecked,
+      isChecked:
+          identical(isChecked, _sentinel) ? this.isChecked : isChecked as bool?,
       indentLevel: indentLevel ?? this.indentLevel,
       section: section ?? this.section,
     );
@@ -198,3 +203,7 @@ class EditorBlock extends Equatable {
   @override
   List<Object?> get props => [id, type, content, formats, isChecked, indentLevel, section];
 }
+
+/// Sentinel for [EditorBlock.copyWith] to distinguish "not passed" from an
+/// explicit `null` isChecked.
+const Object _sentinel = Object();

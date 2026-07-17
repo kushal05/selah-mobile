@@ -22,6 +22,12 @@ class TextSpanFormat extends Equatable {
   /// Whether text is strikethrough
   final bool isStrikethrough;
 
+  /// Whether text is rendered as inline code (monospace)
+  final bool isCode;
+
+  /// Link target URL. Non-null means this range is a hyperlink.
+  final String? link;
+
   const TextSpanFormat({
     required this.start,
     required this.end,
@@ -29,6 +35,8 @@ class TextSpanFormat extends Equatable {
     this.isItalic = false,
     this.isUnderline = false,
     this.isStrikethrough = false,
+    this.isCode = false,
+    this.link,
   });
 
   /// Create a format with no styling
@@ -38,17 +46,27 @@ class TextSpanFormat extends Equatable {
   })  : isBold = false,
         isItalic = false,
         isUnderline = false,
-        isStrikethrough = false;
+        isStrikethrough = false,
+        isCode = false,
+        link = null;
 
   /// Whether this format has any active styling
   bool get hasFormatting {
-    return isBold || isItalic || isUnderline || isStrikethrough;
+    return isBold ||
+        isItalic ||
+        isUnderline ||
+        isStrikethrough ||
+        isCode ||
+        (link != null && link!.isNotEmpty);
   }
 
   /// Length of the formatted range
   int get length => end - start;
 
   /// Copy with modifications
+  ///
+  /// [link] uses a sentinel so an explicit `null` can clear the link while
+  /// omitting it preserves the existing value.
   TextSpanFormat copyWith({
     int? start,
     int? end,
@@ -56,6 +74,8 @@ class TextSpanFormat extends Equatable {
     bool? isItalic,
     bool? isUnderline,
     bool? isStrikethrough,
+    bool? isCode,
+    Object? link = _sentinel,
   }) {
     return TextSpanFormat(
       start: start ?? this.start,
@@ -64,6 +84,8 @@ class TextSpanFormat extends Equatable {
       isItalic: isItalic ?? this.isItalic,
       isUnderline: isUnderline ?? this.isUnderline,
       isStrikethrough: isStrikethrough ?? this.isStrikethrough,
+      isCode: isCode ?? this.isCode,
+      link: identical(link, _sentinel) ? this.link : link as String?,
     );
   }
 
@@ -76,6 +98,10 @@ class TextSpanFormat extends Equatable {
       'isItalic': isItalic,
       'isUnderline': isUnderline,
       'isStrikethrough': isStrikethrough,
+      // Only emit the newer attributes when set to keep payloads small and
+      // backward-compatible with clients that don't understand them.
+      if (isCode) 'isCode': isCode,
+      if (link != null && link!.isNotEmpty) 'link': link,
     };
   }
 
@@ -88,6 +114,8 @@ class TextSpanFormat extends Equatable {
       isItalic: json['isItalic'] as bool? ?? false,
       isUnderline: json['isUnderline'] as bool? ?? false,
       isStrikethrough: json['isStrikethrough'] as bool? ?? false,
+      isCode: json['isCode'] as bool? ?? false,
+      link: json['link'] as String?,
     );
   }
 
@@ -99,5 +127,11 @@ class TextSpanFormat extends Equatable {
         isItalic,
         isUnderline,
         isStrikethrough,
+        isCode,
+        link,
       ];
 }
+
+/// Sentinel for [TextSpanFormat.copyWith] to distinguish "not passed" from an
+/// explicit `null` link.
+const Object _sentinel = Object();

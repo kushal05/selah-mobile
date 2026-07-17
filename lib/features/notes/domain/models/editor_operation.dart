@@ -294,6 +294,47 @@ class IndentBlockOperation extends EditorOperation {
   List<Object?> get props => [blockId, blockBefore, blockAfter, cursorAfter];
 }
 
+/// Paste operation: splice a contiguous range of blocks out and a new list in.
+///
+/// Stores whole [EditorBlock]s (content AND formats) on both sides so undo/redo
+/// restores inline formatting exactly. One markdown paste == one undo entry.
+@immutable
+class PasteBlocksOperation extends EditorOperation {
+  /// Index of the first removed block in the document.
+  final int index;
+
+  /// Blocks spliced out (usually just the caret block).
+  final List<EditorBlock> removed;
+
+  /// Blocks spliced in.
+  final List<EditorBlock> inserted;
+
+  final EditorCursor cursorBefore;
+  final EditorCursor cursorAfter;
+
+  const PasteBlocksOperation({
+    required this.index,
+    required this.removed,
+    required this.inserted,
+    required this.cursorBefore,
+    required this.cursorAfter,
+  });
+
+  @override
+  EditorOperation invert() {
+    return PasteBlocksOperation(
+      index: index,
+      removed: inserted,
+      inserted: removed,
+      cursorBefore: cursorAfter,
+      cursorAfter: cursorBefore,
+    );
+  }
+
+  @override
+  List<Object?> get props => [index, removed, inserted, cursorBefore, cursorAfter];
+}
+
 /// Text content change operation (for word-level undo/redo)
 /// Captures the content before and after a word-level change
 @immutable

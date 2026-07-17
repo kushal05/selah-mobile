@@ -181,13 +181,13 @@ class _RevisionDiffViewState extends ConsumerState<RevisionDiffView> {
     List<NoteBlockModel> revisionBlocks,
     List<NoteBlockModel> currentBlocks,
   ) {
-    final curById = {for (final b in currentBlocks) b.id: b.plainText};
+    final curById = {for (final b in currentBlocks) b.id: b.displayText};
     final result = <_DiffLine>[];
     final matched = <String>{};
 
     // Walk revision blocks: find changed or removed blocks.
     for (final block in revisionBlocks) {
-      final revText = block.plainText;
+      final revText = block.displayText;
       if (curById.containsKey(block.id)) {
         matched.add(block.id);
         final curText = curById[block.id]!;
@@ -205,12 +205,13 @@ class _RevisionDiffViewState extends ConsumerState<RevisionDiffView> {
     for (final block in currentBlocks) {
       if (!matched.contains(block.id)) {
         result.add(_DiffLine(
-            type: _DiffType.added, oldText: null, newText: block.plainText));
+            type: _DiffType.added, oldText: null, newText: block.displayText));
       }
     }
 
     return result;
   }
+
 }
 
 enum _DiffType { added, removed, changed }

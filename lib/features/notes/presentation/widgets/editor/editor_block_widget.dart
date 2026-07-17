@@ -10,10 +10,13 @@ import '../../../../bible/domain/models/bible_books.dart';
 import '../../../../bible/domain/models/bible_reference.dart';
 import '../../../domain/models/block_type.dart';
 import '../../../domain/models/editor_block.dart';
+import '../../../domain/models/note_table.dart';
 import '../../providers/note_editor_provider.dart';
 import 'bible_reference_block_widget.dart';
 import 'bible_reference_picker.dart';
 import 'formatted_text_controller.dart';
+import 'formatted_text_span.dart' show kMonospaceFallback;
+import 'note_table_widget.dart';
 
 /// Base widget for rendering editor blocks
 /// Each block type extends this with specific styling
@@ -238,6 +241,12 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
         return _buildCheckboxItem();
       case BlockType.paragraph:
         return _buildParagraph();
+      case BlockType.quote:
+        return _buildQuote();
+      case BlockType.code:
+        return _buildCodeBlock();
+      case BlockType.table:
+        return _buildTable();
       case BlockType.bibleReference:
         return _buildBibleReference();
     }
@@ -255,6 +264,49 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
         fontSize: fontSize,
         fontWeight: fontWeight,
         height: 1.3,
+      ),
+    );
+  }
+
+  Widget _buildQuote() {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.only(left: 12),
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(
+            color: theme.colorScheme.primary.withValues(alpha: 0.5),
+            width: 3,
+          ),
+        ),
+      ),
+      child: _buildTextField(
+        style: TextStyle(
+          fontSize: 16,
+          height: 1.4,
+          fontStyle: FontStyle.italic,
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCodeBlock() {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: _buildTextField(
+        style: const TextStyle(
+          fontSize: 14,
+          height: 1.45,
+          fontFamily: 'monospace',
+          fontFamilyFallback: kMonospaceFallback,
+        ),
       ),
     );
   }
@@ -345,6 +397,26 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTable() {
+    NoteTable table;
+    try {
+      table = NoteTable.fromJson(
+          jsonDecode(widget.block.content) as Map<String, dynamic>);
+    } catch (_) {
+      table = NoteTable.empty;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: NoteTableWidget(
+        table: table,
+        onRemove: () => ref
+            .read(noteEditorProvider(widget.noteId).notifier)
+            .deleteBlock(widget.block.id),
       ),
     );
   }
@@ -445,7 +517,62 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
       showCursor: true,
       onChanged: _onTextChanged,
       onSubmitted: (_) => _handleEnter(),
+      contextMenuBuilder: (context, editableState) {
+        // Route the default "Paste" through the markdown-aware paste so pasted
+        // markdown reconstructs formatting, and offer a literal paste beside it
+        // for text that only looks like markdown. Other actions stay default.
+        final items = List<ContextMenuButtonItem>.from(
+          editableState.contextMenuButtonItems,
+        );
+        final pasteIndex =
+            items.indexWhere((b) => b.type == ContextMenuButtonType.paste);
+        if (pasteIndex != -1) {
+          items[pasteIndex] = ContextMenuButtonItem(
+            type: ContextMenuButtonType.paste,
+            onPressed: () {
+              editableState.hideToolbar();
+              _pasteFromClipboard();
+            },
+          );
+          // Only offered when a Paste item exists, i.e. the clipboard has text.
+          items.insert(
+            pasteIndex + 1,
+            ContextMenuButtonItem(
+              label: 'Paste as plain text',
+              onPressed: () {
+                editableState.hideToolbar();
+                _pasteFromClipboard(asMarkdown: false);
+              },
+            ),
+          );
+        }
+        return AdaptiveTextSelectionToolbar.buttonItems(
+          anchors: editableState.contextMenuAnchors,
+          buttonItems: items,
+        );
+      },
     );
+  }
+
+  /// Read the clipboard and paste at the current selection. Parses the text as
+  /// markdown unless [asMarkdown] is false.
+  Future<void> _pasteFromClipboard({bool asMarkdown = true}) async {
+    final selection = _controller.selection;
+    final start =
+        selection.isValid ? selection.start : _controller.text.length;
+    final end = selection.isValid ? selection.end : start;
+
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final raw = data?.text;
+    if (raw == null || raw.isEmpty || !mounted) return;
+
+    ref.read(noteEditorProvider(widget.noteId).notifier).pasteText(
+          blockId: widget.block.id,
+          selectionStart: start,
+          selectionEnd: end,
+          rawText: raw,
+          asMarkdown: asMarkdown,
+        );
   }
 
   String _getHintText() {
@@ -473,6 +600,14 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
 
     final notifier = ref.read(noteEditorProvider(widget.noteId).notifier);
     final selection = _controller.selection;
+
+    // Handle Ctrl/Cmd+V — route hardware-keyboard paste through markdown parsing.
+    if (event.logicalKey == LogicalKeyboardKey.keyV &&
+        (HardwareKeyboard.instance.isControlPressed ||
+            HardwareKeyboard.instance.isMetaPressed)) {
+      _pasteFromClipboard();
+      return true; // Suppress the built-in paste.
+    }
 
     // Handle Tab key (indent) and Shift+Tab (outdent)
     if (event.logicalKey == LogicalKeyboardKey.tab) {

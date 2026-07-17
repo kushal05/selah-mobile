@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 
@@ -181,6 +183,40 @@ class BibleReference extends Equatable {
   /// Full concatenated text of all verses (for copy, share, search)
   String get fullText {
     return text.map((v) => v.content).join(' ');
+  }
+
+  /// One-line readable form — "John 3:16 (KJV) For God so loved…".
+  ///
+  /// Bible reference blocks store this object JSON-encoded in their block
+  /// `content`, so anything that renders a block as TEXT (search index, PDF
+  /// export, version diffs, previews) must go through here rather than showing
+  /// the payload.
+  String get plainSummary {
+    final verses = fullText;
+    return verses.isEmpty ? displayReference : '$displayReference $verses';
+  }
+
+  /// Safely parse a JSON-encoded [BibleReference], or null when [json] isn't
+  /// one.
+  ///
+  /// Deliberately strict: ordinary prose, and unrelated JSON that merely has a
+  /// "reference" key, must return null so callers leave the text untouched.
+  static BibleReference? tryParse(String json) {
+    // Cheap guard first — this runs over every block during FTS indexing.
+    if (!json.startsWith('{') || !json.contains('"reference"')) return null;
+    try {
+      final decoded = jsonDecode(json);
+      if (decoded is! Map<String, dynamic>) return null;
+      final ref = decoded['reference'];
+      if (ref is! Map ||
+          ref['book'] is! String ||
+          (ref['book'] as String).isEmpty) {
+        return null;
+      }
+      return BibleReference.fromJson(decoded);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Convert to JSON (always writes new format)

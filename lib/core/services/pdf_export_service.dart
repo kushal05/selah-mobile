@@ -6,6 +6,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
 
+import '../../features/bible/domain/models/bible_reference.dart';
+import '../../features/notes/domain/models/note_table.dart';
 import '../sync/models/note_block_model.dart';
 import '../sync/models/prayer_model.dart';
 import '../sync/repositories/note_repository.dart';
@@ -62,7 +64,7 @@ class PdfExportService {
               ),
             ),
             pw.SizedBox(height: 16),
-            ...blocks.map(_blockToWidget),
+            ...blocks.map(blockToWidget),
           ],
         ),
       );
@@ -116,7 +118,11 @@ class PdfExportService {
     }
   }
 
-  pw.Widget _blockToWidget(NoteBlockModel block) {
+  /// Render one note block. Static + visible for testing so the JSON-backed
+  /// block types (bible reference, table) can be verified to never leak their
+  /// raw payload into the PDF.
+  @visibleForTesting
+  static pw.Widget blockToWidget(NoteBlockModel block) {
     final text = block.plainText;
     if (text.isEmpty && block.blockType != BlockType.divider) {
       return pw.SizedBox(height: 8);
@@ -197,11 +203,97 @@ class PdfExportService {
           padding: const pw.EdgeInsets.symmetric(vertical: 8),
           child: pw.Divider(),
         ),
+      // Bible references and tables keep structured JSON in their content —
+      // rendering `text` directly would print raw JSON into the PDF.
+      BlockType.bibleReference => _bibleReferenceWidget(text),
+      BlockType.table => _tableWidget(block),
       _ => pw.Padding(
           padding: const pw.EdgeInsets.only(bottom: 4),
           child: pw.Text(text),
         ),
     };
+  }
+
+  /// Render a Bible reference block. [json] is the block's JSON-encoded
+  /// [BibleReference] (stored in `content['text']`).
+  static pw.Widget _bibleReferenceWidget(String json) {
+    final ref = BibleReference.tryParse(json);
+    final heading = ref?.displayReference ?? '[Bible Reference]';
+    final body = ref?.fullText ?? '';
+
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(8),
+      margin: const pw.EdgeInsets.only(left: 16, bottom: 4),
+      decoration: const pw.BoxDecoration(
+        border: pw.Border(
+          left: pw.BorderSide(color: PdfColors.grey400, width: 3),
+        ),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(heading,
+              style: pw.TextStyle(
+                  fontWeight: pw.FontWeight.bold, fontSize: 11)),
+          if (body.isNotEmpty) ...[
+            pw.SizedBox(height: 2),
+            pw.Text(body,
+                style: const pw.TextStyle(color: PdfColors.grey700)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Render a table block as a real PDF table. The structure lives in
+  /// `content['table']`; `content['text']` is only a plain-text fallback.
+  static pw.Widget _tableWidget(NoteBlockModel block) {
+    NoteTable table;
+    try {
+      final raw = block.content['table'];
+      table = raw is Map<String, dynamic>
+          ? NoteTable.fromJson(raw)
+          : NoteTable.empty;
+    } catch (_) {
+      table = NoteTable.empty;
+    }
+
+    final columns = table.columnCount;
+    if (table.isEmpty || columns == 0) {
+      // No structure available — fall back to the plain-text copy.
+      return pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 4),
+        child: pw.Text(block.plainText),
+      );
+    }
+
+    pw.Widget cell(List<NoteTableCell> row, int i, {required bool header}) =>
+        pw.Padding(
+          padding: const pw.EdgeInsets.all(6),
+          child: pw.Text(
+            i < row.length ? row[i].text : '',
+            style: header ? pw.TextStyle(fontWeight: pw.FontWeight.bold) : null,
+          ),
+        );
+
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 8),
+      child: pw.Table(
+        border: pw.TableBorder.all(color: PdfColors.grey400),
+        children: [
+          pw.TableRow(
+            decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+            children: List.generate(
+                columns, (i) => cell(table.header, i, header: true)),
+          ),
+          for (final row in table.body)
+            pw.TableRow(
+              children:
+                  List.generate(columns, (i) => cell(row, i, header: false)),
+            ),
+        ],
+      ),
+    );
   }
 
   pw.Widget _prayerToWidget(PrayerModel prayer) {

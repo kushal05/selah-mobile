@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 
+import '../../../features/bible/domain/models/bible_reference.dart';
 import '../sync_database.dart';
 import 'note_fts_query_builder.dart';
 
@@ -145,7 +146,12 @@ class NoteBlockFtsService {
     try {
       final map = jsonDecode(contentJsonStr) as Map<String, dynamic>;
       if (map.containsKey('text')) {
-        return (map['text'] as String?) ?? '';
+        final text = (map['text'] as String?) ?? '';
+        // Bible reference blocks store their whole JSON payload in 'text'.
+        // Indexing that verbatim makes keys like "insertedAt" and "pending"
+        // match user searches and buries the actual verse text, so index a
+        // readable reference instead.
+        return BibleReference.tryParse(text)?.plainSummary ?? text;
       }
       if (map.containsKey('spans')) {
         final spans = map['spans'] as List?;

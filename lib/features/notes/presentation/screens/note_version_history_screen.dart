@@ -351,7 +351,9 @@ class _RevisionTile extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
                     ...blocks.map((block) {
-                      final text = block.plainText;
+                      // displayText (not plainText): bible reference blocks
+                      // store JSON in content['text'].
+                      final text = block.displayText;
                       if (text.isEmpty &&
                           block.blockType.name == 'paragraph') {
                         return const SizedBox(height: 8);

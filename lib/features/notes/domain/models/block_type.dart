@@ -21,6 +21,15 @@ enum BlockType {
   /// Checkbox list item
   checkbox,
 
+  /// Block quote (indented, accented left border)
+  quote,
+
+  /// Code block (monospace, filled background)
+  code,
+
+  /// Table (non-editable card; content is JSON-encoded [NoteTable])
+  table,
+
   /// Bible reference (non-editable card)
   bibleReference,
 }
@@ -43,6 +52,12 @@ extension BlockTypeExtension on BlockType {
         return 'Numbered List';
       case BlockType.checkbox:
         return 'Checkbox';
+      case BlockType.quote:
+        return 'Quote';
+      case BlockType.code:
+        return 'Code Block';
+      case BlockType.table:
+        return 'Table';
       case BlockType.bibleReference:
         return 'Bible Reference';
     }
@@ -60,5 +75,15 @@ extension BlockTypeExtension on BlockType {
     return this == BlockType.heading1 ||
         this == BlockType.heading2 ||
         this == BlockType.heading3;
+  }
+
+  /// Whether this block stores structured JSON in `content` and renders as a
+  /// non-editable card.
+  ///
+  /// Atomic blocks have no caret and their `content` is NOT display text, so it
+  /// must never be concatenated with surrounding text (doing so both leaks JSON
+  /// into the note and destroys the block's data).
+  bool get isAtomic {
+    return this == BlockType.table || this == BlockType.bibleReference;
   }
 }

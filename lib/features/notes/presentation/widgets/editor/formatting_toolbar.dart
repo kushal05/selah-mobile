@@ -106,6 +106,16 @@ class FormattingToolbar extends ConsumerWidget {
                 tooltip: 'Checkbox',
                 onPressed: () => _changeBlockType(ref, BlockType.checkbox),
               ),
+              _FormatButton(
+                icon: Icons.format_quote,
+                tooltip: 'Quote',
+                onPressed: () => _changeBlockType(ref, BlockType.quote),
+              ),
+              _FormatButton(
+                icon: Icons.code,
+                tooltip: 'Code Block',
+                onPressed: () => _changeBlockType(ref, BlockType.code),
+              ),
 
               // Indent/Outdent buttons (only for list blocks)
               if (_isListBlock(ref)) ...[

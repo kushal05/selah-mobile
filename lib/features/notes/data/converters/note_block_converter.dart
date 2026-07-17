@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import '../../domain/models/block_type.dart' as domain;
 import '../../domain/models/editor_block.dart';
 import '../../domain/models/editor_document.dart';
 import '../../domain/models/note.dart' as domain;
 import '../../domain/models/note_section.dart';
+import '../../domain/models/note_table.dart';
 import '../../domain/models/text_span_format.dart';
 import '../../../../core/sync/models/note_block_model.dart';
 import '../../../../core/sync/models/note_model.dart';
@@ -15,6 +18,30 @@ class NoteBlockConverter {
   static EditorBlock toEditorBlock(NoteBlockModel blockModel) {
     final content = blockModel.content;
     final text = content['text'] as String? ?? '';
+
+    // Tables keep their structure in an additive 'table' key (see
+    // [buildContentMap]) so older clients degrade to readable text.
+    if (_syncBlockTypeToDomain(blockModel.blockType) ==
+        domain.BlockType.table) {
+      final raw = content['table'];
+      if (raw is Map<String, dynamic>) {
+        return EditorBlock(
+          id: blockModel.id,
+          type: domain.BlockType.table,
+          content: jsonEncode(raw),
+          section: NoteSection.fromDbValue(blockModel.section),
+        );
+      }
+      // Structure is gone (e.g. the block was rewritten by a client that
+      // didn't understand tables) — keep whatever text survived rather than
+      // rendering an invisible empty table.
+      return EditorBlock(
+        id: blockModel.id,
+        type: domain.BlockType.paragraph,
+        content: text,
+        section: NoteSection.fromDbValue(blockModel.section),
+      );
+    }
 
     // Parse formatting spans
     final formatsList = content['formats'] as List<dynamic>?;
@@ -39,6 +66,23 @@ class NoteBlockConverter {
 
   /// Convert an [EditorBlock] (domain) → content map for [NoteBlockModel]
   static Map<String, dynamic> buildContentMap(EditorBlock block) {
+    // Tables are a NEWER block type: clients that predate it map 'table' to
+    // paragraph and render content['text']. Putting the raw JSON there would
+    // show them a wall of braces AND invite them to edit (and thereby destroy)
+    // it. So 'text' carries readable cell text and the structure lives in an
+    // additive 'table' key that old clients simply ignore.
+    if (block.type == domain.BlockType.table) {
+      try {
+        final tableJson = jsonDecode(block.content) as Map<String, dynamic>;
+        return {
+          'text': NoteTable.fromJson(tableJson).plainText,
+          'table': tableJson,
+        };
+      } catch (_) {
+        return {'text': ''};
+      }
+    }
+
     // For bible reference blocks, content is already JSON-encoded
     if (block.type == domain.BlockType.bibleReference) {
       return {

@@ -139,7 +139,7 @@ class SyncDatabase extends _$SyncDatabase {
   SyncDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 32;
+  int get schemaVersion => 33;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -708,6 +708,19 @@ class SyncDatabase extends _$SyncDatabase {
                 "WHERE access_type != 'user' AND accepted_at IS NULL",
               );
             }
+          }
+
+          if (from < 33) {
+            // v33: Rebuild the note block FTS index.
+            //
+            // Bible reference blocks keep their JSON payload in content['text'],
+            // and the index stored that JSON verbatim — so searches matched
+            // internal keys ("insertedAt", "pending") and the verse text was
+            // buried. extractPlainText now unwraps them, but existing rows hold
+            // the old text, so re-index everything. Cheap and idempotent: the
+            // index is a derived copy that can always be rebuilt from blocks.
+            await customStatement('DELETE FROM note_blocks_fts');
+            await _backfillNoteBlocksFts();
           }
         },
         beforeOpen: (details) async {

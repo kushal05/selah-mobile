@@ -30,6 +30,10 @@ class FormattedTextEditingController extends TextEditingController {
       text: text,
       formats: _formats,
       baseStyle: style ?? const TextStyle(),
+      linkColor: Theme.of(context).colorScheme.primary,
+      // No recognizer inside an editable field: a tap must place the caret,
+      // not follow the link. Links are tappable in the read-only view.
+      recognizerBuilder: null,
     );
   }
 }
