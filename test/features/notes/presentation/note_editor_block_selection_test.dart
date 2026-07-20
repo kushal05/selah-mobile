@@ -2,7 +2,10 @@ import 'package:flutter/widgets.dart' show TextSelection;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:notify/features/notes/domain/models/block_type.dart';
+import 'package:notify/features/notes/domain/models/editor_block.dart';
 import 'package:notify/features/notes/domain/models/editor_cursor.dart';
+import 'package:notify/features/notes/domain/models/editor_document.dart';
+import 'package:notify/features/notes/domain/models/note_section.dart';
 import 'package:notify/features/notes/presentation/providers/note_editor_provider.dart';
 
 /// Exercises block range-selection and the undoable multi-block delete on a new
@@ -188,6 +191,34 @@ void main() {
         focus: EditorCursor(blockId: ids[0], offset: 3),
       ));
       expect(notifier.state.document.blocks.length, 2);
+    });
+
+    test('preserves an interleaved block from another section', () {
+      // Raw storage interleaves sections (as a DB load can): main, PA, main.
+      // On screen the two main blocks are adjacent (the PA block is in a
+      // separate section below), so selecting across them must NOT delete the PA
+      // block sitting between them in storage.
+      notifier.debugSetDocument(EditorDocument(blocks: const [
+        EditorBlock(
+            id: 'm0', type: BlockType.paragraph, content: 'hello',
+            section: NoteSection.main),
+        EditorBlock(
+            id: 'p0', type: BlockType.paragraph, content: 'personal',
+            section: NoteSection.personalApplication),
+        EditorBlock(
+            id: 'm1', type: BlockType.paragraph, content: 'world',
+            section: NoteSection.main),
+      ]));
+
+      notifier.deleteSelection(EditorSelection(
+        anchor: EditorCursor(blockId: 'm0', offset: 2), // "he|llo"
+        focus: EditorCursor(blockId: 'm1', offset: 3), // "wor|ld"
+      ));
+
+      final blocks = notifier.state.document.blocks;
+      expect(blocks.map((b) => b.content), ['held', 'personal']);
+      expect(blocks.map((b) => b.section),
+          [NoteSection.main, NoteSection.personalApplication]);
     });
 
     test('an atomic end block is dropped whole — no JSON leaks into text', () {

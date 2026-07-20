@@ -62,6 +62,58 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
   /// Anchor cursor of an in-progress cross-block text drag.
   EditorCursor? _dragTextAnchor;
 
+  /// Last global pointer position of the drag, so an auto-scroll tick can
+  /// re-extend the selection to whatever block scrolled under the finger.
+  Offset? _lastDragGlobal;
+
+  /// Auto-scrolls the enclosing scroll view when a selection drag reaches its
+  /// top/bottom edge.
+  EdgeDraggingAutoScroller? _autoScroller;
+
+  void _onSelectionDragStart(DragStartDetails details) {
+    _dragTextAnchor = _notifier.textCursorAt(details.globalPosition);
+    _lastDragGlobal = details.globalPosition;
+    final scrollable = Scrollable.maybeOf(context);
+    _autoScroller = scrollable == null
+        ? null
+        : EdgeDraggingAutoScroller(scrollable,
+            onScrollViewScrolled: _onAutoScrolled,
+            velocityScalar: 20); // scroll speed at the edge; tune on device
+  }
+
+  void _onSelectionDragUpdate(DragUpdateDetails details) {
+    _lastDragGlobal = details.globalPosition;
+    _extendSelectionTo(details.globalPosition);
+    // A 1px-wide, tall rect centred on the pointer — within ~60px of an edge
+    // starts the auto-scroll.
+    _autoScroller?.startAutoScrollIfNecessary(
+      Rect.fromCenter(center: details.globalPosition, width: 1, height: 120),
+    );
+  }
+
+  /// Re-extend the selection while the view auto-scrolls under a stationary
+  /// finger (the block under [_lastDragGlobal] changes as content moves).
+  void _onAutoScrolled() {
+    final g = _lastDragGlobal;
+    if (g != null) _extendSelectionTo(g);
+  }
+
+  void _extendSelectionTo(Offset global) {
+    final focus = _notifier.textCursorAt(global);
+    if (focus == null) return;
+    _notifier.selectBlockRange(focus.blockId);
+    if (_dragTextAnchor != null) {
+      _notifier.setTextRangeSelection(_dragTextAnchor!, focus);
+    }
+  }
+
+  void _endSelectionDrag() {
+    _autoScroller?.stopAutoScroll();
+    _autoScroller = null;
+    _dragTextAnchor = null;
+    _lastDragGlobal = null;
+  }
+
   /// Captured in initState so dispose (where `ref` is unusable) can still
   /// unregister the hit-test resolver. The provider is stable per noteId.
   late final NoteEditorNotifier _notifier;
@@ -248,27 +300,19 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
     );
 
     if (widget.isMultiSelectActive) {
-      final notifier = ref.read(noteEditorProvider(widget.noteId).notifier);
       // In multi-select mode: tap toggles this block; a vertical drag extends
       // the selection across the blocks it passes over. The drag builds both a
       // precise cross-block TEXT selection (for the partial-end highlight and a
-      // merging delete) and the whole-block range (for the action-bar count).
-      // The whole subtree is AbsorbPointer'd so the TextField ignores these.
+      // merging delete) and the whole-block range (for the action-bar count),
+      // and auto-scrolls when it reaches the viewport edges. The whole subtree
+      // is AbsorbPointer'd so the TextField ignores these.
       content = GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => notifier.toggleBlockSelection(widget.block.id),
-        onVerticalDragStart: (details) {
-          _dragTextAnchor = notifier.textCursorAt(details.globalPosition);
-        },
-        onVerticalDragUpdate: (details) {
-          final focus = notifier.textCursorAt(details.globalPosition);
-          if (focus == null) return;
-          notifier.selectBlockRange(focus.blockId);
-          if (_dragTextAnchor != null) {
-            notifier.setTextRangeSelection(_dragTextAnchor!, focus);
-          }
-        },
-        onVerticalDragEnd: (_) => _dragTextAnchor = null,
+        onTap: () => _notifier.toggleBlockSelection(widget.block.id),
+        onVerticalDragStart: _onSelectionDragStart,
+        onVerticalDragUpdate: _onSelectionDragUpdate,
+        onVerticalDragEnd: (_) => _endSelectionDrag(),
+        onVerticalDragCancel: _endSelectionDrag,
         child: AbsorbPointer(child: content),
       );
     } else {
@@ -778,6 +822,7 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
   @override
   void dispose() {
     _longPressTimer?.cancel();
+    _autoScroller?.stopAutoScroll();
     _focusNode.removeListener(_onFocusChange);
     _controller.removeListener(_onSelectionChange);
     _notifier.unregisterBlockTextHit(widget.block.id);

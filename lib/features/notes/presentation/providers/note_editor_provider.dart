@@ -395,6 +395,15 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     }
   }
 
+  /// Seed the document directly. The public editing methods keep sections
+  /// grouped, so this is the only way to reproduce the interleaved raw storage
+  /// order that a DB load can produce (used to test cross-section selection).
+  @visibleForTesting
+  void debugSetDocument(EditorDocument document) {
+    state = state.copyWith(document: document);
+    _initializeBlockControllers();
+  }
+
   // ==================== Title Operations ====================
 
   void updateTitle(String title) {
