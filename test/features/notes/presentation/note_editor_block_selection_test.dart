@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:notify/features/notes/domain/models/editor_cursor.dart';
 import 'package:notify/features/notes/presentation/providers/note_editor_provider.dart';
 
 /// Exercises block range-selection and the undoable multi-block delete on a new
@@ -98,6 +99,93 @@ void main() {
       }
       notifier.deleteSelectedBlocks();
       expect(notifier.state.document.blocks.length, 4);
+    });
+  });
+
+  group('deleteSelection (cross-block text selection)', () {
+    /// Seed blocks with the given contents by pasting them as newline-joined
+    /// text into the empty first block.
+    List<String> seedContents(List<String> contents) {
+      final id = notifier.state.document.blocks.first.id;
+      notifier.pasteText(
+        blockId: id,
+        selectionStart: 0,
+        selectionEnd: 0,
+        rawText: contents.join('\n'),
+      );
+      return notifier.state.document.blocks.map((b) => b.id).toList();
+    }
+
+    test('merges head of first and tail of last into one block', () {
+      final ids = seedContents(['hello', 'middle', 'world']);
+      // Select from "he|llo" through "wor|ld".
+      notifier.deleteSelection(EditorSelection(
+        anchor: EditorCursor(blockId: ids[0], offset: 2),
+        focus: EditorCursor(blockId: ids[2], offset: 3),
+      ));
+
+      final blocks = notifier.state.document.blocks;
+      expect(blocks.length, 1);
+      expect(blocks.first.content, 'held'); // "he" + "ld"
+    });
+
+    test('is undoable in one step', () {
+      final ids = seedContents(['hello', 'middle', 'world']);
+      notifier.deleteSelection(EditorSelection(
+        anchor: EditorCursor(blockId: ids[0], offset: 2),
+        focus: EditorCursor(blockId: ids[2], offset: 3),
+      ));
+      expect(notifier.state.document.blocks.length, 1);
+
+      notifier.undo();
+      expect(notifier.state.document.blocks.map((b) => b.content),
+          ['hello', 'middle', 'world']);
+    });
+
+    test('works regardless of anchor/focus direction', () {
+      final ids = seedContents(['hello', 'world']);
+      // Focus before anchor in document order.
+      notifier.deleteSelection(EditorSelection(
+        anchor: EditorCursor(blockId: ids[1], offset: 3),
+        focus: EditorCursor(blockId: ids[0], offset: 2),
+      ));
+      expect(notifier.state.document.blocks.single.content, 'held');
+    });
+
+    test('preserves and rebases formatting on both surviving fragments', () {
+      final ids = seedContents(['ABCD', 'WXYZ']);
+      // Bold "AB" (0..2) in the first block, bold "YZ" (2..4) in the second.
+      notifier.toggleFormat(blockId: ids[0], start: 0, end: 2, bold: true);
+      notifier.toggleFormat(blockId: ids[1], start: 2, end: 4, bold: true);
+
+      // Keep "ABC" of the first and "YZ" of the second → "ABCYZ".
+      notifier.deleteSelection(EditorSelection(
+        anchor: EditorCursor(blockId: ids[0], offset: 3),
+        focus: EditorCursor(blockId: ids[1], offset: 2),
+      ));
+
+      final merged = notifier.state.document.blocks.single;
+      expect(merged.content, 'ABCYZ');
+      // "AB" still bold at 0..2.
+      expect(
+          merged.formats.any((f) => f.isBold && f.start == 0 && f.end == 2),
+          true);
+      // "YZ" now at 3..5, still bold.
+      expect(
+          merged.formats.any((f) => f.isBold && f.start == 3 && f.end == 5),
+          true);
+    });
+
+    test('collapsed or single-block selection is a no-op', () {
+      final ids = seedContents(['hello', 'world']);
+      notifier.deleteSelection(EditorSelection.collapsed(
+        EditorCursor(blockId: ids[0], offset: 2),
+      ));
+      notifier.deleteSelection(EditorSelection(
+        anchor: EditorCursor(blockId: ids[0], offset: 1),
+        focus: EditorCursor(blockId: ids[0], offset: 3),
+      ));
+      expect(notifier.state.document.blocks.length, 2);
     });
   });
 }

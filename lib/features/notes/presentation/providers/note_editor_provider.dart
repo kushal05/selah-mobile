@@ -513,6 +513,60 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     return null;
   }
 
+  /// Delete a cross-block text [selection], merging the surviving head of the
+  /// first block with the surviving tail of the last into a single block.
+  /// Formatting on both surviving fragments is preserved and rebased. One
+  /// atomic, undoable operation (via [_spliceBlocks]).
+  ///
+  /// This is the model-level primitive behind Notion-style selection; the drag
+  /// hit-testing and painting that produce the [selection] are built on top.
+  ///
+  /// Collapsed or single-block selections are left to the block's own TextField
+  /// (native intra-block delete). Operates on raw document indices, which match
+  /// on-screen order for a selection within a section (the only case a text
+  /// drag can produce, since sections are visually separated).
+  void deleteSelection(EditorSelection selection) {
+    if (selection.isCollapsed || !selection.spansMultipleBlocks) return;
+
+    final ia = state.document.getBlockIndex(selection.anchor.blockId);
+    final ib = state.document.getBlockIndex(selection.focus.blockId);
+    if (ia == null || ib == null || ia == ib) return;
+
+    // Order the two ends by document position.
+    final startIdx = ia < ib ? ia : ib;
+    final endIdx = ia < ib ? ib : ia;
+    final startCursor = ia < ib ? selection.anchor : selection.focus;
+    final endCursor = ia < ib ? selection.focus : selection.anchor;
+
+    final startBlock = state.document.blocks[startIdx];
+    final endBlock = state.document.blocks[endIdx];
+    final startOff = startCursor.offset.clamp(0, startBlock.content.length);
+    final endOff = endCursor.offset.clamp(0, endBlock.content.length);
+
+    final head = startBlock.content.substring(0, startOff);
+    final tail = endBlock.content.substring(endOff);
+
+    // Head formats stay as-is (clipped to the surviving head); tail formats are
+    // clipped to the surviving tail and shifted to sit after the head.
+    final headFormats = _sliceFormats(startBlock.formats, 0, startOff);
+    final tailFormats = _shiftFormats(
+      _sliceFormats(endBlock.formats, endOff, endBlock.content.length),
+      head.length,
+    );
+
+    final merged = startBlock.copyWith(
+      content: head + tail,
+      formats: [...headFormats, ...tailFormats],
+    );
+
+    _spliceBlocks(
+      startIdx,
+      endIdx - startIdx + 1,
+      [merged],
+      cursorAfter: EditorCursor(blockId: merged.id, offset: head.length),
+    );
+  }
+
   /// Delete all currently selected blocks
   void deleteSelectedBlocks() {
     final ids = state.uiState.selectedBlockIds;
