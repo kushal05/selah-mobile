@@ -432,8 +432,13 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
 
   // ==================== Multi-Block Selection ====================
 
+  /// Anchor block for a drag/range selection — the block selection started
+  /// from. Extends are computed relative to this in [selectBlockRange].
+  String? _selectionAnchorId;
+
   /// Toggle a block's selection state. Long-press initiates selection mode;
-  /// subsequent taps toggle individual blocks.
+  /// subsequent taps toggle individual blocks. The toggled block becomes the
+  /// anchor for a subsequent drag-extend.
   void toggleBlockSelection(String blockId) {
     if (state.document.getBlockById(blockId) == null) return;
 
@@ -443,18 +448,69 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     } else {
       current.add(blockId);
     }
+    _selectionAnchorId = current.isEmpty ? null : blockId;
 
     state = state.copyWith(
       uiState: state.uiState.copyWith(selectedBlockIds: current),
     );
   }
 
+  /// Select every block from the current anchor through [focusId], inclusive,
+  /// in on-screen ([EditorDocument.orderedBlocks]) order. Used by drag-extend:
+  /// the anchor is set by the [toggleBlockSelection] that began the selection,
+  /// falling back to [focusId] itself. No-op if nothing changes, so it's safe
+  /// to call on every drag-move frame.
+  void selectBlockRange(String focusId) {
+    final ordered = state.document.orderedBlocks;
+    final anchorId = _selectionAnchorId ?? focusId;
+    final a = ordered.indexWhere((b) => b.id == anchorId);
+    final f = ordered.indexWhere((b) => b.id == focusId);
+    if (a < 0 || f < 0) return;
+
+    final lo = a < f ? a : f;
+    final hi = a < f ? f : a;
+    final ids = <String>{for (var i = lo; i <= hi; i++) ordered[i].id};
+
+    _selectionAnchorId ??= anchorId;
+
+    // Skip the rebuild if the selection is unchanged — this runs per drag frame.
+    final current = state.uiState.selectedBlockIds;
+    if (ids.length == current.length && ids.containsAll(current)) return;
+
+    state = state.copyWith(
+      uiState: state.uiState.copyWith(selectedBlockIds: ids),
+    );
+  }
+
   /// Clear multi-block selection
   void clearBlockSelection() {
+    _selectionAnchorId = null;
     if (state.uiState.selectedBlockIds.isEmpty) return;
     state = state.copyWith(
       uiState: state.uiState.copyWith(selectedBlockIds: const {}),
     );
+  }
+
+  /// GlobalKeys attached to each block's on-screen box, used to hit-test which
+  /// block a drag-extend pointer is over. Stale entries (deleted blocks) have a
+  /// null `currentContext` and are skipped, so they're harmless.
+  final Map<String, GlobalKey> _blockHitKeys = {};
+
+  /// Stable hit-test key for [blockId]'s outer box.
+  GlobalKey blockHitKey(String blockId) =>
+      _blockHitKeys.putIfAbsent(blockId, () => GlobalKey());
+
+  /// The block whose on-screen box vertically contains [globalY], or null.
+  /// Vertical-only matching so a finger drifting sideways during a drag still
+  /// resolves to the row it's over.
+  String? blockAtGlobalY(double globalY) {
+    for (final entry in _blockHitKeys.entries) {
+      final box = entry.value.currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.attached) continue;
+      final top = box.localToGlobal(Offset.zero).dy;
+      if (globalY >= top && globalY < top + box.size.height) return entry.key;
+    }
+    return null;
   }
 
   /// Delete all currently selected blocks

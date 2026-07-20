@@ -193,13 +193,17 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
     );
 
     if (widget.isMultiSelectActive) {
-      // In multi-select mode, intercept all taps to toggle selection
+      final notifier = ref.read(noteEditorProvider(widget.noteId).notifier);
+      // In multi-select mode: tap toggles this block; a vertical drag extends
+      // the selection across the blocks it passes over (hit-tested by the
+      // provider's block-box registry). The whole subtree is AbsorbPointer'd so
+      // the TextField underneath ignores these gestures.
       content = GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () {
-          ref
-              .read(noteEditorProvider(widget.noteId).notifier)
-              .toggleBlockSelection(widget.block.id);
+        onTap: () => notifier.toggleBlockSelection(widget.block.id),
+        onVerticalDragUpdate: (details) {
+          final targetId = notifier.blockAtGlobalY(details.globalPosition.dy);
+          if (targetId != null) notifier.selectBlockRange(targetId);
         },
         child: AbsorbPointer(child: content),
       );
@@ -222,7 +226,13 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
       );
     }
 
-    return content;
+    // Stable key on the outer box so drag-extend can hit-test which block a
+    // pointer is over, in any section.
+    return KeyedSubtree(
+      key: ref.read(noteEditorProvider(widget.noteId).notifier)
+          .blockHitKey(widget.block.id),
+      child: content,
+    );
   }
 
   Widget _buildBlockContent() {

@@ -208,6 +208,15 @@ class EditorDocument extends Equatable {
 
   // ==================== Section Operations ====================
 
+  /// All blocks in the order they appear on screen: every [NoteSection] in
+  /// enum order (main → personalApplication → prayer), and within each section
+  /// their document order. The raw [blocks] list can interleave sections after
+  /// a load, so cross-block features (range selection, ranged delete) must use
+  /// this ordering rather than [blocks] directly.
+  List<EditorBlock> get orderedBlocks => [
+        for (final section in NoteSection.values) ...getBlocksForSection(section),
+      ];
+
   /// Get all blocks for a specific section
   List<EditorBlock> getBlocksForSection(NoteSection section) {
     return blocks.where((b) => b.section == section).toList();
