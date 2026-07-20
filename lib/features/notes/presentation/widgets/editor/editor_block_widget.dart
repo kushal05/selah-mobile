@@ -665,7 +665,8 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
     // splitBlock handles all the logic:
     // - Empty list item: outdent (if nested) or convert to paragraph (if top-level)
     // - Non-empty: split at cursor position, new block inherits list type and indent level
-    notifier.splitBlock(widget.block.id, selection.start);
+    // selection.end drops any selected text, which Enter replaces.
+    notifier.splitBlock(widget.block.id, selection.start, selection.end);
   }
 
   @override

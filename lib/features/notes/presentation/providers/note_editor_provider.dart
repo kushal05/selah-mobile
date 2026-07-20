@@ -462,38 +462,52 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     final ids = state.uiState.selectedBlockIds;
     if (ids.isEmpty) return;
 
-    // Keep at least one block in the document
-    final remainingCount = state.document.blockCount - ids.length;
-    if (remainingCount < 1) return;
+    final blocks = state.document.blocks;
+    final selectedIndices = <int>[
+      for (var i = 0; i < blocks.length; i++)
+        if (ids.contains(blocks[i].id)) i,
+    ];
+    if (selectedIndices.isEmpty) return;
 
-    var updatedDocument = state.document;
-    for (final id in ids) {
-      if (updatedDocument.getBlockById(id) == null) continue;
-      // Clean up controllers
-      _blockControllers[id]?.dispose();
-      _blockControllers.remove(id);
-      _blockFocusNodes[id]?.dispose();
-      _blockFocusNodes.remove(id);
-      _committedContent.remove(id);
-      _committedCursorOffset.remove(id);
-      updatedDocument = updatedDocument.deleteBlock(id);
+    // Keep at least one block in the document
+    if (blocks.length - selectedIndices.length < 1) return;
+
+    final first = selectedIndices.first;
+    final last = selectedIndices.last;
+
+    // Splice the whole selected span in one go, re-inserting the blocks inside
+    // it that weren't selected. Doing it as a single splice keeps this one
+    // atomic undo step even when the selection isn't contiguous — the previous
+    // implementation deleted block-by-block and pushed no undo entry at all.
+    final kept = <EditorBlock>[
+      for (var i = first; i <= last; i++)
+        if (!ids.contains(blocks[i].id)) blocks[i],
+    ];
+
+    // Caret lands on the first surviving block: a kept block inside the span,
+    // else the block just before it, else the one just after.
+    final EditorBlock caretBlock;
+    if (kept.isNotEmpty) {
+      caretBlock = kept.first;
+    } else if (first > 0) {
+      caretBlock = blocks[first - 1];
+    } else {
+      // Not every block can be selected (guarded above), so this exists.
+      caretBlock = blocks[last + 1];
     }
 
-    // Move cursor to first remaining block
-    final firstBlock = updatedDocument.blocks.first;
-    final newCursor = EditorCursor.atStart(firstBlock.id);
+    // _spliceBlocks handles the document, controllers, focus-before-dispose,
+    // cursor, save and the undo entry.
+    _spliceBlocks(
+      first,
+      last - first + 1,
+      kept,
+      cursorAfter: EditorCursor.atEnd(caretBlock.id, caretBlock.content.length),
+    );
 
     state = state.copyWith(
-      document: updatedDocument,
-      cursor: newCursor,
-      selection: EditorSelection.collapsed(newCursor),
-      isDirty: true,
-      uiState: state.uiState.copyWith(
-        selectedBlockIds: const {},
-        focusedBlockId: firstBlock.id,
-      ),
+      uiState: state.uiState.copyWith(selectedBlockIds: const {}),
     );
-    _scheduleSave();
   }
 
   /// Focus the last block in the document and position cursor at the end
@@ -791,7 +805,13 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     _committedCursorOffset[blockId] = cursorAfter;
   }
 
-  void splitBlock(String blockId, int offset) {
+  /// Split [blockId] at [offset].
+  ///
+  /// When [selectionEnd] is given and is past [offset], the text in
+  /// [offset]..[selectionEnd] is a selection being replaced by the Enter and is
+  /// dropped — otherwise pressing Enter over selected text would keep it and
+  /// just push it into the new block.
+  void splitBlock(String blockId, int offset, [int? selectionEnd]) {
     // Commit any pending text changes first
     _commitTextChanges(blockId);
 
@@ -814,12 +834,14 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
       }
     }
 
-    // Split the content at the cursor.
+    // Split the content at the cursor, dropping any selected range.
+    final start = offset.clamp(0, block.content.length);
+    final end = (selectionEnd ?? start).clamp(start, block.content.length);
     _splitBlockInto(
       block,
-      block.content.substring(0, offset),
-      block.content.substring(offset),
-      splitOffset: offset,
+      block.content.substring(0, start),
+      block.content.substring(end),
+      splitOffset: start,
     );
   }
 
