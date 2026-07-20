@@ -70,9 +70,17 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
   /// top/bottom edge.
   EdgeDraggingAutoScroller? _autoScroller;
 
-  void _onSelectionDragStart(DragStartDetails details) {
-    _dragTextAnchor = _notifier.textCursorAt(details.globalPosition);
-    _lastDragGlobal = details.globalPosition;
+  /// True once a long-press has entered selection mode and pointer moves are
+  /// extending the selection — the continuous half of a long-press→drag.
+  bool _selectionDragActive = false;
+
+  /// Begin extending a selection from [global] (long-press origin, or the point
+  /// a drag started from in an already-active selection). Sets the text anchor
+  /// and arms edge auto-scroll.
+  void _beginSelectionDrag(Offset global) {
+    _selectionDragActive = true;
+    _dragTextAnchor = _notifier.textCursorAt(global);
+    _lastDragGlobal = global;
     final scrollable = Scrollable.maybeOf(context);
     _autoScroller = scrollable == null
         ? null
@@ -81,13 +89,13 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
             velocityScalar: 20); // scroll speed at the edge; tune on device
   }
 
-  void _onSelectionDragUpdate(DragUpdateDetails details) {
-    _lastDragGlobal = details.globalPosition;
-    _extendSelectionTo(details.globalPosition);
+  void _updateSelectionDrag(Offset global) {
+    _lastDragGlobal = global;
+    _extendSelectionTo(global);
     // A 1px-wide, tall rect centred on the pointer — within ~60px of an edge
     // starts the auto-scroll.
     _autoScroller?.startAutoScrollIfNecessary(
-      Rect.fromCenter(center: details.globalPosition, width: 1, height: 120),
+      Rect.fromCenter(center: global, width: 1, height: 120),
     );
   }
 
@@ -112,6 +120,7 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
     _autoScroller = null;
     _dragTextAnchor = null;
     _lastDragGlobal = null;
+    _selectionDragActive = false;
   }
 
   /// Captured in initState so dispose (where `ref` is unusable) can still
@@ -256,22 +265,44 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
   static const _kMoveSlop = 10.0; // px of movement before cancelling
   Offset? _pointerDownPosition;
 
+  // Everything below drives block/text selection from one continuous pointer
+  // stream via a Listener that is present in BOTH modes. Keeping the same
+  // widget across the multi-select flip is what lets a long-press flow straight
+  // into a drag without lifting: the pointer that started the long-press keeps
+  // delivering moves to the same Listener. The Listener is passive (never
+  // enters the gesture arena), so the TextField's own tap/double-tap still work
+  // when not selecting; an inner IgnorePointer neutralises it while selecting.
+
   void _onPointerDown(PointerDownEvent event) {
-    if (widget.isMultiSelectActive) return;
     _pointerDownPosition = event.position;
+    if (widget.isMultiSelectActive) return;
+    // Arm the long-press that ENTERS selection mode on this block.
     _longPressTimer?.cancel();
     _longPressTimer = Timer(_kLongPressDuration, () {
       HapticFeedback.mediumImpact();
-      ref
-          .read(noteEditorProvider(widget.noteId).notifier)
-          .toggleBlockSelection(widget.block.id);
+      _notifier.toggleBlockSelection(widget.block.id);
+      _beginSelectionDrag(_pointerDownPosition ?? event.position);
     });
   }
 
   void _onPointerMove(PointerMoveEvent event) {
-    if (_longPressTimer == null || _pointerDownPosition == null) return;
-    final distance = (event.position - _pointerDownPosition!).distance;
-    if (distance > _kMoveSlop) {
+    // Continuous drag after a long-press (or a drag begun in select mode).
+    if (_selectionDragActive) {
+      _updateSelectionDrag(event.position);
+      return;
+    }
+    if (_pointerDownPosition == null) return;
+    final moved =
+        (event.position - _pointerDownPosition!).distance > _kMoveSlop;
+    if (widget.isMultiSelectActive) {
+      // Already selecting: a drag from a block starts extending the range.
+      if (moved) {
+        _beginSelectionDrag(_pointerDownPosition!);
+        _updateSelectionDrag(event.position);
+      }
+    } else if (moved) {
+      // Moved before the long-press fired → it's a scroll/gesture, not a
+      // selection. Cancel the pending long-press.
       _longPressTimer?.cancel();
       _longPressTimer = null;
     }
@@ -280,11 +311,20 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
   void _onPointerUp(PointerUpEvent event) {
     _longPressTimer?.cancel();
     _longPressTimer = null;
+    if (_selectionDragActive) {
+      _endSelectionDrag();
+    } else if (widget.isMultiSelectActive && _pointerDownPosition != null) {
+      // A tap while selecting toggles this block.
+      _notifier.toggleBlockSelection(widget.block.id);
+    }
+    _pointerDownPosition = null;
   }
 
   void _onPointerCancel(PointerCancelEvent event) {
     _longPressTimer?.cancel();
     _longPressTimer = null;
+    if (_selectionDragActive) _endSelectionDrag();
+    _pointerDownPosition = null;
   }
 
   @override
@@ -299,32 +339,23 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
       child: _buildBlockContent(),
     );
 
-    if (widget.isMultiSelectActive) {
-      // In multi-select mode: tap toggles this block; a vertical drag extends
-      // the selection across the blocks it passes over. The drag builds both a
-      // precise cross-block TEXT selection (for the partial-end highlight and a
-      // merging delete) and the whole-block range (for the action-bar count),
-      // and auto-scrolls when it reaches the viewport edges. The whole subtree
-      // is AbsorbPointer'd so the TextField ignores these.
-      content = GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => _notifier.toggleBlockSelection(widget.block.id),
-        onVerticalDragStart: _onSelectionDragStart,
-        onVerticalDragUpdate: _onSelectionDragUpdate,
-        onVerticalDragEnd: (_) => _endSelectionDrag(),
-        onVerticalDragCancel: _endSelectionDrag,
-        child: AbsorbPointer(child: content),
-      );
-    } else {
-      // Use Listener to detect long-press without losing gesture arena to TextField
-      content = Listener(
-        onPointerDown: _onPointerDown,
-        onPointerMove: _onPointerMove,
-        onPointerUp: _onPointerUp,
-        onPointerCancel: _onPointerCancel,
+    // One Listener in BOTH modes so a long-press flows straight into a drag
+    // (same widget → uninterrupted pointer stream). The Listener is passive, so
+    // the TextField keeps its own tap/double-tap when not selecting; the inner
+    // IgnorePointer neutralises the TextField while a selection is active.
+    content = Listener(
+      // Opaque so the Listener still receives pointer events while selecting,
+      // when the inner IgnorePointer makes the child untappable.
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: _onPointerDown,
+      onPointerMove: _onPointerMove,
+      onPointerUp: _onPointerUp,
+      onPointerCancel: _onPointerCancel,
+      child: IgnorePointer(
+        ignoring: widget.isMultiSelectActive,
         child: content,
-      );
-    }
+      ),
+    );
 
     // Selection highlight. A precise text-range highlight (painted inside the
     // TextField) takes precedence; otherwise the subtle whole-block tint.
