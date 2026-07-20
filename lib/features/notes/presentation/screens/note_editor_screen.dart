@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show Clipboard, ClipboardData, SystemChannels;
+import 'package:flutter/services.dart'
+    show
+        Clipboard,
+        ClipboardData,
+        KeyDownEvent,
+        KeyEvent,
+        LogicalKeyboardKey,
+        SystemChannels;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/sync/providers/sync_providers.dart';
@@ -32,6 +39,12 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
   final _titleController = TextEditingController();
   final _titleFocusNode = FocusNode();
   final _scrollController = ScrollController();
+
+  /// Holds keyboard focus while a block selection is active so a hardware
+  /// Backspace/Delete can delete the selection. (On a soft keyboard the
+  /// selection dismisses the text field, so the action-bar Delete button is the
+  /// path there — a soft keyboard can't send Backspace with no field focused.)
+  final _selectionFocusNode = FocusNode(debugLabel: 'blockSelection');
 
   bool _isKeyboardVisible = false;
   bool _titleInitialized = false;
@@ -98,7 +111,24 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
     _titleController.dispose();
     _titleFocusNode.dispose();
     _scrollController.dispose();
+    _selectionFocusNode.dispose();
     super.dispose();
+  }
+
+  /// Delete the block selection on a hardware Backspace/Delete. Guarded by the
+  /// selection being non-empty, so it never interferes with normal editing (a
+  /// key event bubbling up from a focused TextField is ignored here).
+  KeyEventResult _handleSelectionKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final selected =
+        ref.read(noteEditorProvider(widget.noteId)).uiState.selectedBlockIds;
+    if (selected.isEmpty) return KeyEventResult.ignored;
+    if (event.logicalKey == LogicalKeyboardKey.backspace ||
+        event.logicalKey == LogicalKeyboardKey.delete) {
+      ref.read(noteEditorProvider(widget.noteId).notifier).deleteSelectedBlocks();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   @override
@@ -126,6 +156,18 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
             !(previous?.uiState.showBibleReferencePicker ?? false) &&
             !_isPickerShowing) {
           _showBibleReferencePicker();
+        }
+
+        // 2b) When a block selection becomes active, take keyboard focus so a
+        // hardware Backspace/Delete deletes it. (This also dismisses the soft
+        // keyboard, which matches entering block-selection mode.)
+        final wasSelecting =
+            previous?.uiState.selectedBlockIds.isNotEmpty ?? false;
+        final isSelecting = next.uiState.selectedBlockIds.isNotEmpty;
+        if (isSelecting && !wasSelecting) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _selectionFocusNode.requestFocus();
+          });
         }
 
         // 3) Scroll to keep focused block visible
@@ -168,7 +210,14 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
     return Scaffold(
       appBar: _buildAppBar(context, editorState),
       body: SafeArea(
-        child: Stack(
+        // Focus wrapper: catches hardware Backspace/Delete while a block
+        // selection is active. skipTraversal + guarded handler means it never
+        // interferes with normal text editing.
+        child: Focus(
+          focusNode: _selectionFocusNode,
+          skipTraversal: true,
+          onKeyEvent: _handleSelectionKey,
+          child: Stack(
           children: [
             // Main editor content
             SingleChildScrollView(
@@ -244,6 +293,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
                 ),
               ),
           ],
+          ),
         ),
       ),
     );
