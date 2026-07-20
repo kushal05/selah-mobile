@@ -581,20 +581,21 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     final sel = activeTextSelection;
     if (sel == null) return null;
 
-    final ia = state.document.getBlockIndex(sel.anchor.blockId);
-    final ib = state.document.getBlockIndex(sel.focus.blockId);
-    final ii = state.document.getBlockIndex(blockId);
-    if (ia == null || ib == null || ii == null) return null;
+    final ordered = state.document.orderedBlocks;
+    final ia = ordered.indexWhere((b) => b.id == sel.anchor.blockId);
+    final ib = ordered.indexWhere((b) => b.id == sel.focus.blockId);
+    final ii = ordered.indexWhere((b) => b.id == blockId);
+    if (ia < 0 || ib < 0 || ii < 0) return null;
 
-    final startIdx = ia < ib ? ia : ib;
-    final endIdx = ia < ib ? ib : ia;
-    if (ii < startIdx || ii > endIdx) return null;
+    final lo = ia < ib ? ia : ib;
+    final hi = ia < ib ? ib : ia;
+    if (ii < lo || ii > hi) return null;
 
     final startCur = ia < ib ? sel.anchor : sel.focus;
     final endCur = ia < ib ? sel.focus : sel.anchor;
-    final len = state.document.blocks[ii].content.length;
-    final from = ii == startIdx ? startCur.offset.clamp(0, len) : 0;
-    final to = ii == endIdx ? endCur.offset.clamp(0, len) : len;
+    final len = ordered[ii].content.length;
+    final from = ii == lo ? startCur.offset.clamp(0, len) : 0;
+    final to = ii == hi ? endCur.offset.clamp(0, len) : len;
 
     return TextSelection(
       baseOffset: from < to ? from : to,
@@ -611,24 +612,25 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
   /// hit-testing and painting that produce the [selection] are built on top.
   ///
   /// Collapsed or single-block selections are left to the block's own TextField
-  /// (native intra-block delete). Operates on raw document indices, which match
-  /// on-screen order for a selection within a section (the only case a text
-  /// drag can produce, since sections are visually separated).
+  /// (native intra-block delete). Works in on-screen ([EditorDocument.
+  /// orderedBlocks]) order and preserves any non-selected blocks that happen to
+  /// be interleaved between the selected ones in raw storage.
   void deleteSelection(EditorSelection selection) {
     if (selection.isCollapsed || !selection.spansMultipleBlocks) return;
 
-    final ia = state.document.getBlockIndex(selection.anchor.blockId);
-    final ib = state.document.getBlockIndex(selection.focus.blockId);
-    if (ia == null || ib == null || ia == ib) return;
+    final ordered = state.document.orderedBlocks;
+    final ia = ordered.indexWhere((b) => b.id == selection.anchor.blockId);
+    final ib = ordered.indexWhere((b) => b.id == selection.focus.blockId);
+    if (ia < 0 || ib < 0 || ia == ib) return;
 
-    // Order the two ends by document position.
-    final startIdx = ia < ib ? ia : ib;
-    final endIdx = ia < ib ? ib : ia;
+    // Order the two ends by on-screen position.
+    final lo = ia < ib ? ia : ib;
+    final hi = ia < ib ? ib : ia;
     final startCursor = ia < ib ? selection.anchor : selection.focus;
     final endCursor = ia < ib ? selection.focus : selection.anchor;
 
-    final startBlock = state.document.blocks[startIdx];
-    final endBlock = state.document.blocks[endIdx];
+    final startBlock = ordered[lo];
+    final endBlock = ordered[hi];
 
     // Atomic blocks (table, Bible reference) store JSON in `content`, not text —
     // slicing it would merge JSON into a text block. So an atomic end block is
@@ -663,10 +665,31 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
       formats: [...headFormats, ...tailFormats],
     );
 
+    // Map the on-screen selection onto raw storage. The selected blocks may be
+    // non-contiguous in `blocks` if sections interleave after a load, so splice
+    // the whole raw span [rawMin..rawMax] and re-insert the merged block plus
+    // any non-selected blocks caught in between (in their original order).
+    final selectedIds = {for (var i = lo; i <= hi; i++) ordered[i].id};
+    final raw = state.document.blocks;
+    final rawIndices = [
+      for (var i = 0; i < raw.length; i++)
+        if (selectedIds.contains(raw[i].id)) i,
+    ];
+    final rawMin = rawIndices.first;
+    final rawMax = rawIndices.last;
+
+    final replacement = <EditorBlock>[
+      for (var i = rawMin; i <= rawMax; i++)
+        if (raw[i].id == startBlock.id)
+          merged
+        else if (!selectedIds.contains(raw[i].id))
+          raw[i],
+    ];
+
     _spliceBlocks(
-      startIdx,
-      endIdx - startIdx + 1,
-      [merged],
+      rawMin,
+      rawMax - rawMin + 1,
+      replacement,
       cursorAfter: EditorCursor(blockId: merged.id, offset: head.length),
     );
   }

@@ -224,6 +224,12 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
             // Main editor content
             SingleChildScrollView(
               controller: _scrollController,
+              // While a block/text selection is active, lock scrolling so the
+              // selection drag wins the gesture arena instead of the scroll
+              // view. (Selecting beyond the viewport would need auto-scroll.)
+              physics: editorState.uiState.isMultiSelectActive
+                  ? const NeverScrollableScrollPhysics()
+                  : null,
               padding: EdgeInsets.only(
                 left: 16,
                 right: 16,

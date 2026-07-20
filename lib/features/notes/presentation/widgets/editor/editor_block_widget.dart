@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderEditable;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -84,18 +85,34 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
     }
   }
 
-  /// Map a global point to a text offset within this block's content, using a
-  /// TextPainter that mirrors the field's style/width. May be a character off
-  /// from the TextField's own layout at the very edges (device-tuning item).
+  /// Map a global point to a text offset within this block's content.
+  ///
+  /// Prefers the field's own [RenderEditable] (its exact laid-out glyph
+  /// metrics); falls back to a mirrored TextPainter only if the editable can't
+  /// be located (e.g. an atomic block with no TextField).
   int _textOffsetAtGlobal(Offset global) {
-    final box = _textFieldKey.currentContext?.findRenderObject();
-    if (box is! RenderBox || !box.attached) return 0;
-    final local = box.globalToLocal(global);
+    final root = _textFieldKey.currentContext?.findRenderObject();
+    final editable = _findRenderEditable(root);
+    if (editable != null && editable.attached) {
+      return editable.getPositionForPoint(global).offset;
+    }
+    if (root is! RenderBox || !root.attached) return 0;
     final tp = TextPainter(
       text: TextSpan(text: _controller.text, style: _effectiveTextStyle),
       textDirection: TextDirection.ltr,
-    )..layout(maxWidth: box.size.width);
-    return tp.getPositionForOffset(local).offset;
+    )..layout(maxWidth: root.size.width);
+    return tp.getPositionForOffset(root.globalToLocal(global)).offset;
+  }
+
+  /// Depth-first search for the [RenderEditable] under [node] (the TextField's
+  /// inner editable), so hit-testing uses the field's real text layout.
+  RenderEditable? _findRenderEditable(RenderObject? node) {
+    if (node is RenderEditable) return node;
+    RenderEditable? found;
+    node?.visitChildren((child) {
+      found ??= _findRenderEditable(child);
+    });
+    return found;
   }
 
   void _onSelectionChange() {
@@ -617,16 +634,21 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
     if (highlight == null || highlight.isCollapsed) return field;
 
     // Paint the cross-block text-selection highlight behind the text. The
-    // painter lays out with the same style/width as the field, so the boxes
-    // align with the rendered glyphs.
+    // painter lays out the field's OWN formatted span with the same text-scaler
+    // and width, so the boxes align with the rendered (bold/italic) glyphs.
+    final span = formattedController.buildTextSpan(
+      context: context,
+      style: effectiveStyle,
+      withComposing: false,
+    );
     return Stack(
       children: [
         Positioned.fill(
           child: IgnorePointer(
             child: CustomPaint(
               painter: _SelectionHighlightPainter(
-                text: _controller.text,
-                style: effectiveStyle,
+                span: span,
+                textScaler: MediaQuery.textScalerOf(context),
                 selection: highlight,
                 color: theme.colorScheme.primary.withValues(alpha: 0.28),
               ),
@@ -763,26 +785,28 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
   }
 }
 
-/// Paints the highlight rectangles for [selection] over a block's text, laid
-/// out with the same [style]/width as the field so the boxes line up.
+/// Paints the highlight rectangles for [selection] over a block's text, laying
+/// out the field's own formatted [span] with the same [textScaler] and width so
+/// the boxes line up with the rendered glyphs.
 class _SelectionHighlightPainter extends CustomPainter {
   const _SelectionHighlightPainter({
-    required this.text,
-    required this.style,
+    required this.span,
+    required this.textScaler,
     required this.selection,
     required this.color,
   });
 
-  final String text;
-  final TextStyle style;
+  final InlineSpan span;
+  final TextScaler textScaler;
   final TextSelection selection;
   final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (selection.isCollapsed || text.isEmpty) return;
+    if (selection.isCollapsed) return;
     final tp = TextPainter(
-      text: TextSpan(text: text, style: style),
+      text: span,
+      textScaler: textScaler,
       textDirection: TextDirection.ltr,
     )..layout(maxWidth: size.width);
     final paint = Paint()..color = color;
@@ -793,8 +817,8 @@ class _SelectionHighlightPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_SelectionHighlightPainter old) =>
-      text != old.text ||
-      style != old.style ||
+      span != old.span ||
+      textScaler != old.textScaler ||
       selection != old.selection ||
       color != old.color;
 }
