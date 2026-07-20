@@ -450,7 +450,13 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     }
     _selectionAnchorId = current.isEmpty ? null : blockId;
 
+    // A tap is a block-level action; drop any live cross-block TEXT range so a
+    // stale highlight/range from a previous drag can't linger or be deleted.
+    final selection = state.selection.isCollapsed
+        ? state.selection
+        : EditorSelection.collapsed(state.cursor);
     state = state.copyWith(
+      selection: selection,
       uiState: state.uiState.copyWith(selectedBlockIds: current),
     );
   }
@@ -623,21 +629,36 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
 
     final startBlock = state.document.blocks[startIdx];
     final endBlock = state.document.blocks[endIdx];
+
+    // Atomic blocks (table, Bible reference) store JSON in `content`, not text —
+    // slicing it would merge JSON into a text block. So an atomic end block is
+    // dropped whole rather than partially preserved.
+    final startAtomic = startBlock.type.isAtomic;
+    final endAtomic = endBlock.type.isAtomic;
+
     final startOff = startCursor.offset.clamp(0, startBlock.content.length);
     final endOff = endCursor.offset.clamp(0, endBlock.content.length);
 
-    final head = startBlock.content.substring(0, startOff);
-    final tail = endBlock.content.substring(endOff);
+    final head = startAtomic ? '' : startBlock.content.substring(0, startOff);
+    final tail = endAtomic ? '' : endBlock.content.substring(endOff);
 
     // Head formats stay as-is (clipped to the surviving head); tail formats are
     // clipped to the surviving tail and shifted to sit after the head.
-    final headFormats = _sliceFormats(startBlock.formats, 0, startOff);
-    final tailFormats = _shiftFormats(
-      _sliceFormats(endBlock.formats, endOff, endBlock.content.length),
-      head.length,
-    );
+    final headFormats =
+        startAtomic ? <TextSpanFormat>[] : _sliceFormats(startBlock.formats, 0, startOff);
+    final tailFormats = endAtomic
+        ? <TextSpanFormat>[]
+        : _shiftFormats(
+            _sliceFormats(endBlock.formats, endOff, endBlock.content.length),
+            head.length,
+          );
 
-    final merged = startBlock.copyWith(
+    // The merged block keeps a non-atomic end's identity/type; if both ends are
+    // atomic it becomes a fresh empty paragraph.
+    final EditorBlock base = !startAtomic
+        ? startBlock
+        : (!endAtomic ? endBlock : EditorBlock.paragraph(section: startBlock.section));
+    final merged = base.copyWith(
       content: head + tail,
       formats: [...headFormats, ...tailFormats],
     );

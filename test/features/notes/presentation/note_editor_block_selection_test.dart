@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart' show TextSelection;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:notify/features/notes/domain/models/block_type.dart';
 import 'package:notify/features/notes/domain/models/editor_cursor.dart';
 import 'package:notify/features/notes/presentation/providers/note_editor_provider.dart';
 
@@ -187,6 +188,33 @@ void main() {
         focus: EditorCursor(blockId: ids[0], offset: 3),
       ));
       expect(notifier.state.document.blocks.length, 2);
+    });
+
+    test('an atomic end block is dropped whole — no JSON leaks into text', () {
+      // text, table, text
+      final id = notifier.state.document.blocks.first.id;
+      notifier.pasteText(
+        blockId: id,
+        selectionStart: 0,
+        selectionEnd: 0,
+        rawText: 'hello\n| a | b |\n|---|---|\n| 1 | 2 |\nworld',
+      );
+      final blocks = notifier.state.document.blocks;
+      // Find the table block and select from the first text block through it.
+      final tableIdx = blocks.indexWhere((b) => b.type.isAtomic);
+      expect(tableIdx, greaterThan(0));
+
+      notifier.deleteSelection(EditorSelection(
+        anchor: EditorCursor(blockId: blocks.first.id, offset: 2),
+        focus: EditorCursor(blockId: blocks[tableIdx].id, offset: 0),
+      ));
+
+      // No non-atomic block may contain the table JSON.
+      for (final b in notifier.state.document.blocks) {
+        if (b.type.isAtomic) continue;
+        expect(b.content, isNot(contains('{"rows"')),
+            reason: 'table JSON leaked into ${b.type.name}');
+      }
     });
   });
 
