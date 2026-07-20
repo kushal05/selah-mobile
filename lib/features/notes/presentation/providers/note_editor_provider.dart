@@ -513,6 +513,89 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     return null;
   }
 
+  // ===== Cross-block TEXT selection (Phase 3) =====
+  //
+  // Each block registers a function that maps a global point to a text offset
+  // within its own content (it owns its TextField layout). A drag then resolves
+  // (block, offset) at each end and stores the range in [state.selection] — the
+  // EditorSelection model, non-collapsed only while a cross-block text drag is
+  // live. Delete routes through [deleteSelection].
+  //
+  // NOTE: the hit functions use a TextPainter mirroring each block's style, so
+  // the offset can be a character or two off from the TextField's own layout at
+  // the very edges. This is the piece that needs on-device tuning.
+
+  final Map<String, int Function(Offset globalPosition)> _blockTextHit = {};
+
+  /// Register [blockId]'s global-point → text-offset resolver.
+  void registerBlockTextHit(String blockId, int Function(Offset) resolver) {
+    _blockTextHit[blockId] = resolver;
+  }
+
+  void unregisterBlockTextHit(String blockId) {
+    _blockTextHit.remove(blockId);
+  }
+
+  /// Resolve a global drag point to a (block, textOffset) cursor, or null if
+  /// it's not over a text block.
+  EditorCursor? textCursorAt(Offset globalPosition) {
+    final blockId = blockAtGlobalY(globalPosition.dy);
+    if (blockId == null) return null;
+    final resolver = _blockTextHit[blockId];
+    final offset = resolver != null ? resolver(globalPosition) : 0;
+    return EditorCursor(blockId: blockId, offset: offset);
+  }
+
+  /// Set the live cross-block text selection (drag anchor → focus).
+  void setTextRangeSelection(EditorCursor anchor, EditorCursor focus) {
+    final next = EditorSelection(anchor: anchor, focus: focus);
+    if (state.selection == next) return;
+    state = state.copyWith(selection: next);
+  }
+
+  /// The active non-collapsed cross-block text selection, or null.
+  EditorSelection? get activeTextSelection {
+    final sel = state.selection;
+    return (!sel.isCollapsed && sel.spansMultipleBlocks) ? sel : null;
+  }
+
+  /// Collapse any active text-range selection back to its focus caret.
+  void clearTextRangeSelection() {
+    if (state.selection.isCollapsed) return;
+    state = state.copyWith(
+      selection: EditorSelection.collapsed(state.selection.focus),
+    );
+  }
+
+  /// The portion of [blockId] covered by the active cross-block text selection,
+  /// as a local [TextSelection], or null if this block isn't in the range. Used
+  /// to paint the partial highlight on the two end blocks and the full span on
+  /// the blocks between.
+  TextSelection? textSelectionForBlock(String blockId) {
+    final sel = activeTextSelection;
+    if (sel == null) return null;
+
+    final ia = state.document.getBlockIndex(sel.anchor.blockId);
+    final ib = state.document.getBlockIndex(sel.focus.blockId);
+    final ii = state.document.getBlockIndex(blockId);
+    if (ia == null || ib == null || ii == null) return null;
+
+    final startIdx = ia < ib ? ia : ib;
+    final endIdx = ia < ib ? ib : ia;
+    if (ii < startIdx || ii > endIdx) return null;
+
+    final startCur = ia < ib ? sel.anchor : sel.focus;
+    final endCur = ia < ib ? sel.focus : sel.anchor;
+    final len = state.document.blocks[ii].content.length;
+    final from = ii == startIdx ? startCur.offset.clamp(0, len) : 0;
+    final to = ii == endIdx ? endCur.offset.clamp(0, len) : len;
+
+    return TextSelection(
+      baseOffset: from < to ? from : to,
+      extentOffset: from < to ? to : from,
+    );
+  }
+
   /// Delete a cross-block text [selection], merging the surviving head of the
   /// first block with the surviving tail of the last into a single block.
   /// Formatting on both surviving fragments is preserved and rebased. One
@@ -565,6 +648,24 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
       [merged],
       cursorAfter: EditorCursor(blockId: merged.id, offset: head.length),
     );
+  }
+
+  /// Delete whatever is selected: a cross-block text range (merging the two
+  /// end blocks) if one is active, otherwise the whole-block selection. This is
+  /// what the action-bar Delete button and the Backspace/Delete key both call.
+  void deleteActiveSelection() {
+    final ts = activeTextSelection;
+    if (ts != null) {
+      deleteSelection(ts);
+      if (state.uiState.selectedBlockIds.isNotEmpty) {
+        state = state.copyWith(
+          uiState: state.uiState.copyWith(selectedBlockIds: const {}),
+        );
+      }
+      _selectionAnchorId = null;
+      return;
+    }
+    deleteSelectedBlocks();
   }
 
   /// Delete all currently selected blocks

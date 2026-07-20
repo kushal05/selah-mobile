@@ -143,6 +143,9 @@ class _NoteSubSectionEditorState extends ConsumerState<NoteSubSectionEditor> {
                       isSelected: editorState.uiState.selectedBlockIds
                           .contains(sectionBlocks[i].id),
                       isMultiSelectActive: editorState.uiState.isMultiSelectActive,
+                      textHighlight: ref
+                          .read(noteEditorProvider(widget.noteId).notifier)
+                          .textSelectionForBlock(sectionBlocks[i].id),
                     ),
                   ),
               ],

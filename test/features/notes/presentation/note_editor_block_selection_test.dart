@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart' show TextSelection;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:notify/features/notes/domain/models/editor_cursor.dart';
@@ -186,6 +187,60 @@ void main() {
         focus: EditorCursor(blockId: ids[0], offset: 3),
       ));
       expect(notifier.state.document.blocks.length, 2);
+    });
+  });
+
+  group('textSelectionForBlock (highlight ranges)', () {
+    List<String> seedContents(List<String> contents) {
+      final id = notifier.state.document.blocks.first.id;
+      notifier.pasteText(
+        blockId: id,
+        selectionStart: 0,
+        selectionEnd: 0,
+        rawText: contents.join('\n'),
+      );
+      return notifier.state.document.blocks.map((b) => b.id).toList();
+    }
+
+    test('partial at the ends, full in the middle, null outside', () {
+      final ids = seedContents(['hello', 'middle', 'world', 'extra']);
+      notifier.setTextRangeSelection(
+        EditorCursor(blockId: ids[0], offset: 2), // "he|llo"
+        EditorCursor(blockId: ids[2], offset: 3), // "wor|ld"
+      );
+
+      // First block: from offset 2 to end (5).
+      expect(notifier.textSelectionForBlock(ids[0]),
+          const TextSelection(baseOffset: 2, extentOffset: 5));
+      // Middle block: whole content (0..6).
+      expect(notifier.textSelectionForBlock(ids[1]),
+          const TextSelection(baseOffset: 0, extentOffset: 6));
+      // Last block: start to offset 3.
+      expect(notifier.textSelectionForBlock(ids[2]),
+          const TextSelection(baseOffset: 0, extentOffset: 3));
+      // Outside the range.
+      expect(notifier.textSelectionForBlock(ids[3]), isNull);
+    });
+
+    test('normalizes regardless of anchor/focus direction', () {
+      final ids = seedContents(['hello', 'world']);
+      notifier.setTextRangeSelection(
+        EditorCursor(blockId: ids[1], offset: 3),
+        EditorCursor(blockId: ids[0], offset: 2),
+      );
+      expect(notifier.textSelectionForBlock(ids[0]),
+          const TextSelection(baseOffset: 2, extentOffset: 5));
+      expect(notifier.textSelectionForBlock(ids[1]),
+          const TextSelection(baseOffset: 0, extentOffset: 3));
+    });
+
+    test('a collapsed / single-block selection highlights nothing', () {
+      final ids = seedContents(['hello', 'world']);
+      notifier.setTextRangeSelection(
+        EditorCursor(blockId: ids[0], offset: 1),
+        EditorCursor(blockId: ids[0], offset: 3),
+      );
+      expect(notifier.textSelectionForBlock(ids[0]), isNull);
     });
   });
 }

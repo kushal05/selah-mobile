@@ -125,7 +125,9 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
     if (selected.isEmpty) return KeyEventResult.ignored;
     if (event.logicalKey == LogicalKeyboardKey.backspace ||
         event.logicalKey == LogicalKeyboardKey.delete) {
-      ref.read(noteEditorProvider(widget.noteId).notifier).deleteSelectedBlocks();
+      ref
+          .read(noteEditorProvider(widget.noteId).notifier)
+          .deleteActiveSelection();
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
@@ -499,6 +501,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
     final blockIds = allBlocks.map((b) => b.id).toSet();
     _blockKeys.removeWhere((id, _) => !blockIds.contains(id));
 
+    final notifier = ref.read(noteEditorProvider(widget.noteId).notifier);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -514,6 +517,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
                 autoFocus: index == 0 && editorState.isNewNote && _titleController.text.isNotEmpty,
                 isSelected: editorState.uiState.selectedBlockIds.contains(mainBlocks[index].id),
                 isMultiSelectActive: editorState.uiState.isMultiSelectActive,
+                textHighlight: notifier.textSelectionForBlock(mainBlocks[index].id),
               ),
             ),
           ),
@@ -578,7 +582,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
                 ),
                 const SizedBox(width: 16),
                 GestureDetector(
-                  onTap: () => notifier.deleteSelectedBlocks(),
+                  onTap: () => notifier.deleteActiveSelection(),
                   child: Icon(
                     Icons.delete_outline,
                     size: 22,
@@ -587,7 +591,10 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
                 ),
                 const SizedBox(width: 16),
                 GestureDetector(
-                  onTap: () => notifier.clearBlockSelection(),
+                  onTap: () {
+                    notifier.clearTextRangeSelection();
+                    notifier.clearBlockSelection();
+                  },
                   child: Icon(
                     Icons.close,
                     size: 22,

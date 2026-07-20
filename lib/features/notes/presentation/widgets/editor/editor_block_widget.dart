@@ -10,6 +10,7 @@ import '../../../../bible/domain/models/bible_books.dart';
 import '../../../../bible/domain/models/bible_reference.dart';
 import '../../../domain/models/block_type.dart';
 import '../../../domain/models/editor_block.dart';
+import '../../../domain/models/editor_cursor.dart';
 import '../../../domain/models/note_table.dart';
 import '../../providers/note_editor_provider.dart';
 import 'bible_reference_block_widget.dart';
@@ -28,6 +29,11 @@ class EditorBlockWidget extends ConsumerStatefulWidget {
   final bool isSelected;
   final bool isMultiSelectActive;
 
+  /// The portion of this block covered by an active cross-block text selection
+  /// (Phase 3), painted as a highlight. Null when this block isn't in a text
+  /// range.
+  final TextSelection? textHighlight;
+
   const EditorBlockWidget({
     super.key,
     required this.block,
@@ -36,6 +42,7 @@ class EditorBlockWidget extends ConsumerStatefulWidget {
     this.autoFocus = false,
     this.isSelected = false,
     this.isMultiSelectActive = false,
+    this.textHighlight,
   });
 
   @override
@@ -47,21 +54,48 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
   late FocusNode _focusNode;
   final GlobalKey _textFieldKey = GlobalKey();
 
+  /// The last style handed to the TextField — used by the drag hit-test to map
+  /// a point to a text offset with a matching TextPainter.
+  TextStyle _effectiveTextStyle = const TextStyle(fontSize: 16, height: 1.4);
+
+  /// Anchor cursor of an in-progress cross-block text drag.
+  EditorCursor? _dragTextAnchor;
+
+  /// Captured in initState so dispose (where `ref` is unusable) can still
+  /// unregister the hit-test resolver. The provider is stable per noteId.
+  late final NoteEditorNotifier _notifier;
+
   @override
   void initState() {
     super.initState();
-    final notifier = ref.read(noteEditorProvider(widget.noteId).notifier);
+    _notifier = ref.read(noteEditorProvider(widget.noteId).notifier);
+    final notifier = _notifier;
     _controller = notifier.getBlockController(widget.block.id);
     _focusNode = notifier.getBlockFocusNode(widget.block.id);
 
     _focusNode.addListener(_onFocusChange);
     _controller.addListener(_onSelectionChange);
+    notifier.registerBlockTextHit(widget.block.id, _textOffsetAtGlobal);
 
     if (widget.autoFocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _focusNode.requestFocus();
       });
     }
+  }
+
+  /// Map a global point to a text offset within this block's content, using a
+  /// TextPainter that mirrors the field's style/width. May be a character off
+  /// from the TextField's own layout at the very edges (device-tuning item).
+  int _textOffsetAtGlobal(Offset global) {
+    final box = _textFieldKey.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.attached) return 0;
+    final local = box.globalToLocal(global);
+    final tp = TextPainter(
+      text: TextSpan(text: _controller.text, style: _effectiveTextStyle),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: box.size.width);
+    return tp.getPositionForOffset(local).offset;
   }
 
   void _onSelectionChange() {
@@ -90,6 +124,10 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
 
       // Add new listener
       _controller.addListener(_onSelectionChange);
+
+      // Re-point the text hit-test resolver at the new block id.
+      notifier.unregisterBlockTextHit(oldWidget.block.id);
+      notifier.registerBlockTextHit(widget.block.id, _textOffsetAtGlobal);
     }
 
     // Detect block type change and restore focus if this block was focused
@@ -195,16 +233,25 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
     if (widget.isMultiSelectActive) {
       final notifier = ref.read(noteEditorProvider(widget.noteId).notifier);
       // In multi-select mode: tap toggles this block; a vertical drag extends
-      // the selection across the blocks it passes over (hit-tested by the
-      // provider's block-box registry). The whole subtree is AbsorbPointer'd so
-      // the TextField underneath ignores these gestures.
+      // the selection across the blocks it passes over. The drag builds both a
+      // precise cross-block TEXT selection (for the partial-end highlight and a
+      // merging delete) and the whole-block range (for the action-bar count).
+      // The whole subtree is AbsorbPointer'd so the TextField ignores these.
       content = GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => notifier.toggleBlockSelection(widget.block.id),
-        onVerticalDragUpdate: (details) {
-          final targetId = notifier.blockAtGlobalY(details.globalPosition.dy);
-          if (targetId != null) notifier.selectBlockRange(targetId);
+        onVerticalDragStart: (details) {
+          _dragTextAnchor = notifier.textCursorAt(details.globalPosition);
         },
+        onVerticalDragUpdate: (details) {
+          final focus = notifier.textCursorAt(details.globalPosition);
+          if (focus == null) return;
+          notifier.selectBlockRange(focus.blockId);
+          if (_dragTextAnchor != null) {
+            notifier.setTextRangeSelection(_dragTextAnchor!, focus);
+          }
+        },
+        onVerticalDragEnd: (_) => _dragTextAnchor = null,
         child: AbsorbPointer(child: content),
       );
     } else {
@@ -218,8 +265,9 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
       );
     }
 
-    // Subtle selection highlight — just a light background tint
-    if (widget.isSelected) {
+    // Selection highlight. A precise text-range highlight (painted inside the
+    // TextField) takes precedence; otherwise the subtle whole-block tint.
+    if (widget.textHighlight == null && widget.isSelected) {
       content = ColoredBox(
         color: theme.colorScheme.primary.withValues(alpha: 0.06),
         child: content,
@@ -501,8 +549,10 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
     final effectiveStyle = style.copyWith(
       color: style.color ?? theme.textTheme.bodyLarge?.color ?? Colors.black,
     );
+    // Remember the style so the drag hit-test lays out with matching metrics.
+    _effectiveTextStyle = effectiveStyle;
 
-    return TextField(
+    final field = TextField(
       key: _textFieldKey,
       controller: _controller,
       focusNode: _focusNode,
@@ -561,6 +611,30 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
           buttonItems: items,
         );
       },
+    );
+
+    final highlight = widget.textHighlight;
+    if (highlight == null || highlight.isCollapsed) return field;
+
+    // Paint the cross-block text-selection highlight behind the text. The
+    // painter lays out with the same style/width as the field, so the boxes
+    // align with the rendered glyphs.
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: IgnorePointer(
+            child: CustomPaint(
+              painter: _SelectionHighlightPainter(
+                text: _controller.text,
+                style: effectiveStyle,
+                selection: highlight,
+                color: theme.colorScheme.primary.withValues(alpha: 0.28),
+              ),
+            ),
+          ),
+        ),
+        field,
+      ],
     );
   }
 
@@ -684,6 +758,43 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
     _longPressTimer?.cancel();
     _focusNode.removeListener(_onFocusChange);
     _controller.removeListener(_onSelectionChange);
+    _notifier.unregisterBlockTextHit(widget.block.id);
     super.dispose();
   }
+}
+
+/// Paints the highlight rectangles for [selection] over a block's text, laid
+/// out with the same [style]/width as the field so the boxes line up.
+class _SelectionHighlightPainter extends CustomPainter {
+  const _SelectionHighlightPainter({
+    required this.text,
+    required this.style,
+    required this.selection,
+    required this.color,
+  });
+
+  final String text;
+  final TextStyle style;
+  final TextSelection selection;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (selection.isCollapsed || text.isEmpty) return;
+    final tp = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: size.width);
+    final paint = Paint()..color = color;
+    for (final box in tp.getBoxesForSelection(selection)) {
+      canvas.drawRect(box.toRect(), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SelectionHighlightPainter old) =>
+      text != old.text ||
+      style != old.style ||
+      selection != old.selection ||
+      color != old.color;
 }
