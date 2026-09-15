@@ -423,7 +423,7 @@ class _ProfileSettingsScreenState
                       final user = blocked[index];
                       return ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: Colors.grey.shade200,
+                          backgroundColor: context.subtleFill,
                           child: Text(
                             user.blockedUsername.isNotEmpty
                                 ? user.blockedUsername[0].toUpperCase()

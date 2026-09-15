@@ -8,6 +8,7 @@ import '../../../core/sync/providers/sync_providers.dart';
 import '../../../core/sync/repositories/folder_repository.dart';
 import 'folder_dialog_helpers.dart';
 import '../../../l10n/l10n.dart';
+import '../../../core/theme/theme_colors.dart';
 
 /// Dialog for editing a folder's name, visibility, and group.
 /// Subfolders inherit visibility from their parent — visibility controls are
@@ -169,7 +170,7 @@ class _EditFolderDialogState extends ConsumerState<EditFolderDialog> {
         TextButton(
           onPressed:
               _isSaving ? null : () => Navigator.of(context).pop(false),
-          style: TextButton.styleFrom(foregroundColor: Colors.grey.shade700),
+          style: TextButton.styleFrom(foregroundColor: context.mutedText),
           child: Text(l10n(context).actionCancel),
         ),
         ListenableBuilder(

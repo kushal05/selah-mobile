@@ -415,7 +415,7 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
             tooltip: promise.isFavorite ? 'Remove from favourites' : 'Add to favourites',
             icon: Icon(
               promise.isFavorite ? Icons.favorite : Icons.favorite_border,
-              color: promise.isFavorite ? Colors.red : null,
+              color: promise.isFavorite ? context.favoriteInk : null,
             ),
             onPressed: _toggleFavorite,
           ),

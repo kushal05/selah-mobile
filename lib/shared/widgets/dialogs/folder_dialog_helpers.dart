@@ -117,7 +117,7 @@ Widget buildFolderVisibilitySelector({
               avatar: Icon(
                 v.icon,
                 size: 16,
-                color: isSelected ? accentColor : Colors.grey.shade600,
+                color: isSelected ? accentColor : context.mutedText,
               ),
               selected: isSelected,
               onSelected: disabled
@@ -135,7 +135,7 @@ Widget buildFolderVisibilitySelector({
               labelStyle: TextStyle(
                 fontSize: 14,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color: isSelected ? accentColor : Colors.grey.shade700,
+                color: isSelected ? accentColor : context.mutedText,
               ),
               showCheckmark: false,
               visualDensity: VisualDensity.compact,

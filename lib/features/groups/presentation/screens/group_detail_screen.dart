@@ -125,7 +125,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
             bottom: TabBar(
               controller: _tabController,
               labelColor: AppTheme.teal,
-              unselectedLabelColor: Colors.grey.shade600,
+              unselectedLabelColor: context.mutedText,
               indicatorColor: AppTheme.teal,
               isScrollable: true,
               tabAlignment: TabAlignment.start,
@@ -312,7 +312,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: context.dangerText),
             child: Text(l10n(context).actionDelete),
           ),
         ],
@@ -1370,7 +1370,7 @@ class _AnnouncementsTabState extends ConsumerState<_AnnouncementsTab> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: context.dangerText),
             child: Text(l10n(context).actionDelete),
           ),
         ],
@@ -1744,7 +1744,7 @@ class _InfoTab extends ConsumerWidget {
                   icon: const Icon(Icons.exit_to_app),
                   label: Text(l10n(context).leaveGroup),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red.shade700,
+                    foregroundColor: context.dangerText,
                     side: BorderSide(color: context.dangerText),
                   ),
                 ),
@@ -1774,7 +1774,7 @@ class _InfoTab extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: context.dangerText),
             child: Text(l10n(context).leave),
           ),
         ],

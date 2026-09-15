@@ -226,7 +226,7 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
                 ),
               ),
               labelStyle: TextStyle(
-                color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey.shade700,
+                color: isSelected ? Theme.of(context).colorScheme.primary : context.mutedText,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             );

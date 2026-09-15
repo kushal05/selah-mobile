@@ -426,7 +426,7 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
                                 TextButton(
                                   onPressed: () => Navigator.of(context).pop(true),
                                   style: TextButton.styleFrom(
-                                      foregroundColor: Colors.red),
+                                      foregroundColor: context.dangerText),
                                   child: Text(l10n(context).actionDelete),
                                 ),
                               ],
@@ -706,7 +706,7 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                style: TextButton.styleFrom(foregroundColor: context.dangerText),
                 child: Text(l10n(context).moveToTrash),
               ),
             ],
@@ -836,7 +836,7 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                style: TextButton.styleFrom(foregroundColor: context.dangerText),
                 child: Text(l10n(context).moveToTrash),
               ),
             ],

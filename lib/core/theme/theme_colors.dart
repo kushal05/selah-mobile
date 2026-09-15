@@ -39,6 +39,15 @@ extension ThemeColors on BuildContext {
   /// Destructive and error text.
   Color get dangerText => AppTheme.semanticFor(AppTheme.error, _brightness);
 
+  /// The "favourite" heart.
+  ///
+  /// Red by convention, not by severity, so it is deliberately not
+  /// [dangerText] — a saved song is not an error. It shares the error hue
+  /// because that is the red the palette already defines. Icons are
+  /// graphical objects and need 3:1, not 4.5:1, which this clears on both
+  /// grounds (3.68:1 on light, 5.08:1 on dark).
+  Color get favoriteInk => AppTheme.error;
+
   /// Confirmation and success text.
   Color get successText => AppTheme.semanticFor(AppTheme.success, _brightness);
 

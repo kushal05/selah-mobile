@@ -191,7 +191,7 @@ class _BibleReferenceBlockWidgetState extends State<BibleReferenceBlockWidget>
   Widget _buildVerseText(ThemeData theme) {
     final ref = widget.reference;
     final baseColor =
-        theme.textTheme.bodyMedium?.color ?? Colors.grey.shade700;
+        theme.textTheme.bodyMedium?.color ?? context.mutedText;
     final showNumbers =
         ref.display.showVerseNumbers && ref.text.length > 1;
 

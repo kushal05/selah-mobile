@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colors.dart';
 
 /// Card widget for displaying a song in a list
 class SongCard extends StatelessWidget {
@@ -116,7 +117,7 @@ class SongCard extends StatelessWidget {
                   tooltip: isFavorite ? 'Remove from favourites' : 'Add to favourites',
                   icon: Icon(
                     isFavorite ? Icons.favorite : Icons.favorite_border,
-                    color: isFavorite ? Colors.red.shade400 : Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: isFavorite ? context.favoriteInk : Theme.of(context).colorScheme.onSurfaceVariant,
                     size: AppTheme.iconLG,
                   ),
                   onPressed: onFavoriteToggle,

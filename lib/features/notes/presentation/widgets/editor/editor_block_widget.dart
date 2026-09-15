@@ -354,7 +354,7 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
                 fontSize: 16,
                 height: 1.4,
                 decoration: isChecked ? TextDecoration.lineThrough : null,
-                color: isChecked ? Colors.grey : null,
+                color: isChecked ? context.mutedText : null,
               ),
             ),
           ),

@@ -274,7 +274,7 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
                   Icon(
                     isChecked ? Icons.check_box : Icons.check_box_outline_blank,
                     size: 18,
-                    color: isChecked ? AppTheme.teal : Colors.grey.shade600,
+                    color: isChecked ? AppTheme.teal : context.mutedText,
                   ),
                   const SizedBox(width: 6),
                   Expanded(
@@ -283,7 +283,7 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
                       style: TextStyle(
                         fontSize: 16,
                         decoration: isChecked ? TextDecoration.lineThrough : null,
-                        color: isChecked ? Colors.grey.shade500 : null,
+                        color: isChecked ? context.mutedText : null,
                       ),
                     ),
                   ),

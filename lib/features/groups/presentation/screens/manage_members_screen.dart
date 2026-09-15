@@ -351,7 +351,7 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: context.dangerText),
             child: Text(l10n(context).remove),
           ),
         ],
@@ -555,7 +555,7 @@ class _PendingRequestTile extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 20,
-            backgroundColor: Colors.orange.withValues(alpha: 0.1),
+            backgroundColor: AppTheme.orangeFaint,
             child: Text(
               initial,
               style: TextStyle(

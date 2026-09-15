@@ -326,8 +326,8 @@ class SettingsScreen extends ConsumerWidget {
               _SettingsTile(
                 icon: Icons.logout_rounded,
                 title: l10n(context).signOut,
-                iconColor: Colors.red.shade600,
-                titleColor: Colors.red.shade600,
+                iconColor: context.dangerText,
+                titleColor: context.dangerText,
                 onTap: () => _handleSignOut(context, ref),
                 showChevron: false,
               ),
@@ -844,7 +844,7 @@ class _ForcePushProgressDialogState extends State<_ForcePushProgressDialog> {
           Text(
             _error ?? _status,
             style: AppTheme.bodyBase.copyWith(
-              color: _error != null ? Colors.red.shade600 : null,
+              color: _error != null ? context.dangerText : null,
             ),
           ),
         ],
@@ -1025,7 +1025,9 @@ class _SilentUpdateDialogState extends State<_SilentUpdateDialog> {
               onPressed: _startDownload,
               icon: const Icon(Icons.refresh, size: 16),
               label: Text(l10n(context).retry),
-              style: FilledButton.styleFrom(backgroundColor: Colors.orange),
+              style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.orange,
+                      foregroundColor: AppTheme.onAccent(AppTheme.orange)),
             ),
           ] else if (_needsPermission) ...[
             TextButton(
@@ -1036,7 +1038,9 @@ class _SilentUpdateDialogState extends State<_SilentUpdateDialog> {
               onPressed: _retryInstall,
               icon: const Icon(Icons.refresh, size: 16),
               label: Text(l10n(context).retryInstall),
-              style: FilledButton.styleFrom(backgroundColor: Colors.orange),
+              style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.orange,
+                      foregroundColor: AppTheme.onAccent(AppTheme.orange)),
             ),
           ] else if (p?.isDone == true)
             TextButton(

@@ -234,7 +234,7 @@ class _DeleteFolderDialogState extends State<DeleteFolderDialog> {
               const SizedBox(width: 8),
               Icon(
                 icon,
-                color: isDestructive ? Colors.red : colorScheme.primary,
+                color: isDestructive ? context.dangerText : colorScheme.primary,
                 size: 24,
               ),
               const SizedBox(width: 12),
@@ -246,7 +246,7 @@ class _DeleteFolderDialogState extends State<DeleteFolderDialog> {
                       title,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: isDestructive ? Colors.red : null,
+                        color: isDestructive ? context.dangerText : null,
                       ),
                     ),
                     Text(

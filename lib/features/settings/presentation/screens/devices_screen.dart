@@ -94,7 +94,7 @@ class DevicesScreen extends ConsumerWidget {
                       icon: const Icon(Icons.logout),
                       label: Text(l10n(context).logOutAllOtherDevices),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red.shade600,
+                        foregroundColor: context.dangerText,
                         side: BorderSide(color: context.dangerText),
                       ),
                     ),

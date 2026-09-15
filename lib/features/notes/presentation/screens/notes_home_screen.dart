@@ -271,7 +271,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                style: TextButton.styleFrom(foregroundColor: context.dangerText),
                 child: Text(l10n(context).moveToTrash),
               ),
             ],
@@ -459,7 +459,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
         IconButton(
           icon: Icon(
             _showingTrash ? Icons.arrow_back : Icons.delete_outline,
-            color: _showingTrash ? colorScheme.onSurface : Colors.grey.shade600,
+            color: _showingTrash ? colorScheme.onSurface : context.mutedText,
           ),
           tooltip: _showingTrash ? 'Back to Notes' : 'Trash',
           onPressed: () {
@@ -533,7 +533,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
           onPressed: count > 0 ? _moveSelectedNotes : null,
         ),
         IconButton(
-          icon: Icon(Icons.delete_outline, color: count > 0 ? Colors.red : null),
+          icon: Icon(Icons.delete_outline, color: count > 0 ? context.dangerText : null),
           tooltip: l10n(context).moveToTrash,
           onPressed: count > 0 ? _deleteSelectedNotes : null,
         ),
@@ -1503,7 +1503,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                         isSelected
                             ? Icons.radio_button_checked
                             : Icons.radio_button_unchecked,
-                        color: isSelected ? AppTheme.brandPurple : Colors.grey,
+                        color: isSelected ? AppTheme.brandPurple : context.decorativeInk,
                         size: 20,
                       ),
                       dense: true,
@@ -1551,13 +1551,13 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(Icons.arrow_upward_rounded, size: 14,
-                                    color: _sortAscending ? AppTheme.brandPurple : Colors.grey.shade600),
+                                    color: _sortAscending ? AppTheme.brandPurple : context.mutedText),
                                 const SizedBox(width: 4),
                                 Text(l10n(context).asc,
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: _sortAscending ? FontWeight.w600 : FontWeight.normal,
-                                      color: _sortAscending ? AppTheme.brandPurple : Colors.grey.shade600,
+                                      color: _sortAscending ? AppTheme.brandPurple : context.mutedText,
                                     )),
                               ],
                             ),
@@ -1587,13 +1587,13 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(Icons.arrow_downward_rounded, size: 14,
-                                    color: !_sortAscending ? AppTheme.brandPurple : Colors.grey.shade600),
+                                    color: !_sortAscending ? AppTheme.brandPurple : context.mutedText),
                                 const SizedBox(width: 4),
                                 Text(l10n(context).desc,
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: !_sortAscending ? FontWeight.w600 : FontWeight.normal,
-                                      color: !_sortAscending ? AppTheme.brandPurple : Colors.grey.shade600,
+                                      color: !_sortAscending ? AppTheme.brandPurple : context.mutedText,
                                     )),
                               ],
                             ),
@@ -1625,7 +1625,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                style: TextButton.styleFrom(foregroundColor: context.dangerText),
                 child: Text(l10n(context).moveToTrash),
               ),
             ],
@@ -1759,7 +1759,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                   Icon(
                     c.icon,
                     size: 14,
-                    color: isActive ? Colors.white : Colors.grey.shade600,
+                    color: isActive ? Colors.white : context.mutedText,
                   ),
                   const SizedBox(width: 4),
                   Text(
@@ -1767,7 +1767,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: isActive ? Colors.white : Colors.grey.shade700,
+                      color: isActive ? Colors.white : context.mutedText,
                     ),
                   ),
                   if (count != null) ...[
@@ -1785,7 +1785,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: isActive ? Colors.white : Colors.grey.shade600,
+                          color: isActive ? Colors.white : context.mutedText,
                         ),
                       ),
                     ),
@@ -1935,7 +1935,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                style: TextButton.styleFrom(foregroundColor: context.dangerText),
                 child: Text(l10n(context).actionDelete),
               ),
             ],

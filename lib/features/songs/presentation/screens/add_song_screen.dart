@@ -213,7 +213,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                       child: TabBar(
                         controller: _tabController,
                         labelColor: AppTheme.orange,
-                        unselectedLabelColor: Colors.grey.shade600,
+                        unselectedLabelColor: context.mutedText,
                         indicatorColor: AppTheme.orange,
                         tabs: const [
                           Tab(text: 'Lyrics'),
@@ -986,7 +986,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
               leading: Icon(
                 _folderId == null ? Icons.check_circle : Icons.circle_outlined,
                 color:
-                    _folderId == null ? AppTheme.orange : Colors.grey,
+                    _folderId == null ? AppTheme.orange : context.decorativeInk,
               ),
               title: Text(l10n(context).noSongbook),
               onTap: () {

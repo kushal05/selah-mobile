@@ -386,7 +386,7 @@ class _AddPersonButton extends ConsumerWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              style: TextButton.styleFrom(foregroundColor: Colors.grey.shade700),
+              style: TextButton.styleFrom(foregroundColor: context.mutedText),
               child: Text(l10n(context).actionCancel),
             ),
             TextButton(

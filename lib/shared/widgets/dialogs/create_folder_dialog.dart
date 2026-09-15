@@ -185,7 +185,7 @@ class _CreateFolderDialogState extends ConsumerState<CreateFolderDialog> {
           onPressed: _isCreating
               ? null
               : () => Navigator.of(context).pop(false),
-          style: TextButton.styleFrom(foregroundColor: Colors.grey.shade700),
+          style: TextButton.styleFrom(foregroundColor: context.mutedText),
           child: Text(l10n(context).actionCancel),
         ),
         FilledButton(

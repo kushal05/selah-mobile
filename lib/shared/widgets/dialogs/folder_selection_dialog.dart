@@ -176,7 +176,7 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
                         child: OutlinedButton(
                           onPressed: () => Navigator.of(context).pop(),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.grey.shade700,
+                            foregroundColor: context.mutedText,
                           ),
                           child: Text(l10n(context).actionCancel),
                         ),
@@ -726,7 +726,7 @@ class _FolderTile extends StatelessWidget {
                 const SizedBox(width: 22), // Alignment spacer
               Icon(
                 icon,
-                color: isSelected ? accentColor : Colors.grey,
+                color: isSelected ? accentColor : context.decorativeInk,
                 size: 24,
               ),
               const SizedBox(width: 12),

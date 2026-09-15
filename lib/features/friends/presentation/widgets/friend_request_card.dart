@@ -100,7 +100,7 @@ class FriendRequestCard extends StatelessWidget {
                   child: OutlinedButton(
                     onPressed: onReject,
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.grey.shade700,
+                      foregroundColor: context.mutedText,
                       side: BorderSide(color: context.mutedText),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -133,7 +133,7 @@ class FriendRequestCard extends StatelessWidget {
               child: OutlinedButton(
                 onPressed: onCancel,
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red.shade600,
+                  foregroundColor: context.dangerText,
                   side: BorderSide(color: context.dangerText),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),

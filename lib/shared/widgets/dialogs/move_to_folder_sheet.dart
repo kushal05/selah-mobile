@@ -380,7 +380,7 @@ class _MoveTargetTile extends StatelessWidget {
                   const SizedBox(width: 22),
                 Icon(
                   icon,
-                  color: isSelected ? AppTheme.brandPurple : Colors.grey,
+                  color: isSelected ? AppTheme.brandPurple : context.decorativeInk,
                   size: 24,
                 ),
                 const SizedBox(width: 12),

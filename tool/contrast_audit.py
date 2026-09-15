@@ -306,7 +306,19 @@ FOREGROUND_CONTEXT = ('TextStyle', 'Icon(', 'hintStyle', 'labelStyle',
 # `black87` and friends must be captured whole: matching only the letters
 # left `87` behind and the token read as plain `black`, which the allow-list
 # waves through — so a theme-blind foreground passed as a painted-ground one.
-LITERAL_RE = re.compile(r'color:\s*Colors\.([A-Za-z]+\d*(?:\.shade\d+)?)\b')
+# Any `Colors.<name>`, wherever it appears — not just immediately after a
+# `color:`. The previous pattern required Colors. to follow `color:` directly,
+# so every conditional escaped it:
+#
+#     color: isChecked ? Colors.grey : null     <- never matched
+#     foregroundColor: Colors.red               <- never matched
+#
+# That left 89 theme-blind literals in 37 files while the gate reported "no
+# failing colour literals in lib/". A rule true by construction cannot be
+# evaded by a ternary, a ??, or a property name nobody thought to list.
+# `(?<![A-Za-z0-9_])` keeps PdfColors.grey600 from reading as Colors.grey600.
+LITERAL_RE = re.compile(
+    r'(?<![A-Za-z0-9_])Colors\.([A-Za-z]+\d*(?:\.shade\d+)?)\b')
 
 # White, black and their opacity variants are legitimate foregrounds on a
 # painted ground (a gradient hero, a filled button) and are checked as
@@ -360,33 +372,39 @@ def scan_light_tokens():
 
 
 def scan_literals():
-    """Foreground colour literals below 4.5:1 on the surfaces they sit on.
+    """Foreground colour literals below 4.5:1 on either theme's ground.
 
-    Checked against white — the light surface — because that is the ground
-    these literals are drawn on in practice and the strictest common case for
-    a grey. Anything failing there fails everywhere it is used.
+    Checked against white AND the dark scaffold, because a raw Colors.* value
+    is the same colour in both themes by construction — it cannot adapt. A
+    light-only check passed 24 greys that fail in dark mode: grey.shade700 at
+    3.02:1 and grey.shade800 at 1.86:1. Failing in one theme is failing.
     """
+    T = load_tokens()
+    dark_ground = T['darkScaffold']
     findings = []
     for path in sorted(LIB.rglob('*.dart')):
         lines = path.read_text(encoding='utf-8').split('\n')
         for i, line in enumerate(lines):
-            m = LITERAL_RE.search(line)
-            if not m:
+            for m in LITERAL_RE.finditer(line):
+              name = m.group(1)
+              if name.split('.')[0] in ALLOWED_LITERALS:
                 continue
-            name = m.group(1)
-            if name.split('.')[0] in ALLOWED_LITERALS:
+              context = '\n'.join(lines[max(0, i - 4):i + 2])
+              if not any(k in context for k in FOREGROUND_CONTEXT):
                 continue
-            context = '\n'.join(lines[max(0, i - 4):i + 2])
-            if not any(k in context for k in FOREGROUND_CONTEXT):
-                continue
-            # Flag by construction, not by lookup. The previous version only
-            # knew a handful of shades, so `Colors.amber.shade800` — 2.15:1 on
-            # white, in the offline banner — passed because it was absent from
-            # the table. A colour the design system never sees is unchecked
-            # whether or not this file happens to know its hex.
-            hexv = MATERIAL.get(name)
-            r = ratio(hexv, '#FFFFFF') if hexv else 0.0
-            if hexv is None or r < 4.5:
+              # Flag by construction, not by lookup. The previous version
+              # only knew a handful of shades, so `Colors.amber.shade800` —
+              # 2.15:1 on white, in the offline banner — passed because it
+              # was absent from the table. A colour the design system never
+              # sees is unchecked whether or not this file knows its hex.
+              hexv = MATERIAL.get(name)
+              if hexv:
+                light = ratio(hexv, '#FFFFFF')
+                darkr = ratio(hexv, dark_ground)
+                r = min(light, darkr)
+              else:
+                r = 0.0
+              if hexv is None or r < 4.5:
                 rel = path.relative_to(LIB.parent)
                 findings.append((str(rel), i + 1, name, hexv or '(unknown)', r))
     return findings

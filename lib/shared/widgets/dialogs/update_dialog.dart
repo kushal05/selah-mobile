@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/services/app_update_service.dart';
 import '../../../core/theme/theme_colors.dart';
 import '../../../l10n/l10n.dart';
+import '../../../core/theme/app_theme.dart';
 
 /// Shows an update dialog — non-dismissible for forced updates, dismissible
 /// for optional ones.
@@ -154,7 +155,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
           children: [
             Icon(
               result.isForced ? Icons.system_update : Icons.system_update_alt,
-              color: result.isForced ? Colors.red : Colors.blue,
+              color: result.isForced ? context.dangerText : context.infoText,
               size: 22,
             ),
             const SizedBox(width: 8),
@@ -272,7 +273,9 @@ class _ActionButton extends StatelessWidget {
         onPressed: onRetryInstall,
         icon: const Icon(Icons.refresh, size: 16),
         label: Text(l10n(context).retryInstall),
-        style: FilledButton.styleFrom(backgroundColor: Colors.orange),
+        style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.orange,
+                foregroundColor: AppTheme.onAccent(AppTheme.orange)),
       );
     }
 
@@ -282,7 +285,9 @@ class _ActionButton extends StatelessWidget {
         onPressed: onDownload,
         icon: const Icon(Icons.refresh, size: 16),
         label: Text(l10n(context).retry),
-        style: FilledButton.styleFrom(backgroundColor: Colors.orange),
+        style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.orange,
+                foregroundColor: AppTheme.onAccent(AppTheme.orange)),
       );
     }
 
@@ -309,7 +314,7 @@ class _ActionButton extends StatelessWidget {
         icon: const Icon(Icons.download, size: 16),
         label: Text(l10n(context).downloadInstall),
         style: FilledButton.styleFrom(
-          backgroundColor: result.isForced ? Colors.red : Colors.blue,
+          backgroundColor: result.isForced ? AppTheme.error : AppTheme.info,
         ),
       );
     }
@@ -320,7 +325,7 @@ class _ActionButton extends StatelessWidget {
           ? () => onOpenStore(result.storeUrl)
           : null,
       style: FilledButton.styleFrom(
-        backgroundColor: result.isForced ? Colors.red : Colors.blue,
+        backgroundColor: result.isForced ? AppTheme.error : AppTheme.info,
       ),
       child: Text(l10n(context).updateNow),
     );
