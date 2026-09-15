@@ -1,5 +1,8 @@
-# Uncomment this line to define a global platform for your project
-# platform :ios, '13.0'
+# Xcode 27 builds only for deployment targets 15.0 and above; the project
+# sat at 13.0 and some pods at 11.0, which fails as "Target Integrity".
+# Every device that can run iOS 13 can run iOS 15 (iPhone 6s and later),
+# so this drops no hardware — only users who never updated.
+platform :ios, '15.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -39,5 +42,10 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+    # Pods that hardcode an older minimum in their own podspec are not covered
+    # by the platform line above, so pin each build configuration explicitly.
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+    end
   end
 end
