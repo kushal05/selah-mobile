@@ -68,6 +68,27 @@ Future<List<FlutterErrorDetails>> _pump(
 bool _overflowed(List<FlutterErrorDetails> errors) =>
     errors.any((e) => '${e.exception}'.contains('overflow'));
 
+/// The carousel's own horizontal scrollable.
+///
+/// `Scrollable.first` finds the harness's outer vertical scroll view, and a
+/// notification dispatched there never reaches the carousel's listener — which
+/// is how an earlier version of these tests passed with the bug present.
+ScrollableState _carousel(WidgetTester tester) =>
+    tester.state<ScrollableState>(find.descendant(
+      of: find.byType(DailyFocusCard),
+      matching: find.byType(Scrollable),
+    ));
+
+/// Which slot is showing.
+///
+/// Asserted on scroll position rather than on the page dots: the dots are an
+/// implicitly-animated width, so reading them measures the animation's
+/// progress as much as the state, which made these tests flap.
+double _slot(WidgetTester tester) {
+  final s = _carousel(tester);
+  return (s.position.pixels / s.position.viewportDimension).roundToDouble();
+}
+
 void main() {
   // Empty streams: the widgets must hold up before the user has any data.
   final empty = [
@@ -114,28 +135,12 @@ void main() {
     await _pump(tester, const DailyFocusCard(),
         size: const Size(402, 874), textScale: 1.0, overrides: populated);
 
-    final dots = find.byType(AnimatedContainer);
-    double activeWidth() => tester
-        .widgetList<AnimatedContainer>(dots)
-        .map((d) => tester.getSize(find.byWidget(d)).width)
-        .reduce((a, b) => a > b ? a : b);
-
-    // The first dot is the wide one before anything moves.
-    final firstDotWide = tester.getSize(find.byWidget(
-        tester.widgetList<AnimatedContainer>(dots).first)).width;
-    expect(firstDotWide, activeWidth(),
-        reason: 'slide one should be active initially');
-
-    // Past the 6s interval plus the animation.
+    expect(_slot(tester), 0.0);
     await tester.pump(const Duration(seconds: 7));
     await tester.pumpAndSettle(const Duration(milliseconds: 100));
+    expect(_slot(tester), 1.0,
+        reason: 'the carousel should have advanced by itself');
 
-    final firstDotAfter = tester.getSize(find.byWidget(
-        tester.widgetList<AnimatedContainer>(dots).first)).width;
-    expect(firstDotAfter, lessThan(firstDotWide),
-        reason: 'the carousel should have advanced off slide one by itself');
-
-    // Leave no pending timer behind.
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -147,14 +152,7 @@ void main() {
     // What a scrollable emits when it attaches or an animation settles. The
     // first version stopped on any UserScrollNotification, so this killed
     // auto-advance before it ever ran.
-    // The carousel's own horizontal scrollable. `Scrollable.first` finds the
-    // outer vertical scroll view of the harness, and a notification dispatched
-    // from there never reaches the carousel's listener — which is why the
-    // first version of this test passed with the bug still present.
-    final scrollable = tester.state<ScrollableState>(find.descendant(
-      of: find.byType(DailyFocusCard),
-      matching: find.byType(Scrollable),
-    ));
+    final scrollable = _carousel(tester);
     UserScrollNotification(
       metrics: scrollable.position.copyWith(),
       context: scrollable.context,
@@ -162,16 +160,9 @@ void main() {
     ).dispatch(scrollable.context);
     await tester.pump();
 
-    final dots = find.byType(AnimatedContainer);
-    final firstBefore = tester.getSize(
-        find.byWidget(tester.widgetList<AnimatedContainer>(dots).first)).width;
-
     await tester.pump(const Duration(seconds: 7));
     await tester.pumpAndSettle(const Duration(milliseconds: 100));
-
-    final firstAfter = tester.getSize(
-        find.byWidget(tester.widgetList<AnimatedContainer>(dots).first)).width;
-    expect(firstAfter, lessThan(firstBefore),
+    expect(_slot(tester), 1.0,
         reason: 'an idle notification must not disable auto-advance');
 
     await tester.pumpWidget(const SizedBox.shrink());

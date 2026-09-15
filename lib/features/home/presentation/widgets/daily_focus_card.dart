@@ -198,6 +198,15 @@ class _FocusCarouselState extends State<_FocusCarousel> {
     // verse reference or a raised text size cannot clip it.
     return LayoutBuilder(
       builder: (context, constraints) {
+        // Each slide fills the viewport and insets its card by half a gutter
+        // on each side, so two cards never touch while swiping. The card is
+        // therefore one gutter narrower than the habit cards below it.
+        //
+        // Widening the viewport instead, to keep the old card width, was tried
+        // with an OverflowBox and produced a non-finite semantics rect — the
+        // second semantics assertion this widget has thrown. A slightly inset
+        // carousel is a normal look; an assert on every frame is not.
+        const gap = 12.0;
         final width = constraints.maxWidth;
         _width = width;
         // Reduce Motion: no unrequested movement.
@@ -258,14 +267,25 @@ class _FocusCarouselState extends State<_FocusCarousel> {
                     children: [
                       for (final slide in widget.slides)
                         SizedBox(
-                            width: width, child: _buildCard(context, slide)),
+                          width: width,
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: gap / 2),
+                            child: _buildCard(context, slide),
+                          ),
+                        ),
                       // One extra copy of the first slide. Scrolling onto it
                       // looks like continuing past the last; the jump back to
                       // the real one happens while it is on screen, so there
                       // is no seam.
                       SizedBox(
-                          width: width,
-                          child: _buildCard(context, widget.slides.first)),
+                        width: width,
+                        child: Padding(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: gap / 2),
+                          child: _buildCard(context, widget.slides.first),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -284,7 +304,7 @@ class _FocusCarouselState extends State<_FocusCarousel> {
                     width: i == _page % widget.slides.length ? 18 : 6,
                     height: 6,
                     decoration: BoxDecoration(
-                      color: i == _page
+                      color: i == _page % widget.slides.length
                           ? AppTheme.brandBlue
                           : context.decorativeInk.withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(3),
