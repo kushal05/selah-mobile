@@ -87,7 +87,11 @@ class _Body extends ConsumerWidget {
       padding: const EdgeInsets.only(bottom: 40),
       children: [
         // ── SOCIAL ────────────────────────────────────────────────────
-        SectionLabel('SOCIAL'),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(AppTheme.spacing16,
+              AppTheme.spacing20, AppTheme.spacing16, AppTheme.spacing8),
+          child: SectionLabel('SOCIAL'),
+        ),
         _NotifGroup(tiles: [
           _ToggleTile(
             title: l10n(context).friendRequests,
@@ -134,7 +138,11 @@ class _Body extends ConsumerWidget {
         ]),
 
         // ── PRAYER ────────────────────────────────────────────────────
-        SectionLabel('PRAYER'),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(AppTheme.spacing16,
+              AppTheme.spacing20, AppTheme.spacing16, AppTheme.spacing8),
+          child: SectionLabel('PRAYER'),
+        ),
         _NotifGroup(tiles: [
           _ToggleTile(
             title: l10n(context).prayerReminders,
@@ -146,7 +154,11 @@ class _Body extends ConsumerWidget {
         ]),
 
         // ── DAILY HABITS ──────────────────────────────────────────────
-        SectionLabel('DAILY HABITS'),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(AppTheme.spacing16,
+              AppTheme.spacing20, AppTheme.spacing16, AppTheme.spacing8),
+          child: SectionLabel('DAILY HABITS'),
+        ),
         _NotifGroup(tiles: [
           _HabitTile(
             title: l10n(context).meditation,
@@ -167,7 +179,11 @@ class _Body extends ConsumerWidget {
         ]),
 
         // ── ACCOUNT ───────────────────────────────────────────────────
-        SectionLabel('ACCOUNT'),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(AppTheme.spacing16,
+              AppTheme.spacing20, AppTheme.spacing16, AppTheme.spacing8),
+          child: SectionLabel('ACCOUNT'),
+        ),
         _NotifGroup(tiles: [
           _ToggleTile(
             title: l10n(context).accountActivity,

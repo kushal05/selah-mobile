@@ -181,7 +181,11 @@ class SettingsScreen extends ConsumerWidget {
           ),
 
           // ── Usage ─────────────────────────────────────────────────
-          const SectionLabel('USAGE'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppTheme.spacing16,
+                AppTheme.spacing20, AppTheme.spacing16, AppTheme.spacing8),
+            child: const SectionLabel('USAGE'),
+          ),
           Consumer(
             builder: (context, ref, _) {
               final statsAsync = ref.watch(userStatsProvider);
@@ -251,7 +255,11 @@ class SettingsScreen extends ConsumerWidget {
           ),
 
           // ── About ─────────────────────────────────────────────────
-          const SectionLabel('ABOUT'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppTheme.spacing16,
+                AppTheme.spacing20, AppTheme.spacing16, AppTheme.spacing8),
+            child: const SectionLabel('ABOUT'),
+          ),
           Consumer(
             builder: (context, ref, _) {
               final pkgAsync = ref.watch(packageInfoProvider);
@@ -589,10 +597,16 @@ class _SettingsGroup extends StatelessWidget {
         vertical: AppTheme.spacing2,
       ),
       decoration: BoxDecoration(
-        color: dangerTint ? Colors.red.shade50 : Colors.white,
+        // Was Colors.white, which stayed white in dark mode; and red.shade50,
+        // which is a light-theme swatch with no dark counterpart.
+        color: dangerTint
+            ? AppTheme.error.withValues(alpha: 0.08)
+            : context.cardSurface,
         borderRadius: AppTheme.borderRadius3XL,
         border: Border.all(
-          color: dangerTint ? Colors.red.shade100 : context.hairline,
+          color: dangerTint
+              ? AppTheme.error.withValues(alpha: 0.25)
+              : context.hairline,
         ),
         boxShadow: [
           BoxShadow(
@@ -649,7 +663,15 @@ class _SettingsSection extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SectionLabel(title),
+        // Aligned with the card it introduces: _SettingsGroup carries a 16pt
+        // side margin and the label had none, so every heading sat 16pt
+        // further left than the card beneath it. The vertical padding gives
+        // each section air instead of the heading touching the card above.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(AppTheme.spacing16,
+              AppTheme.spacing20, AppTheme.spacing16, AppTheme.spacing8),
+          child: SectionLabel(title),
+        ),
         _SettingsGroup(tiles: tiles),
       ],
     );
