@@ -320,9 +320,13 @@ class _PeopleDirectoryScreenState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Two different relationships sat here as unlabelled peers: a
+            // person you pray ABOUT, and a Selah user you share WITH. The
+            // subtitles say which is which, because nothing else did.
             ListTile(
               leading: const Icon(Icons.person_add_alt_1_outlined),
               title: Text(l10n(sheetContext).addAsSomeoneYouPrayFor),
+              subtitle: Text(l10n(sheetContext).someoneYouPrayForExplainer),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 context.push(Routes.socialPersonNew);
@@ -331,6 +335,7 @@ class _PeopleDirectoryScreenState
             ListTile(
               leading: const Icon(Icons.group_outlined),
               title: Text(l10n(sheetContext).manageFriends),
+              subtitle: Text(l10n(sheetContext).friendsExplainer),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 context.push(Routes.socialFriends);

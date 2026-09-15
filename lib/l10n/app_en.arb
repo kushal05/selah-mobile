@@ -668,7 +668,7 @@
   "downloadCompleteOpeningInstaller": "Download complete. Opening installer…",
   "gotItHideThis": "Got it, hide this",
   "underMaintenance": "Under maintenance",
-  "syncIsDegradedTapToRetry": "Sync is degraded — tap to retry.",
+  "syncIsDegradedTapToRetry": "Your work is saved on this phone. Tap to upload it again.",
   "syncError": "Sync error",
   "defaultLabel": "Default",
   "continueLabel": "Continue",
@@ -753,7 +753,7 @@
   },
   "linkPromises": "Link promises",
   "linkPrayers": "Link prayers",
-  "takeSermonNotesHighlightScriptureAndOrganize": "Take sermon notes, highlight scripture, and organize your spiritual insights in one beautiful place.",
+  "takeSermonNotesHighlightScriptureAndOrganize": "Take notes during church, save the verses you hear, and keep them together.",
   "growTogether": "Grow together",
   "sharePrayerRequestsWithFriendsJoinGroupsAndE": "Share prayer requests with friends, join groups, and encourage one another in your faith journey.",
   "noCardsAreDueRightNow": "No cards are due right now.",
@@ -930,7 +930,7 @@
   "trashLabelItems": "items",
   "onboardingCaptureTitle": "Capture what God\nteaches you",
   "onboardingPrayersTitle": "Keep track of\nyour prayers",
-  "onboardingPrayersSubtitle": "Record prayer requests, track answers, and build a journal of God's faithfulness over time.",
+  "onboardingPrayersSubtitle": "Write down what you are praying for, and mark it answered when it happens.",
   "note": "Note",
   "folder": "Folder",
   "song": "Song",
@@ -971,5 +971,7 @@
         "type": "int"
       }
     }
-  }
+  },
+  "someoneYouPrayForExplainer": "Someone you pray for — they do not need the app",
+  "friendsExplainer": "People on Selah you can share prayers with"
 }
