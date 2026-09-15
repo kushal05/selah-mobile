@@ -8,6 +8,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
 import '../../domain/models/prayer_metadata_codec.dart';
+import '../../../../core/sync/models/prayer_model.dart';
 
 /// Capture a prayer in one field.
 ///
@@ -21,8 +22,15 @@ import '../../domain/models/prayer_metadata_codec.dart';
 /// is one field; a fully specified one reaches every field the model has.
 /// The long form remains as the edit view, where the prayer exists and its
 /// fields have something to describe.
-Future<void> showQuickPrayerSheet(BuildContext context) {
-  return showModalBottomSheet<void>(
+/// Returns the prayer that was created, or null if the sheet was dismissed.
+///
+/// Callers that only want the sheet can ignore the result. The group flow
+/// needs it: it used to push the full add-prayer screen and then guess which
+/// prayer had just been made by taking the newest from the stream, which
+/// picked the wrong one if the user cancelled or a sync delivered something
+/// newer first.
+Future<PrayerModel?> showQuickPrayerSheet(BuildContext context) {
+  return showModalBottomSheet<PrayerModel>(
       // Defaults to false: a scroll-controlled sheet otherwise draws its
       // top edge behind the notch or Dynamic Island.
       useSafeArea: true,
@@ -344,7 +352,7 @@ class _QuickPrayerSheetState extends ConsumerState<_QuickPrayerSheet> {
         }
       }
 
-      navigator.pop();
+      navigator.pop(prayer);
       messenger.showSnackBar(SnackBar(
         content: Text(strings.prayerSavedSuccessfully),
         behavior: SnackBarBehavior.floating,

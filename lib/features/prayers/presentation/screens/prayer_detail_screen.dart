@@ -25,6 +25,7 @@ import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../shared/widgets/section_label.dart';
 import '../../../../shared/utils/date_format.dart';
+import '../widgets/log_prayer_sheet.dart';
 
 const _updatesSeparator = '\n<!-- updates -->\n';
 
@@ -511,29 +512,10 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
   }
 
   Future<void> _showLogPrayerDialog() async {
-    final controller = TextEditingController();
-    final note = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n(context).logPrayer),
-        content: TextField(
-          controller: controller,
-          maxLines: 3,
-          decoration: InputDecoration(
-            hintText: l10n(context).optionalNote,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(null),
-            child: Text(l10n(context).actionCancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            child: Text(l10n(context).log),
-          ),
-        ],
-      ),
+    final prayer = ref.read(prayerByIdProvider(widget.prayerId)).valueOrNull;
+    final note = await showLogPrayerSheet(
+      context,
+      prayerTitle: prayer?.title ?? '',
     );
     if (note != null) {
       await _logPrayer(note: note);

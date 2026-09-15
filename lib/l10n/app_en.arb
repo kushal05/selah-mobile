@@ -973,5 +973,23 @@
     }
   },
   "someoneYouPrayForExplainer": "Someone you pray for — they do not need the app",
-  "friendsExplainer": "People on Selah you can share prayers with"
+  "friendsExplainer": "People on Selah you can share prayers with",
+  "newPromise": "New Promise",
+  "viewSongs": "Songs",
+  "seeMore": "See more",
+  "quickActions": "Quick Actions",
+  "allQuickActions": "All quick actions",
+  "holdOnToThis": "HOLD ON TO THIS",
+  "keepReading": "KEEP READING",
+  "openPromise": "Open Promise",
+  "resumeReading": "Resume reading",
+  "aVerseYouSaved": "A verse you saved",
+  "pickUpWhereYouLeftOff": "Pick up where you left off",
+  "addAPrayerToGetStarted": "Add a prayer to get started",
+  "addPrayer": "Add Prayer",
+  "scheduledForToday": "Scheduled for today",
+  "openPrayer": "Open Prayer",
+  "markThisTimeOfPrayer": "Mark this time of prayer",
+  "howDidItGoOptional": "How did it go? (optional)",
+  "logThisPrayer": "Log prayer"
 }

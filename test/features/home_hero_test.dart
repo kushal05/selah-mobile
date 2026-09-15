@@ -1,0 +1,217 @@
+// The home hero and quick actions, at the sizes that break fixed heights.
+//
+// Both were first built by computing a height from font metrics. The quick
+// action row came out 4.8px short and clipped its labels on a real device
+// while every test in the suite passed — because nothing rendered either
+// widget. These pump them and fail on overflow.
+
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:notify/core/sync/providers/sync_providers.dart';
+import 'package:notify/core/theme/app_theme.dart';
+import 'package:notify/l10n/l10n.dart';
+import 'package:notify/features/home/presentation/widgets/daily_focus_card.dart';
+import 'package:notify/features/home/presentation/widgets/quick_actions_row.dart';
+import 'package:notify/core/sync/models/prayer_model.dart';
+import 'package:notify/core/sync/models/promise_model.dart';
+import 'package:notify/core/sync/models/bible_reference_history_model.dart';
+
+Future<List<FlutterErrorDetails>> _pump(
+  WidgetTester tester,
+  Widget child, {
+  required Size size,
+  required double textScale,
+  List<Override> overrides = const [],
+}) async {
+  tester.view.physicalSize = size * 3;
+  tester.view.devicePixelRatio = 3.0;
+  addTearDown(tester.view.reset);
+
+  SharedPreferences.setMockInitialValues({});
+  final prefs = await SharedPreferences.getInstance();
+
+  final errors = <FlutterErrorDetails>[];
+  final prev = FlutterError.onError;
+  FlutterError.onError = errors.add;
+
+  await tester.pumpWidget(ProviderScope(
+    overrides: [sharedPreferencesProvider.overrideWithValue(prefs), ...overrides],
+    child: MaterialApp(
+      theme: AppTheme.light(),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Builder(
+        builder: (context) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
+          child: Scaffold(
+            body: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: child,
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  ));
+  await tester.pump(const Duration(milliseconds: 400));
+  FlutterError.onError = prev;
+  return errors;
+}
+
+bool _overflowed(List<FlutterErrorDetails> errors) =>
+    errors.any((e) => '${e.exception}'.contains('overflow'));
+
+void main() {
+  // Empty streams: the widgets must hold up before the user has any data.
+  final empty = [
+    activePrayersStreamProvider.overrideWith((ref) => Stream.value([])),
+    promisesStreamProvider.overrideWith((ref) => Stream.value([])),
+    bibleReferenceHistoryStreamProvider.overrideWith((ref) => Stream.value([])),
+  ];
+
+  // With data in all three streams the hero renders three slides — the path
+  // the single-slide early return skips, and where the layout is hardest.
+  final populated = [
+    activePrayersStreamProvider.overrideWith((ref) => Stream.value([
+          PrayerModel.create(id: 'p1', userId: 'u', title: 'Hospital people'),
+        ])),
+    promisesStreamProvider.overrideWith((ref) => Stream.value([
+          const PromiseModel(
+            id: 'pr1', userId: 'u', reference: 'Isaiah 41:10',
+            content: 'Fear not, for I am with you', preview: '', notes: '',
+            isFavorite: false, updatedAt: 0, version: 1, deleted: 0,
+            createdAt: 0,
+          ),
+        ])),
+    bibleReferenceHistoryStreamProvider.overrideWith((ref) => Stream.value([
+          const BibleReferenceHistoryModel(
+            id: 'h1', userId: 'u', book: 'Psalms', chapter: 23,
+            translation: 'NKJV', openedAt: 0, updatedAt: 0, version: 1,
+            deleted: 0, createdAt: 0,
+          ),
+        ])),
+  ];
+
+  for (final scale in [1.0, 2.0]) {
+    testWidgets('three-slide carousel does not clip at ${scale}x text',
+        (tester) async {
+      final errors = await _pump(tester, const DailyFocusCard(),
+          size: const Size(320, 640), textScale: scale, overrides: populated);
+      expect(_overflowed(errors), isFalse);
+      expect(errors.where((e) => '${e.exception}'.contains('stretch')), isEmpty,
+          reason: 'CrossAxisAlignment.stretch asserts in an unbounded axis');
+    });
+  }
+
+  testWidgets('the carousel advances on its own', (tester) async {
+    await _pump(tester, const DailyFocusCard(),
+        size: const Size(402, 874), textScale: 1.0, overrides: populated);
+
+    final dots = find.byType(AnimatedContainer);
+    double activeWidth() => tester
+        .widgetList<AnimatedContainer>(dots)
+        .map((d) => tester.getSize(find.byWidget(d)).width)
+        .reduce((a, b) => a > b ? a : b);
+
+    // The first dot is the wide one before anything moves.
+    final firstDotWide = tester.getSize(find.byWidget(
+        tester.widgetList<AnimatedContainer>(dots).first)).width;
+    expect(firstDotWide, activeWidth(),
+        reason: 'slide one should be active initially');
+
+    // Past the 6s interval plus the animation.
+    await tester.pump(const Duration(seconds: 7));
+    await tester.pumpAndSettle(const Duration(milliseconds: 100));
+
+    final firstDotAfter = tester.getSize(find.byWidget(
+        tester.widgetList<AnimatedContainer>(dots).first)).width;
+    expect(firstDotAfter, lessThan(firstDotWide),
+        reason: 'the carousel should have advanced off slide one by itself');
+
+    // Leave no pending timer behind.
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('an idle scroll notification does not stop auto-advance',
+      (tester) async {
+    await _pump(tester, const DailyFocusCard(),
+        size: const Size(402, 874), textScale: 1.0, overrides: populated);
+
+    // What a scrollable emits when it attaches or an animation settles. The
+    // first version stopped on any UserScrollNotification, so this killed
+    // auto-advance before it ever ran.
+    // The carousel's own horizontal scrollable. `Scrollable.first` finds the
+    // outer vertical scroll view of the harness, and a notification dispatched
+    // from there never reaches the carousel's listener — which is why the
+    // first version of this test passed with the bug still present.
+    final scrollable = tester.state<ScrollableState>(find.descendant(
+      of: find.byType(DailyFocusCard),
+      matching: find.byType(Scrollable),
+    ));
+    UserScrollNotification(
+      metrics: scrollable.position.copyWith(),
+      context: scrollable.context,
+      direction: ScrollDirection.idle,
+    ).dispatch(scrollable.context);
+    await tester.pump();
+
+    final dots = find.byType(AnimatedContainer);
+    final firstBefore = tester.getSize(
+        find.byWidget(tester.widgetList<AnimatedContainer>(dots).first)).width;
+
+    await tester.pump(const Duration(seconds: 7));
+    await tester.pumpAndSettle(const Duration(milliseconds: 100));
+
+    final firstAfter = tester.getSize(
+        find.byWidget(tester.widgetList<AnimatedContainer>(dots).first)).width;
+    expect(firstAfter, lessThan(firstBefore),
+        reason: 'an idle notification must not disable auto-advance');
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('the carousel shows all three slides', (tester) async {
+    await _pump(tester, const DailyFocusCard(),
+        size: const Size(402, 874), textScale: 1.0, overrides: populated);
+
+    expect(find.text('Hospital people'), findsOneWidget);
+    expect(find.text('Isaiah 41:10'), findsOneWidget);
+    expect(find.text('Psalms 23'), findsOneWidget);
+  });
+
+  for (final scale in [1.0, 1.5, 2.0]) {
+    testWidgets('quick actions row does not clip at ${scale}x text',
+        (tester) async {
+      final errors = await _pump(tester, const QuickActionsRow(),
+          size: const Size(320, 640), textScale: scale, overrides: empty);
+      expect(_overflowed(errors), isFalse,
+          reason: 'the row clipped its labels at ${scale}x on a 320pt screen');
+    });
+
+    testWidgets('daily focus hero does not clip at ${scale}x text',
+        (tester) async {
+      final errors = await _pump(tester, const DailyFocusCard(),
+          size: const Size(320, 640), textScale: scale, overrides: empty);
+      expect(_overflowed(errors), isFalse,
+          reason: 'the hero clipped at ${scale}x on a 320pt screen');
+    });
+  }
+
+  testWidgets('quick actions row offers all seven actions', (tester) async {
+    await _pump(tester, const QuickActionsRow(),
+        size: const Size(402, 874), textScale: 1.0, overrides: empty);
+
+    // The three that were only reachable behind the "More" tab.
+    expect(find.text('New Promise'), findsOneWidget);
+    expect(find.text('Songs'), findsOneWidget);
+    expect(find.text('Add person'), findsOneWidget);
+    expect(find.text('See more'), findsOneWidget);
+  });
+}

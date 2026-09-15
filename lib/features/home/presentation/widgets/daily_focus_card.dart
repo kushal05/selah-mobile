@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,44 +9,269 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/providers/motion_preferences.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../prayers/presentation/widgets/quick_prayer_sheet.dart';
+import '../../../../core/navigation/routes.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../bible/presentation/providers/bible_providers.dart';
 
 /// Displays the daily focus prayer card on the home dashboard.
 /// Uses a branded blue gradient with glass-style action button.
+/// One slide of the hero carousel.
+class _Slide {
+  final String eyebrow;
+  final String title;
+  final String subtitle;
+  final String actionLabel;
+  final VoidCallback onPressed;
+  final List<Color> gradient;
+
+  const _Slide({
+    required this.eyebrow,
+    required this.title,
+    required this.subtitle,
+    required this.actionLabel,
+    required this.onPressed,
+    required this.gradient,
+  });
+}
+
+/// The hero on the home dashboard.
+///
+/// It showed one thing — today's prayer — and nothing else on the screen
+/// pointed at the rest of the app. It is a carousel now: the prayer, a saved
+/// verse, and wherever reading stopped. Slides with no data are left out
+/// rather than shown empty, so a new user still sees exactly one card and the
+/// carousel appears as the app fills up.
 class DailyFocusCard extends ConsumerWidget {
   const DailyFocusCard({super.key});
 
+  /// The day index, from a single clock read.
+  ///
+  /// The original expression called DateTime.now() twice and could straddle
+  /// midnight between them, picking a different item than the day it computed.
+  static int _dayOfYear() {
+    final now = DateTime.now();
+    return now.difference(DateTime(now.year)).inDays;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final prayersAsync = ref.watch(activePrayersStreamProvider);
+    final prayers = ref.watch(activePrayersStreamProvider).valueOrNull ?? const [];
+    final promises = ref.watch(promisesStreamProvider).valueOrNull ?? const [];
+    final history =
+        ref.watch(bibleReferenceHistoryStreamProvider).valueOrNull ?? const [];
+    final day = _dayOfYear();
+    final slides = <_Slide>[];
 
-    return prayersAsync.when(
-      loading: () => _buildCard(context, null, null),
-      error: (_, _) => _buildCard(context, null, null),
-      data: (prayers) {
-        if (prayers.isEmpty) return _buildCard(context, null, null);
-        // One clock read, not three. The old expression called DateTime.now()
-        // twice and could straddle midnight or a new year between them, which
-        // would pick a different prayer than the one it computed the day for.
-        final now = DateTime.now();
-        final dayOfYear = now.difference(DateTime(now.year)).inDays;
-        final prayer = prayers[dayOfYear % prayers.length];
-        return _buildCard(context, prayer.title, prayer.id);
+    // Always present, including its empty state — the carousel never renders
+    // with nothing in it.
+    if (prayers.isEmpty) {
+      slides.add(_Slide(
+        eyebrow: l10n(context).dailyFocus,
+        title: l10n(context).noActivePrayers,
+        subtitle: l10n(context).addAPrayerToGetStarted,
+        actionLabel: l10n(context).addPrayer,
+        onPressed: () => showQuickPrayerSheet(context),
+        gradient: const [AppTheme.brandBlue, AppTheme.gradientEnd],
+      ));
+    } else {
+      final prayer = prayers[day % prayers.length];
+      slides.add(_Slide(
+        eyebrow: l10n(context).dailyFocus,
+        title: prayer.title,
+        subtitle: l10n(context).scheduledForToday,
+        actionLabel: l10n(context).openPrayer,
+        onPressed: () => context.push('/prayers/${prayer.id}'),
+        gradient: const [AppTheme.brandBlue, AppTheme.gradientEnd],
+      ));
+    }
+
+    if (promises.isNotEmpty) {
+      final promise = promises[day % promises.length];
+      slides.add(_Slide(
+        eyebrow: l10n(context).holdOnToThis,
+        title: promise.reference.isNotEmpty ? promise.reference : promise.content,
+        subtitle: l10n(context).aVerseYouSaved,
+        actionLabel: l10n(context).openPromise,
+        onPressed: () => context.push('/promises/${promise.id}'),
+        gradient: const [AppTheme.brandPurple, AppTheme.rosePink],
+      ));
+    }
+
+    final last = history.isNotEmpty ? history.first : null;
+    if (last != null) {
+      slides.add(_Slide(
+        eyebrow: l10n(context).keepReading,
+        title: '${last.book} ${last.chapter}',
+        subtitle: l10n(context).pickUpWhereYouLeftOff,
+        actionLabel: l10n(context).resumeReading,
+        onPressed: () {
+          final book = ref.read(bibleRepositoryProvider).getBookByName(last.book);
+          context.push('${Routes.bible}/chapter'
+              '?bookId=${book?.id ?? 1}&chapter=${last.chapter}'
+              '&translation=${last.translation}');
+        },
+        gradient: const [AppTheme.emerald, AppTheme.teal],
+      ));
+    }
+
+    return _FocusCarousel(slides: slides);
+  }
+}
+
+/// Pages the slides and draws the position dots.
+class _FocusCarousel extends StatefulWidget {
+  final List<_Slide> slides;
+  const _FocusCarousel({required this.slides});
+
+  @override
+  State<_FocusCarousel> createState() => _FocusCarouselState();
+}
+
+class _FocusCarouselState extends State<_FocusCarousel> {
+  final _controller = ScrollController();
+  int _page = 0;
+  Timer? _autoScroll;
+  double _width = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _startAutoScroll();
+  }
+
+  /// Advances a slide every 6 seconds, wrapping at the end.
+  ///
+  /// Long enough to read a verse reference without feeling hurried. It stops
+  /// permanently once the reader swipes: taking the carousel back from
+  /// someone who has just chosen a slide is the thing that makes auto-advance
+  /// annoying, and it also respects Reduce Motion, where movement nobody
+  /// asked for is exactly what the setting is for.
+  void _startAutoScroll() {
+    _autoScroll?.cancel();
+    _autoScroll = Timer.periodic(const Duration(seconds: 6), (_) {
+      if (!mounted || !_controller.hasClients || _width <= 0) return;
+      final next = (_page + 1) % widget.slides.length;
+      _controller.animateTo(
+        next * _width,
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  void _stopAutoScroll() {
+    _autoScroll?.cancel();
+    _autoScroll = null;
+  }
+
+  @override
+  void dispose() {
+    _autoScroll?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // One slide needs no carousel: no scrolling, no dots.
+    if (widget.slides.length == 1) {
+      return _buildCard(context, widget.slides.first);
+    }
+
+    // A scroll view with page physics rather than a PageView.
+    //
+    // A PageView must be given a height, and every way of computing one is a
+    // guess about font metrics — the sibling quick-action row was built that
+    // way first and came out 4.8px short, clipping on device while the tests
+    // passed. This takes the height of its tallest card instead, so a long
+    // verse reference or a raised text size cannot clip it.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        _width = width;
+        // Reduce Motion: no unrequested movement.
+        if (MediaQuery.of(context).disableAnimations) _stopAutoScroll();
+        return Column(
+          children: [
+            NotificationListener<ScrollNotification>(
+              onNotification: (n) {
+                // A drag is the reader choosing; stop advancing for them.
+                //
+                // The direction check is load-bearing: UserScrollNotification
+                // also fires with `idle` when a scrollable attaches and when
+                // an animation settles, so stopping on any of them killed the
+                // timer before the first advance — the carousel never moved
+                // on device while the test passed.
+                if (n is UserScrollNotification &&
+                    n.direction != ScrollDirection.idle) {
+                  _stopAutoScroll();
+                }
+                if (n is ScrollUpdateNotification && width > 0) {
+                  final page = (_controller.offset / width).round();
+                  if (page != _page && page >= 0 &&
+                      page < widget.slides.length) {
+                    setState(() => _page = page);
+                  }
+                }
+                return false;
+              },
+              child: SingleChildScrollView(
+                controller: _controller,
+                scrollDirection: Axis.horizontal,
+                physics: const PageScrollPhysics(),
+                // IntrinsicHeight, because stretch needs something to stretch
+                // to: inside a horizontal scroll view the vertical axis is
+                // unconstrained, and a bare stretch asserts at layout. This
+                // gives the row the height of its tallest card, so every
+                // slide matches without any of them being measured by hand.
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final slide in widget.slides)
+                        SizedBox(
+                            width: width, child: _buildCard(context, slide)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppTheme.spacing12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (var i = 0; i < widget.slides.length; i++)
+                  AnimatedContainer(
+                    duration: context.motion(AppTheme.durationFast),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: i == _page ? 18 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: i == _page
+                          ? AppTheme.brandBlue
+                          : context.decorativeInk.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        );
       },
     );
   }
 
-  Widget _buildCard(
-      BuildContext context, String? prayerTitle, String? prayerId) {
+  Widget _buildCard(BuildContext context, _Slide slide) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppTheme.brandBlue, AppTheme.gradientEnd],
+          colors: slide.gradient,
         ),
         borderRadius: AppTheme.borderRadius4XL,
-        boxShadow: AppTheme.shadowXL(AppTheme.brandBlue),
+        boxShadow: AppTheme.shadowXL(slide.gradient.first),
       ),
       clipBehavior: Clip.hardEdge,
       child: Stack(
@@ -78,7 +305,7 @@ class DailyFocusCard extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  l10n(context).dailyFocus,
+                  slide.eyebrow,
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.7),
                     fontSize: AppTheme.tiny.fontSize,
@@ -88,7 +315,7 @@ class DailyFocusCard extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppTheme.spacing8),
                 Text(
-                  prayerTitle ?? 'No active prayers',
+                  slide.title,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 22,
@@ -101,23 +328,19 @@ class DailyFocusCard extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppTheme.spacing4),
                 Text(
-                  prayerTitle != null
-                      ? 'Scheduled for today'
-                      : 'Add a prayer to get started',
+                  slide.subtitle,
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: AppTheme.alphaText),
                     fontSize: AppTheme.bodySmallStyle.fontSize,
                   ),
                 ),
                 const SizedBox(height: 18),
+                // push keeps Home underneath, so Back returns here; and the
+                // empty case opens the quick sheet rather than the long form,
+                // matching every other 'add prayer' entry point.
                 _GlassActionButton(
-                  label: prayerId != null ? 'Open Prayer' : 'Add Prayer',
-                  // push keeps Home underneath, so Back returns here; and
-                  // the empty case opens the quick sheet rather than the long
-                  // form, matching every other 'add prayer' entry point.
-                  onPressed: prayerId != null
-                      ? () => context.push('/prayers/$prayerId')
-                      : () => showQuickPrayerSheet(context),
+                  label: slide.actionLabel,
+                  onPressed: slide.onPressed,
                 ),
               ],
             ),

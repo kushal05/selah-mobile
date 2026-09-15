@@ -12,12 +12,12 @@ import '../../../../core/sync/models/group_feed_item.dart';
 import '../../../../core/sync/models/prayer_model.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../prayers/presentation/screens/prayer_detail_screen.dart';
-import '../../../prayers/presentation/screens/add_prayer_screen.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
 import '../widgets/announcement_card.dart';
 import '../../../../core/services/user_facing_error.dart';
 import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
+import '../../../prayers/presentation/widgets/quick_prayer_sheet.dart';
 
 /// Group detail screen with tabs for prayers, announcements, and info
 class GroupDetailScreen extends ConsumerStatefulWidget {
@@ -817,20 +817,13 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
   }
 
   Future<void> _createNewPrayerForGroup(BuildContext context) async {
-    // Navigate to add prayer screen, wait for result
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const AddPrayerScreen()),
-    );
-
-    if (!context.mounted) return;
-
-    // After returning, get the user's most recent prayer and offer to add it
-    final prayers =
-        ref.read(prayersStreamProvider).valueOrNull ?? <PrayerModel>[];
-    if (prayers.isEmpty) return;
-
-    // Get the newest prayer (sorted by updatedAt DESC)
-    final newest = prayers.first;
+    // The same sheet the rest of the app uses. This pushed the full 14-control
+    // AddPrayerScreen instead, and then guessed which prayer had just been
+    // created by taking the newest from the stream — so cancelling, or a sync
+    // arriving first, offered the wrong prayer to the group. The sheet now
+    // returns what it made, so there is nothing to guess.
+    final newest = await showQuickPrayerSheet(context);
+    if (newest == null || !context.mounted) return;
 
     final addToGroup = await showDialog<bool>(
       context: context,
