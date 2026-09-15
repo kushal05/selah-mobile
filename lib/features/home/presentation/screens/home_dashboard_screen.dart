@@ -6,7 +6,6 @@ import '../../../../core/config/remote/remote_config_keys.dart';
 import '../../../../core/config/remote/remote_config_providers.dart';
 import '../../../../core/navigation/routes.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/tutorial/sequences/app_tutorial_sequences.dart';
 import '../../../../core/tutorial/tutorial_controller.dart';
 import '../../../../core/tutorial/tutorial_providers.dart';
@@ -14,6 +13,8 @@ import '../widgets/daily_focus_card.dart';
 import '../widgets/daily_habits_widget.dart';
 import '../widgets/overview_grid.dart';
 import '../widgets/quick_actions_row.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Home dashboard screen — light hero band + scrollable content body.
 class HomeDashboardScreen extends ConsumerStatefulWidget {
@@ -74,8 +75,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
           _lastBackPressed = now;
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Press back again to exit'),
+              SnackBar(
+                content: Text(l10n(context).pressBackAgainToExit),
                 duration: Duration(seconds: 2),
                 behavior: SnackBarBehavior.floating,
               ),
@@ -87,7 +88,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
         SystemNavigator.pop();
       },
       child: Scaffold(
-        backgroundColor: AppTheme.scaffoldGray,
+        backgroundColor: context.pageGround,
         body: CustomScrollView(
           slivers: [
             // ── Light hero band ──────────────────────────────────────────
@@ -217,7 +218,7 @@ class _DashboardHero extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      color: AppTheme.scaffoldGray,
+      color: context.pageGround,
       child: SafeArea(
         bottom: false,
         child: Padding(
@@ -225,14 +226,17 @@ class _DashboardHero extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // App icon
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.asset(
-                  'assets/images/app_icon.png',
-                  width: 36,
-                  height: 36,
-                  fit: BoxFit.cover,
+              // App icon — decorative; the greeting beside it carries the
+              // meaning, so it is kept out of the semantics tree.
+              ExcludeSemantics(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.asset(
+                    'assets/images/app_icon.png',
+                    width: 36,
+                    height: 36,
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -243,26 +247,30 @@ class _DashboardHero extends StatelessWidget {
                     Text(
                       date,
                       style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 12,
+                        color: context.mutedText,
+                        fontSize: 13,
                         fontWeight: FontWeight.w500,
                         letterSpacing: 0.4,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      greeting,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface,
-                        height: 1.15,
+                    Semantics(
+                      header: true,
+                      child: Text(
+                        greeting,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          height: 1.15,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
               IconButton(
+                tooltip: l10n(context).settings,
                 icon: Icon(Icons.settings_outlined,
-                    color: Colors.grey.shade600, size: 22),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant, size: 22),
                 onPressed: () => context.push(Routes.settings),
               ),
             ],

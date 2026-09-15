@@ -5,6 +5,7 @@ import '../../../../core/sync/models/note_block_model.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
 import '../../domain/models/note_revision.dart';
 import '../providers/database_provider.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Screen that shows a side-by-side comparison between a revision and the
 /// current note state.
@@ -35,7 +36,7 @@ class _RevisionDiffViewState extends ConsumerState<RevisionDiffView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Compare Versions'),
+        title: Text(l10n(context).compareVersions),
       ),
       body: currentBlocksAsync.when(
         loading: () => const DetailPageSkeleton(),
@@ -60,7 +61,7 @@ class _RevisionDiffViewState extends ConsumerState<RevisionDiffView> {
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Retry'),
+                  label: Text(l10n(context).retry),
                   onPressed: () => ref
                       .invalidate(currentNoteBlocksProvider(widget.noteId)),
                 ),
@@ -73,7 +74,7 @@ class _RevisionDiffViewState extends ConsumerState<RevisionDiffView> {
           if (revisionData == null) {
             return Center(
               child: Text(
-                'Unable to read this revision.',
+                l10n(context).unableToReadThisRevision,
                 style: TextStyle(color: cs.error),
               ),
             );
@@ -94,22 +95,22 @@ class _RevisionDiffViewState extends ConsumerState<RevisionDiffView> {
                     _LegendChip(
                         color: Colors.red.shade50,
                         borderColor: Colors.red.shade200,
-                        label: 'Removed'),
+                        label: l10n(context).removed),
                     const SizedBox(width: 12),
                     _LegendChip(
                         color: Colors.green.shade50,
                         borderColor: Colors.green.shade200,
-                        label: 'Added'),
+                        label: l10n(context).added),
                     const SizedBox(width: 12),
                     _LegendChip(
                         color: Colors.amber.shade50,
                         borderColor: Colors.amber.shade200,
-                        label: 'Changed'),
+                        label: l10n(context).changed),
                     const Spacer(),
                     Text(
                       '${diffLines.length} differences',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 13,
                         color: cs.onSurface.withValues(alpha: 0.5),
                       ),
                     ),
@@ -129,7 +130,7 @@ class _RevisionDiffViewState extends ConsumerState<RevisionDiffView> {
                   children: [
                     Expanded(
                       child: Text(
-                        'Previous',
+                        l10n(context).previous,
                         style: theme.textTheme.labelMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: cs.onSurface.withValues(alpha: 0.6),
@@ -138,7 +139,7 @@ class _RevisionDiffViewState extends ConsumerState<RevisionDiffView> {
                     ),
                     Expanded(
                       child: Text(
-                        'Current',
+                        l10n(context).current,
                         style: theme.textTheme.labelMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: cs.onSurface.withValues(alpha: 0.6),
@@ -153,7 +154,7 @@ class _RevisionDiffViewState extends ConsumerState<RevisionDiffView> {
                 child: diffLines.isEmpty
                     ? Center(
                         child: Text(
-                          'No differences found',
+                          l10n(context).noDifferencesFound,
                           style: TextStyle(
                             color: cs.onSurface.withValues(alpha: 0.5),
                           ),
@@ -342,7 +343,7 @@ class _LegendChip extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            fontSize: 11,
+            fontSize: 12,
             color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
           ),
         ),

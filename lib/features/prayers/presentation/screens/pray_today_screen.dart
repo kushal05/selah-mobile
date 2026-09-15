@@ -9,6 +9,9 @@ import '../providers/pray_today_provider.dart';
 import '../widgets/pray_today_card.dart';
 import '../widgets/pray_today_completion.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../core/services/user_facing_error.dart';
 
 /// Unified daily prayer flow screen
 ///
@@ -126,8 +129,8 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
       debugPrint('Failed to log prayer: $e\n$st');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to log prayer'),
+          SnackBar(
+            content: Text(l10n(context).failedToLogPrayer),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -151,23 +154,23 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
       final result = await showDialog<String>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Log Prayer'),
+          title: Text(l10n(context).logPrayer),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                'Add an optional note (or leave blank):',
-                style: TextStyle(fontSize: 14, color: Colors.grey),
+              Text(
+                l10n(context).addAnOptionalNoteOrLeaveBlank,
+                style: TextStyle(fontSize: 16, color: context.mutedText),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: controller,
                 maxLines: 3,
                 decoration: InputDecoration(
-                  hintText: 'Optional reflection...',
+                  hintText: l10n(context).optionalReflection,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
+                    borderSide: BorderSide(color: context.hairline),
                   ),
                 ),
               ),
@@ -176,11 +179,11 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(null),
-              child: const Text('Cancel'),
+              child: Text(l10n(context).actionCancel),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(controller.text),
-              child: const Text('Log'),
+              child: Text(l10n(context).log),
             ),
           ],
         ),
@@ -230,13 +233,14 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
+          tooltip: l10n(context).actionBack,
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
-        title: const Text('Pray Today'),
+        title: Text(l10n(context).prayToday),
         elevation: 0,
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.black87,
+        foregroundColor: context.primaryText,
       ),
       body: _isLoading
           ? const ListTileSkeletonList(count: 5, hasLeading: false)
@@ -248,8 +252,8 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
                       onReviewLogs: () {
                         // Could navigate to log history
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Prayer logs saved'),
+                          SnackBar(
+                            content: Text(l10n(context).prayerLogsSaved),
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
@@ -266,11 +270,11 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
                                 maxLines: 5,
                                 decoration: InputDecoration(
                                   hintText:
-                                      'What stood out during prayer today?',
+                                      l10n(context).whatStoodOutDuringPrayerToday,
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10),
                                     borderSide:
-                                        BorderSide(color: Colors.grey.shade300),
+                                        BorderSide(color: context.hairline),
                                   ),
                                 ),
                               ),
@@ -278,20 +282,20 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
                                 TextButton(
                                   onPressed: () =>
                                       Navigator.of(context).pop(),
-                                  child: const Text('Cancel'),
+                                  child: Text(l10n(context).actionCancel),
                                 ),
                                 TextButton(
                                   onPressed: () {
                                     Navigator.of(context).pop();
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
+                                      SnackBar(
                                         content:
-                                            Text('Reflection saved'),
+                                            Text(l10n(context).reflectionSaved),
                                         behavior: SnackBarBehavior.floating,
                                       ),
                                     );
                                   },
-                                  child: const Text('Save'),
+                                  child: Text(l10n(context).actionSave),
                                 ),
                               ],
                             ),
@@ -304,6 +308,40 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
                     )
                   : _buildPrayerList(),
     );
+  }
+
+
+  /// Marks a prayer answered or archives it, without leaving the session.
+  Future<void> _setStatus(PrayerModel prayer, {required bool answered}) async {
+    final strings = l10n(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final repo = ref.read(prayerRepositoryProvider);
+    try {
+      if (answered) {
+        await repo.markAsAnswered(prayer.id);
+      } else {
+        await repo.archivePrayer(prayer.id);
+      }
+      if (!mounted) return;
+      setState(() {
+        _todaysPrayers.removeWhere((p) => p.id == prayer.id);
+        _cardKeys.remove(prayer.id);
+      });
+      messenger.showSnackBar(SnackBar(
+        content: Text(answered
+            ? strings.prayerMarkedAnswered
+            : strings.prayerArchived),
+        behavior: SnackBarBehavior.floating,
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text(UserFacingError.message(e,
+            action: answered ? 'mark this prayer answered' : 'archive this prayer')),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppTheme.errorSurface,
+      ));
+    }
   }
 
   Widget _buildEmptyState() {
@@ -328,18 +366,18 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              'No prayers for today',
+              l10n(context).noPrayersForToday,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Add prayers with daily or recurring frequency to see them here.',
+              l10n(context).addPrayersWithDailyOrRecurringFrequencyToSee,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade600,
+                fontSize: 16,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -363,14 +401,14 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
                   Text(
                     _getFormattedDate(),
                     style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
+                      fontSize: 16,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                   Text(
                     '$_loggedCount / ${_todaysPrayers.length}',
                     style: const TextStyle(
-                      fontSize: 14,
+                      fontSize: 16,
                       fontWeight: FontWeight.w600,
                       color: AppTheme.brandBlue,
                     ),
@@ -399,7 +437,9 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
         Expanded(
           child: ListView.builder(
             controller: _scrollController,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            // No horizontal inset: PrayTodayCard carries cardMargin itself,
+            // as every other card in the app does.
+            padding: const EdgeInsets.only(bottom: 24),
             itemCount: _todaysPrayers.length,
             itemBuilder: (context, index) {
               final prayer = _todaysPrayers[index];
@@ -409,6 +449,12 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
                 isLogged: _loggedPrayerIds.contains(prayer.id),
                 onLogPress: () => _logPrayer(prayer.id),
                 onTap: () => context.push('/prayers/${prayer.id}'),
+                // Answering a prayer usually happens *while* praying it, so
+                // the session is exactly where the state change belongs. It
+                // previously meant leaving, opening the prayer, and coming
+                // back.
+                onMarkAnswered: () => _setStatus(prayer, answered: true),
+                onArchive: () => _setStatus(prayer, answered: false),
               );
             },
           ),

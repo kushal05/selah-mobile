@@ -6,6 +6,9 @@ import '../../domain/models/note_revision.dart';
 import '../providers/database_provider.dart';
 import '../widgets/revision_diff_view.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Screen showing the snapshot-based revision history of a note.
 ///
@@ -24,11 +27,11 @@ class NoteVersionHistoryScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Version History'),
+        title: Text(l10n(context).versionHistory),
       ),
       body: revisionsAsync.when(
         loading: () => const ListTileSkeletonList(count: 5, hasLeading: false),
-        error: (e, _) => Center(child: Text('Error loading history: $e')),
+        error: (e, _) => Center(child: Text(UserFacingError.forLoad(e))),
         data: (revisions) {
           if (revisions.isEmpty) {
             return Center(
@@ -39,16 +42,16 @@ class NoteVersionHistoryScreen extends ConsumerWidget {
                       size: 48, color: cs.onSurface.withValues(alpha: 0.3)),
                   const SizedBox(height: 12),
                   Text(
-                    'No revisions yet',
+                    l10n(context).noRevisionsYet,
                     style: TextStyle(
                       color: cs.onSurface.withValues(alpha: 0.5),
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Revisions are created each time you save.',
+                    l10n(context).revisionsAreCreatedEachTimeYouSave,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 13,
                       color: cs.onSurface.withValues(alpha: 0.4),
                     ),
                   ),
@@ -159,10 +162,10 @@ class _RevisionTile extends ConsumerWidget {
                                     .withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: const Text(
-                                'Latest',
+                              child: Text(
+                                l10n(context).latest,
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                   color: AppTheme.brandPurple,
                                 ),
@@ -171,7 +174,7 @@ class _RevisionTile extends ConsumerWidget {
                           Text(
                             '${revision.blockCount} blocks',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 13,
                               color: cs.onSurface.withValues(alpha: 0.5),
                             ),
                           ),
@@ -188,7 +191,7 @@ class _RevisionTile extends ConsumerWidget {
                       Text(
                         _formatTimestamp(dateTime),
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 13,
                           color: cs.onSurface.withValues(alpha: 0.5),
                         ),
                       ),
@@ -242,7 +245,10 @@ class _RevisionTile extends ConsumerWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (sheetContext) => DraggableScrollableSheet(
+      builder: (sheetContext) => SafeArea(
+        // Keeps the sheet's last control clear of the gesture bar.
+        top: false,
+        child: DraggableScrollableSheet(
         initialChildSize: 0.55,
         minChildSize: 0.3,
         maxChildSize: 0.85,
@@ -256,7 +262,7 @@ class _RevisionTile extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.all(32),
                 child: Text(
-                  'Unable to read this revision.',
+                  l10n(context).unableToReadThisRevision,
                   style: TextStyle(color: cs.error),
                 ),
               ),
@@ -274,7 +280,7 @@ class _RevisionTile extends ConsumerWidget {
                   width: 32,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: context.subtleFill,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -317,7 +323,7 @@ class _RevisionTile extends ConsumerWidget {
                           );
                         },
                         icon: const Icon(Icons.compare_arrows, size: 18),
-                        label: const Text('Compare'),
+                        label: Text(l10n(context).compare),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -326,7 +332,7 @@ class _RevisionTile extends ConsumerWidget {
                         onPressed: () =>
                             _confirmRestore(sheetContext, ref, messenger),
                         icon: const Icon(Icons.restore, size: 18),
-                        label: const Text('Restore'),
+                        label: Text(l10n(context).restore),
                         style: FilledButton.styleFrom(
                           backgroundColor: AppTheme.brandPurple,
                         ),
@@ -336,7 +342,7 @@ class _RevisionTile extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              Divider(height: 1, color: Colors.grey.shade200),
+              Divider(height: 1, color: context.hairline),
               // Preview content
               Expanded(
                 child: ListView(
@@ -371,7 +377,7 @@ class _RevisionTile extends ConsumerWidget {
             ],
           );
         },
-      ),
+      )),
     );
   }
 
@@ -400,21 +406,20 @@ class _RevisionTile extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Restore Revision'),
-        content: const Text(
-          'This will replace the current note with this revision. '
-          'A snapshot of the current version will be saved before restoring.',
+        title: Text(l10n(context).restoreRevision),
+        content: Text(
+          l10n(context).thisWillReplaceTheCurrentNoteWithThisRevisio2,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text(l10n(context).actionCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             style:
                 FilledButton.styleFrom(backgroundColor: AppTheme.brandPurple),
-            child: const Text('Restore'),
+            child: Text(l10n(context).restore),
           ),
         ],
       ),
@@ -426,20 +431,24 @@ class _RevisionTile extends ConsumerWidget {
     // Close the bottom sheet.
     Navigator.pop(context);
 
+    // Resolved before the await, alongside `messenger`: the context may be
+    // gone by the time the restore completes.
+    final strings = l10n(context);
+
     try {
       final restoreService = ref.read(noteRestoreServiceProvider);
       await restoreService.restore(revision.id);
 
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Note restored to previous version'),
+        SnackBar(
+          content: Text(strings.noteRestoredToPreviousVersion),
           behavior: SnackBarBehavior.floating,
         ),
       );
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Failed to restore: $e'),
+          content: Text(UserFacingError.message(e, action: 'restore')),
           behavior: SnackBarBehavior.floating,
         ),
       );

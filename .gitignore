@@ -55,3 +55,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Generated localisations. `flutter pub get` regenerates these from
+# lib/l10n/*.arb because pubspec sets `generate: true`, so committing them
+# only creates merge conflicts and drift against the ARB source of truth.
+lib/l10n/app_localizations*.dart

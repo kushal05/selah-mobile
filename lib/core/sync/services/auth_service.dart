@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Authentication token data
@@ -50,6 +51,17 @@ class AuthService {
   static const _keyAuthToken = 'auth_token';
   static const _keyUserId = 'auth_user_id';
 
+  /// Access token minted by the debug-only "Skip sign-in (test mode)" button.
+  ///
+  /// The server has never issued it, so every authenticated call it makes
+  /// comes back 401. That is expected and harmless — but the interceptor
+  /// treats a failed refresh as a revoked session and clears local auth,
+  /// which bounced the tester straight back to login. [isTestSession] lets
+  /// the refresh path recognise this token and leave it alone.
+  static const kTestAccessToken = 'test-token';
+  static const kTestRefreshToken = 'test-refresh';
+  static const kTestUserId = 'test-user';
+
   final SharedPreferences _prefs;
   final _authStateController = StreamController<AuthToken?>.broadcast();
 
@@ -70,6 +82,14 @@ class AuthService {
 
   /// Check if user is authenticated
   bool get isAuthenticated => _currentToken != null && !_currentToken!.isExpired;
+
+  /// Whether the current session is the local, credential-free test session.
+  ///
+  /// Guarded by [kDebugMode] as well as the token value so a release build
+  /// can never take the bypass, even if a token with this value were somehow
+  /// stored.
+  bool get isTestSession =>
+      kDebugMode && _currentToken?.accessToken == kTestAccessToken;
 
   /// Load token from storage
   void _loadToken() {

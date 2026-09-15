@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// GitHub-style heatmap calendar grid showing prayer activity.
 /// Each cell represents a day; intensity reflects the log count.
@@ -37,9 +39,9 @@ class PrayerHeatmap extends StatelessWidget {
     return Container(
       padding: AppTheme.paddingAllMD,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.cardSurface,
         borderRadius: AppTheme.borderRadiusXL,
-        border: Border.all(color: AppTheme.gray200),
+        border: Border.all(color: context.subtleFill),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -61,7 +63,7 @@ class PrayerHeatmap extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildMonthLabels(gridStart, weekCount),
+                      _buildMonthLabels(context, gridStart, weekCount),
                       const SizedBox(height: AppTheme.spacing2),
                       _buildGrid(
                         gridStart: gridStart,
@@ -82,7 +84,8 @@ class PrayerHeatmap extends StatelessWidget {
     );
   }
 
-  Widget _buildMonthLabels(DateTime gridStart, int weekCount) {
+  Widget _buildMonthLabels(
+      BuildContext context, DateTime gridStart, int weekCount) {
     const months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
@@ -100,7 +103,7 @@ class PrayerHeatmap extends StatelessWidget {
             width: _cellTotal,
             child: Text(
               months[weekStart.month - 1],
-              style: TextStyle(fontSize: 9, color: AppTheme.gray500),
+              style: TextStyle(fontSize: 12, color: context.mutedText),
               overflow: TextOverflow.visible,
               softWrap: false,
             ),
@@ -127,7 +130,7 @@ class PrayerHeatmap extends StatelessWidget {
                   child: Text(
                     l,
                     style:
-                        TextStyle(fontSize: 9, color: AppTheme.gray500),
+                        TextStyle(fontSize: 12, color: context.mutedText),
                   ),
                 ),
               ))
@@ -181,8 +184,8 @@ class PrayerHeatmap extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         Text(
-          'Less',
-          style: TextStyle(fontSize: 9, color: AppTheme.gray500),
+          l10n(context).less,
+          style: TextStyle(fontSize: 12, color: context.mutedText),
         ),
         const SizedBox(width: AppTheme.spacing4),
         for (final intensity in [0.0, 0.25, 0.5, 0.75, 1.0])
@@ -197,8 +200,8 @@ class PrayerHeatmap extends StatelessWidget {
           ),
         const SizedBox(width: AppTheme.spacing4),
         Text(
-          'More',
-          style: TextStyle(fontSize: 9, color: AppTheme.gray500),
+          l10n(context).navMore,
+          style: TextStyle(fontSize: 12, color: context.mutedText),
         ),
       ],
     );

@@ -49,7 +49,7 @@ class BibleVerseResultCard extends StatelessWidget {
                   child: Text(
                     result.displayReference,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: theme.colorScheme.primary,
                     ),
@@ -69,12 +69,12 @@ class BibleVerseResultCard extends StatelessWidget {
                 children: _buildHighlightedSpans(
                   result.highlightedText,
                   baseStyle: TextStyle(
-                    fontSize: 14,
+                    fontSize: 16,
                     color: theme.colorScheme.onSurface,
                     height: 1.4,
                   ),
                   highlightStyle: TextStyle(
-                    fontSize: 14,
+                    fontSize: 16,
                     color: theme.colorScheme.primary,
                     fontWeight: FontWeight.w600,
                     backgroundColor:

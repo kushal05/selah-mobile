@@ -11,6 +11,8 @@ import '../providers/bible_search_providers.dart';
 import '../widgets/bible_search_filters.dart';
 import '../widgets/bible_verse_result_card.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../core/theme/theme_colors.dart';
 
 /// Dedicated Bible verse search screen.
 ///
@@ -232,15 +234,18 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
 
   void _showSortOptions() {
     showModalBottomSheet(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
+            Padding(
               padding: AppTheme.paddingAllBase,
               child: Text(
-                'Sort by',
+                l10n(context).sortBy,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -277,6 +282,9 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
 
   void _showVerseActions(BibleSearchResult result) {
     showModalBottomSheet(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(
@@ -296,13 +304,13 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
             const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.copy),
-              title: const Text('Copy verse'),
+              title: Text(l10n(context).copyVerse),
               onTap: () {
                 Clipboard.setData(ClipboardData(text: result.copyText));
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Verse copied to clipboard'),
+                  SnackBar(
+                    content: Text(l10n(context).verseCopiedToClipboard),
                     duration: Duration(seconds: 2),
                   ),
                 );
@@ -311,8 +319,8 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
             if (widget.selectMode)
               ListTile(
                 leading: const Icon(Icons.note_add),
-                title: const Text('Insert into note'),
-                subtitle: const Text('Returns verse to the editor'),
+                title: Text(l10n(context).insertIntoNote),
+                subtitle: Text(l10n(context).returnsVerseToTheEditor),
                 onTap: () {
                   Navigator.pop(ctx);
                   Navigator.of(context).pop(result);
@@ -320,13 +328,14 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
               ),
             ListTile(
               leading: const Icon(Icons.menu_book),
-              title: const Text('View in chapter'),
+              title: Text(l10n(context).viewInChapter),
               subtitle: Text(
                 '${result.bookName} ${result.chapter}',
               ),
               onTap: () {
                 Navigator.pop(ctx);
-                context.go(
+                // push so Back returns to the search results.
+                context.push(
                   '${Routes.bible}/chapter'
                   '?bookId=${result.bookId}'
                   '&chapter=${result.chapter}'
@@ -375,13 +384,14 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
         // As a tab, no leading icon is needed.
         leading: widget.selectMode
             ? IconButton(
+              tooltip: l10n(context).closeSearch,
                 icon: const Icon(Icons.close),
                 onPressed: () => context.pop(),
               )
             : null,
         automaticallyImplyLeading: false,
-        title: const Text(
-          'Bible Search',
+        title: Text(
+          l10n(context).bibleSearch,
           style: AppTheme.headingMedium,
         ),
       ),
@@ -396,7 +406,7 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
                 autofocus: true,
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
-                  hintText: 'Search Bible verses...',
+                  hintText: l10n(context).searchBibleVerses,
                   filled: true,
                   fillColor: theme.colorScheme.surfaceContainerHighest,
                   prefixIcon: const Icon(Icons.search),
@@ -405,10 +415,12 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
+                              tooltip: l10n(context).clearSearch,
                               icon: const Icon(Icons.clear),
                               onPressed: _clearSearch,
                             ),
                             IconButton(
+                              tooltip: l10n(context).actionSearch,
                               icon: Icon(
                                 Icons.arrow_forward_rounded,
                                 color: theme.colorScheme.primary,
@@ -499,7 +511,7 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
           ),
           const SizedBox(height: AppTheme.spacing16),
           Text(
-            'Bible database not available',
+            l10n(context).bibleDatabaseNotAvailable,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
@@ -511,7 +523,7 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
             'The Bible database could not be loaded.\nPlease restart the app.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 16,
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
@@ -532,7 +544,7 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
           ),
           const SizedBox(height: AppTheme.spacing16),
           Text(
-            'No Bible data loaded',
+            l10n(context).noBibleDataLoaded,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
@@ -544,7 +556,7 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
             'The Bible database has no verses.\nPlease reinstall the app to restore the data.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 16,
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
@@ -565,7 +577,7 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
           ),
           const SizedBox(height: AppTheme.spacing16),
           Text(
-            'Search Bible verses by text',
+            l10n(context).searchBibleVersesByText,
             style: TextStyle(
               fontSize: 16,
               color: theme.colorScheme.onSurfaceVariant,
@@ -573,9 +585,9 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
           ),
           const SizedBox(height: AppTheme.spacing8),
           Text(
-            'e.g., "faith hope love"',
+            l10n(context).eGFaithHopeLove,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 16,
               color: theme.colorScheme.outline,
               fontStyle: FontStyle.italic,
             ),
@@ -587,7 +599,7 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
             Text(
               '${_verseCount!} verses loaded',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 13,
                 color: theme.colorScheme.outline,
               ),
             ),
@@ -608,7 +620,7 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
           ),
           const SizedBox(height: AppTheme.spacing16),
           Text(
-            'Search failed',
+            l10n(context).searchFailed,
             style: TextStyle(
               fontSize: 16,
               color: theme.colorScheme.onSurfaceVariant,
@@ -619,7 +631,7 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
             _error!,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 14,
               color: theme.colorScheme.outline,
             ),
           ),
@@ -640,7 +652,7 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
           ),
           const SizedBox(height: AppTheme.spacing16),
           Text(
-            'No verses found',
+            l10n(context).noVersesFound,
             style: TextStyle(
               fontSize: 16,
               color: theme.colorScheme.onSurfaceVariant,
@@ -651,8 +663,8 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
             TextButton(
               onPressed: () =>
                   _onFiltersChanged(BibleSearchFilters.empty),
-              style: TextButton.styleFrom(foregroundColor: AppTheme.textMuted),
-              child: const Text('Clear filters'),
+              style: TextButton.styleFrom(foregroundColor: context.mutedText),
+              child: Text(l10n(context).clearFilters),
             ),
           ],
         ],
@@ -674,12 +686,14 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
               Text(
                 '${_results.length}${_hasMore ? '+' : ''} result${_results.length == 1 ? '' : 's'}',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 13,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
               const Spacer(),
-              GestureDetector(
+              Semantics(
+                button: true,
+                child: GestureDetector(
                 onTap: _showSortOptions,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -687,7 +701,7 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
                     Text(
                       _sortOption.label,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 13,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
@@ -699,6 +713,7 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
                     ),
                   ],
                 ),
+              ),
               ),
             ],
           ),

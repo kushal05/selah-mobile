@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/theme_colors.dart';
 
 /// Displays a linked item card (e.g., linked prayer)
 class LinkedCard extends StatelessWidget {
@@ -21,9 +22,9 @@ class LinkedCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardTheme.color,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
+          border: Border.all(color: context.hairline),
         ),
         child: Row(
           children: [
@@ -48,8 +49,8 @@ class LinkedCard extends StatelessWidget {
                   Text(
                     subtitle,
                     style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
+                      fontSize: 16,
+                      color: context.subtleFill,
                     ),
                   ),
                 ],
@@ -57,7 +58,7 @@ class LinkedCard extends StatelessWidget {
             ),
             Icon(
               Icons.chevron_right,
-              color: Colors.grey.shade400,
+              color: context.hintText,
             ),
           ],
         ),

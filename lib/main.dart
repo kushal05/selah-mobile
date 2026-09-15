@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,6 +14,8 @@ import 'core/services/home_widget_service.dart';
 import 'core/services/notification_service.dart';
 import 'features/home/presentation/providers/widget_sync_coordinator.dart';
 import 'core/sync/providers/sync_providers.dart';
+import 'l10n/app_localizations.dart';
+import 'core/providers/theme_preferences.dart';
 import 'core/theme/app_theme.dart';
 import 'features/bible/data/bible_database_service.dart';
 import 'features/bible/presentation/providers/bible_providers.dart';
@@ -22,6 +25,18 @@ import 'shared/widgets/maintenance_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Portrait only. Both platforms allowed rotation and nothing was designed
+  // for it: rotated, a Dynamic Island takes ~59pt off a *side* rather than
+  // the top, and six layouts here are sized as a fraction of screen height
+  // tuned to portrait proportions. Locking is one line and reversible; if
+  // landscape is ever wanted — the Bible reader is the screen that would
+  // benefit — those height fractions and the root-route insets need real
+  // work first.
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
 
   // Initialize Firebase (and register background FCM handler) before runApp.
   await FcmService.initialize();
@@ -136,14 +151,23 @@ class _SelahAppState extends ConsumerState<SelahApp>
         // Refresh widget data when the user returns to the app.
         try {
           ref.read(widgetSyncCoordinatorProvider).publishNow();
-        } catch (_) {}
+        } catch (e) {
+          // Home-screen widgets are a mirror of data the app already holds.
+          // A failed refresh leaves the last good payload on the widget, so
+          // it is stale rather than wrong — not worth interrupting resume.
+          debugPrint('Widget refresh on resume failed: $e');
+        }
         break;
       case AppLifecycleState.paused:
         syncService?.onAppPaused();
         // Push the freshest widget payload before the OS samples the widgets.
         try {
           ref.read(widgetSyncCoordinatorProvider).publishNow();
-        } catch (_) {}
+        } catch (e) {
+          // As on resume: the widget keeps its previous payload, and the app
+          // is being backgrounded — there is no one to tell.
+          debugPrint('Widget refresh on pause failed: $e');
+        }
         break;
       default:
         break;
@@ -267,16 +291,56 @@ class _SelahAppState extends ConsumerState<SelahApp>
     return MaterialApp.router(
       title: AppConfig.appName,
       theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: ref.watch(themeModeProvider),
+      // Localisation is wired up even though only English ships today: adding
+      // a language is now a translation task (copy lib/l10n/app_en.arb, add
+      // the locale below) rather than a refactor of 144k lines of hardcoded
+      // strings. The cost of extracting strings only grows with each screen.
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
-        return Stack(
+        // Reduce Motion also removes the sliding page transition between
+        // screens, which is the largest single movement in the app. Reading
+        // MediaQuery here (inside builder) puts it below MaterialApp, where
+        // the platform value is available.
+        final reduceMotion = MediaQuery.of(context).disableAnimations;
+        final content = Stack(
           children: [
             child ?? const SizedBox.shrink(),
             if (maintenance) const Positioned.fill(child: MaintenanceScreen()),
           ],
         );
+        if (!reduceMotion) return content;
+        return Theme(
+          data: Theme.of(context).copyWith(
+            pageTransitionsTheme: const PageTransitionsTheme(
+              builders: {
+                TargetPlatform.android: _NoPageTransition(),
+                TargetPlatform.iOS: _NoPageTransition(),
+              },
+            ),
+          ),
+          child: content,
+        );
       },
     );
   }
+}
+
+/// Page transition that performs no movement, used under Reduce Motion.
+class _NoPageTransition extends PageTransitionsBuilder {
+  const _NoPageTransition();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) =>
+      child;
 }

@@ -66,13 +66,13 @@ import '../sync/providers/push_notification_providers.dart';
 import '../../features/feedback/presentation/screens/feedback_list_screen.dart';
 import '../../features/feedback/presentation/screens/create_feedback_screen.dart';
 import '../../features/feedback/presentation/screens/feedback_thread_screen.dart';
-import '../../features/social/presentation/screens/social_home_screen.dart';
 import '../../features/social/presentation/screens/share_code_screen.dart';
 import '../../features/social/presentation/screens/shared_with_me_screen.dart';
 import '../../features/notes/presentation/screens/public_note_viewer_screen.dart';
 import '../../features/habits/presentation/screens/habits_screen.dart';
 import '../../shared/widgets/app_scaffold.dart';
 import 'navigator_keys.dart';
+import '../../features/social/presentation/screens/people_directory_screen.dart';
 
 export 'navigator_keys.dart';
 
@@ -699,7 +699,10 @@ StatefulShellBranch _socialBranch() {
     routes: [
       GoRoute(
         path: Routes.social,
-        builder: (_, _) => const SocialHomeScreen(),
+        // The tab lands on one people directory rather than a hub that split
+        // People and Friends into separate destinations. The hub's other
+        // jobs — groups, requests, friend search — are reachable from it.
+        builder: (_, _) => const PeopleDirectoryScreen(),
         routes: [
           // ── People (moved from /people) ──
           GoRoute(

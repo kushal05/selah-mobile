@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models/prayer_streak.dart';
 import '../providers/prayer_streak_provider.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Compact card showing current streak, longest streak, and a 12-week
 /// heatmap of prayer-log activity. Designed to slot into the prayers
@@ -23,9 +24,9 @@ class PrayerStreakCard extends ConsumerWidget {
             height: 96,
             child: Center(child: CircularProgressIndicator()),
           ),
-          error: (_, _) => const SizedBox(
+          error: (_, _) => SizedBox(
             height: 96,
-            child: Center(child: Text('Streak unavailable')),
+            child: Center(child: Text(l10n(context).streakUnavailable)),
           ),
           data: (s) => _StreakBody(streak: s),
         ),
@@ -58,7 +59,7 @@ class _StreakBody extends StatelessWidget {
             Icon(Icons.local_fire_department, color: streakColor),
             const SizedBox(width: 8),
             Text(
-              'Prayer Streak',
+              l10n(context).prayerStreak,
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
@@ -91,12 +92,12 @@ class _StreakBody extends StatelessWidget {
         Row(
           children: [
             _MiniStat(
-              label: 'Longest',
+              label: l10n(context).longest,
               value: '${streak.longestStreakDays}d',
             ),
             const SizedBox(width: 16),
             _MiniStat(
-              label: 'Total days',
+              label: l10n(context).totalDays,
               value: '${streak.totalActiveDays}',
             ),
           ],

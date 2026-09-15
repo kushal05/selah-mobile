@@ -23,7 +23,7 @@ class PersonCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: AppTheme.spacing12),
         padding: AppTheme.paddingAllBase,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardTheme.color,
           borderRadius: AppTheme.borderRadiusXL,
         ),
         child: Row(
@@ -33,10 +33,11 @@ class PersonCard extends StatelessWidget {
               backgroundColor: AppTheme.teal.withValues(alpha: AppTheme.alphaLightMed),
               child: Text(
                 name.isNotEmpty ? name[0].toUpperCase() : '?',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.teal,
+                  color: AppTheme.accentOnTintFor(
+                      AppTheme.teal, Theme.of(context).brightness),
                 ),
               ),
             ),
@@ -56,7 +57,7 @@ class PersonCard extends StatelessWidget {
                   Text(
                     relation,
                     style: AppTheme.bodyBase.copyWith(
-                      color: AppTheme.gray600,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -64,7 +65,7 @@ class PersonCard extends StatelessWidget {
             ),
             Icon(
               Icons.chevron_right,
-              color: AppTheme.hintColor,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ],
         ),

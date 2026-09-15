@@ -5,6 +5,7 @@ import '../../../../../core/theme/app_theme.dart';
 import '../../../../bible/domain/models/bible_version_info.dart';
 import '../../../../bible/presentation/providers/bible_providers.dart';
 import '../../../../bible/domain/models/bible_books.dart';
+import '../../../../../l10n/l10n.dart';
 
 /// Tabbed Bible reference picker displayed as a dialog popup.
 ///
@@ -292,7 +293,7 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
     showDialog(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text('Select Version'),
+        title: Text(l10n(context).selectVersion),
         children: translations.map((code) {
           final displayName = bibleVersionDisplayName(code);
           final isSelected = code == effective;
@@ -326,6 +327,7 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
           child: Row(
             children: [
               IconButton(
+                tooltip: l10n(context).close,
                 icon: const Icon(Icons.close, size: AppTheme.iconBase),
                 onPressed: () => Navigator.of(context).pop(),
               ),
@@ -407,7 +409,9 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
             : cs.onSurface.withValues(alpha: 0.3);
 
     return Expanded(
-      child: GestureDetector(
+      child: Semantics(
+        button: true,
+        child: GestureDetector(
         onTap: isEnabled ? () => _switchTab(tab) : null,
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: AppTheme.spacing8),
@@ -426,7 +430,7 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                   color: color,
                 ),
@@ -434,6 +438,7 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -509,7 +514,7 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
         Text(
           label,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: FontWeight.w600,
             color: cs.onSurface.withValues(alpha: 0.5),
             letterSpacing: 0.5,
@@ -534,7 +539,7 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
               onSelected: (_) => _selectBook(book),
               showCheckmark: false,
               labelStyle: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 color: isSelected ? color.withValues(alpha: 0.9) : color.withValues(alpha: 0.7),
               ),
@@ -567,7 +572,7 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
           child: Text(
             _selectedBook?.name ?? '',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w500,
               color: cs.onSurface.withValues(alpha: 0.6),
             ),
@@ -587,7 +592,9 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
               final chapter = index + 1;
               final isSelected = _selectedChapter == chapter;
 
-              return GestureDetector(
+              return Semantics(
+                button: true,
+                child: GestureDetector(
                 onTap: () => _selectChapter(chapter),
                 child: Container(
                   decoration: BoxDecoration(
@@ -599,13 +606,14 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
                     child: Text(
                       '$chapter',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 16,
                         fontWeight: FontWeight.w500,
                         color: isSelected ? cs.onPrimary : cs.onSurface,
                       ),
                     ),
                   ),
                 ),
+              ),
               );
             },
           ),
@@ -632,7 +640,7 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
               Text(
                 '${_selectedBook?.name} $_selectedChapter',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: cs.onSurface.withValues(alpha: 0.6),
                 ),
@@ -643,22 +651,25 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
                       ? ':$_selectedVerseStart-$_selectedVerseEnd'
                       : ':$_selectedVerseStart',
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: cs.primary,
                   ),
                 ),
               const Spacer(),
               if (hasSelection)
-                GestureDetector(
+                Semantics(
+                  button: true,
+                  child: GestureDetector(
                   onTap: () => setState(() {
                     _selectedVerseStart = null;
                     _selectedVerseEnd = null;
                   }),
                   child: Text(
-                    'Clear',
-                    style: TextStyle(fontSize: 12, color: cs.primary),
+                    l10n(context).clear,
+                    style: TextStyle(fontSize: 13, color: cs.primary),
                   ),
+                ),
                 ),
             ],
           ),
@@ -666,9 +677,9 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
         Padding(
           padding: AppTheme.paddingH16,
           child: Text(
-            'Tap once for single verse, tap another for range',
+            l10n(context).tapOnceForSingleVerseTapAnotherForRange,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 12,
               color: cs.onSurface.withValues(alpha: 0.4),
             ),
           ),
@@ -707,7 +718,9 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
                 textColor = cs.onSurface;
               }
 
-              return GestureDetector(
+              return Semantics(
+                button: true,
+                child: GestureDetector(
                 onTap: () => _selectVerse(verse),
                 child: Container(
                   decoration: BoxDecoration(
@@ -718,13 +731,14 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
                     child: Text(
                       '$verse',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: FontWeight.w500,
                         color: textColor,
                       ),
                     ),
                   ),
                 ),
+              ),
               );
             },
           ),
@@ -736,7 +750,9 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
         if (hasSelection) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(AppTheme.spacing16, 0, AppTheme.spacing16, AppTheme.spacing8),
-            child: GestureDetector(
+            child: Semantics(
+              button: true,
+              child: GestureDetector(
               onTap: _showVersionPicker,
               child: Consumer(
                 builder: (context, ref, _) {
@@ -765,7 +781,7 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
                           child: Text(
                             displayName,
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: 14,
                               color: cs.onSurface,
                             ),
                           ),
@@ -773,7 +789,7 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
                         Text(
                           version.toUpperCase(),
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color:
                                 cs.onSurface.withValues(alpha: 0.5),
@@ -790,6 +806,7 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
                 },
               ),
             ),
+            ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(AppTheme.spacing16, 0, AppTheme.spacing16, AppTheme.spacing16),
@@ -797,7 +814,7 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: _confirm,
-                child: const Text('OK'),
+                child: Text(l10n(context).ok),
               ),
             ),
           ),
@@ -876,7 +893,7 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
               child: Text(
                 previewText,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 13,
                   fontStyle: FontStyle.italic,
                   color: cs.onSurface.withValues(alpha: 0.7),
                   height: 1.4,

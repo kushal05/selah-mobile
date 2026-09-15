@@ -7,9 +7,27 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/models/device.dart';
 import '../providers/device_providers.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../shared/widgets/swipe_action.dart';
 
 class DevicesScreen extends ConsumerWidget {
   const DevicesScreen({super.key});
+
+  /// This device first, then most recently active.
+  ///
+  /// Hoisted out of build: it copied and sorted the list on every rebuild,
+  /// including every frame of the refresh indicator's animation.
+  static List<Device> _sortedByRecency(
+      List<Device> devices, String? currentDeviceId) {
+    return [...devices]..sort((a, b) {
+        if (a.id == currentDeviceId) return -1;
+        if (b.id == currentDeviceId) return 1;
+        return b.lastActiveAt.compareTo(a.lastActiveAt);
+      });
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -18,7 +36,7 @@ class DevicesScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Devices'),
+        title: Text(l10n(context).devices),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
       ),
@@ -29,23 +47,19 @@ class DevicesScreen extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Failed to load devices',
-                style: TextStyle(color: Colors.grey.shade600),
+                l10n(context).failedToLoadDevices,
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 8),
               TextButton(
                 onPressed: () => ref.invalidate(devicesListProvider),
-                child: const Text('Retry'),
+                child: Text(l10n(context).retry),
               ),
             ],
           ),
         ),
         data: (devices) {
-          final sorted = [...devices]..sort((a, b) {
-              if (a.id == currentDeviceId) return -1;
-              if (b.id == currentDeviceId) return 1;
-              return b.lastActiveAt.compareTo(a.lastActiveAt);
-            });
+          final sorted = _sortedByRecency(devices, currentDeviceId);
 
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(devicesListProvider),
@@ -56,9 +70,9 @@ class DevicesScreen extends ConsumerWidget {
                 Text(
                   '${devices.length} device${devices.length == 1 ? '' : 's'}',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade600,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -78,10 +92,10 @@ class DevicesScreen extends ConsumerWidget {
                       onPressed: () =>
                           _revokeOtherDevices(context, ref, currentDeviceId),
                       icon: const Icon(Icons.logout),
-                      label: const Text('Log out all other devices'),
+                      label: Text(l10n(context).logOutAllOtherDevices),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.red.shade600,
-                        side: BorderSide(color: Colors.red.shade300),
+                        side: BorderSide(color: context.dangerText),
                       ),
                     ),
                   ),
@@ -107,18 +121,18 @@ class DevicesScreen extends ConsumerWidget {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Sign Out'),
-          content: const Text('This will sign you out of this device.'),
+          title: Text(l10n(context).signOut),
+          content: Text(l10n(context).thisWillSignYouOutOfThisDevice),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
+              child: Text(l10n(context).actionCancel),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, true),
               child: Text(
-                'Sign Out',
-                style: TextStyle(color: Colors.red.shade600),
+                l10n(context).signOut,
+                style: TextStyle(color: context.dangerText),
               ),
             ),
           ],
@@ -133,18 +147,18 @@ class DevicesScreen extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Remove Device'),
+        title: Text(l10n(context).removeDevice),
         content: Text('Remove "${device.name}" and revoke its session?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(l10n(context).actionCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(
-              'Remove',
-              style: TextStyle(color: Colors.red.shade600),
+              l10n(context).remove,
+              style: TextStyle(color: context.dangerText),
             ),
           ),
         ],
@@ -169,7 +183,7 @@ class DevicesScreen extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to remove device: $e'),
+            content: Text(UserFacingError.message(e, action: 'remove device')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -185,21 +199,20 @@ class DevicesScreen extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Log Out All Other Devices'),
-        content: const Text(
-          'This will revoke sessions on all your other devices. '
-          'They will need to log in again.',
+        title: Text(l10n(context).logOutAllOtherDevices),
+        content: Text(
+          l10n(context).thisWillRevokeSessionsOnAllYourOtherDevicesT,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(l10n(context).actionCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(
-              'Log Out Others',
-              style: TextStyle(color: Colors.red.shade600),
+              l10n(context).logOutOthers,
+              style: TextStyle(color: context.dangerText),
             ),
           ),
         ],
@@ -225,7 +238,7 @@ class DevicesScreen extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed: $e'),
+            content: Text(UserFacingError.message(e, action: 'do that')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -266,9 +279,9 @@ class _DeviceTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
-                'This device',
+                l10n(context).thisDevice,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: Theme.of(context).colorScheme.primary,
                 ),
@@ -279,7 +292,7 @@ class _DeviceTile extends StatelessWidget {
       ),
       subtitle: Text(
         '${device.platform} \u00B7 Active ${_formatLastActive(device.lastActiveAt)}',
-        style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+        style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
     );
@@ -290,13 +303,12 @@ class _DeviceTile extends StatelessWidget {
       endActionPane: ActionPane(
         motion: const BehindMotion(),
         children: [
-          SlidableAction(
-            onPressed: (_) => onRemove(),
-            backgroundColor: Colors.red.shade600,
-            foregroundColor: Colors.white,
+          buildSwipeAction(
             icon: Icons.logout,
-            label: 'Remove',
-          ),
+            label: l10n(context).remove,
+            accent: AppTheme.error,
+            onPressed: (_) => onRemove(),
+          )
         ],
       ),
       child: tile,

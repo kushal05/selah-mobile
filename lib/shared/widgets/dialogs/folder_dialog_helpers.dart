@@ -4,12 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/sync/models/folder_model.dart';
 import '../../../core/sync/providers/sync_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../l10n/l10n.dart';
+import '../../../core/theme/theme_colors.dart';
 
 /// Shared building blocks for folder create/edit dialogs.
 /// Keeps the visibility + group selection UI consistent between
 /// [CreateFolderDialog] and [EditFolderDialog].
 
 InputDecoration folderNameFieldDecoration({
+  required ThemeData theme,
   required Color accentColor,
   required Color errorColor,
   required String entityLabel,
@@ -22,7 +25,7 @@ InputDecoration folderNameFieldDecoration({
     floatingLabelBehavior: FloatingLabelBehavior.always,
     filled: true,
     fillColor: AppTheme.inputFillColor,
-    prefixIcon: Icon(Icons.folder_outlined, color: AppTheme.hintColor),
+    prefixIcon: Icon(Icons.folder_outlined, color: theme.colorScheme.onSurfaceVariant),
     border: OutlineInputBorder(
       borderRadius: AppTheme.borderRadius3XL,
       borderSide: BorderSide.none,
@@ -55,11 +58,11 @@ InputDecoration folderNameFieldDecoration({
     labelStyle: TextStyle(
       fontSize: 16,
       fontWeight: FontWeight.w600,
-      color: AppTheme.gray700,
+      color: theme.colorScheme.onSurfaceVariant,
     ),
     hintStyle: TextStyle(
       fontSize: AppTheme.headingSmall.fontSize,
-      color: AppTheme.hintColor,
+      color: theme.colorScheme.onSurfaceVariant,
     ),
     errorText: errorText,
     contentPadding: const EdgeInsets.symmetric(
@@ -72,6 +75,7 @@ InputDecoration folderNameFieldDecoration({
 /// Visibility chip row. When [isSubfolder] is true, renders a single
 /// read-only chip instead — subfolders inherit visibility from their parent.
 Widget buildFolderVisibilitySelector({
+  required BuildContext context,
   required ThemeData theme,
   required bool isSubfolder,
   required FolderVisibility selected,
@@ -83,9 +87,9 @@ Widget buildFolderVisibilitySelector({
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Text(
-        'Visibility',
+        l10n(context).visibility,
         style: theme.textTheme.labelMedium?.copyWith(
-          color: AppTheme.gray700,
+          color: theme.colorScheme.onSurfaceVariant,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -126,10 +130,10 @@ Widget buildFolderVisibilitySelector({
               side: BorderSide(
                 color: isSelected
                     ? accentColor.withValues(alpha: 0.4)
-                    : Colors.grey.shade300,
+                    : context.hairline,
               ),
               labelStyle: TextStyle(
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                 color: isSelected ? accentColor : Colors.grey.shade700,
               ),
@@ -143,6 +147,7 @@ Widget buildFolderVisibilitySelector({
 }
 
 Widget buildFolderGroupPicker({
+  required BuildContext context,
   required WidgetRef ref,
   required ThemeData theme,
   required String? selectedGroupId,
@@ -156,9 +161,9 @@ Widget buildFolderGroupPicker({
     data: (groups) {
       if (groups.isEmpty) {
         return Text(
-          'No groups available. Create a group first.',
+          l10n(context).noGroupsAvailableCreateAGroupFirst,
           style: theme.textTheme.bodySmall?.copyWith(
-            color: Colors.orange.shade700,
+            color: context.warningText,
           ),
         );
       }
@@ -167,11 +172,11 @@ Widget buildFolderGroupPicker({
       return DropdownButtonFormField<String>(
         initialValue: valueExists ? selectedGroupId : null,
         decoration: InputDecoration(
-          labelText: 'Select Group',
+          labelText: l10n(context).selectGroup,
           floatingLabelBehavior: FloatingLabelBehavior.always,
           filled: true,
           fillColor: AppTheme.inputFillColor,
-          prefixIcon: Icon(Icons.group_outlined, color: AppTheme.hintColor),
+          prefixIcon: Icon(Icons.group_outlined, color: theme.colorScheme.onSurfaceVariant),
           border: OutlineInputBorder(
             borderRadius: AppTheme.borderRadius3XL,
             borderSide: BorderSide.none,
@@ -204,8 +209,8 @@ Widget buildFolderGroupPicker({
       ),
     ),
     error: (_, _) => Text(
-      'Could not load groups',
-      style: theme.textTheme.bodySmall?.copyWith(color: Colors.red),
+      l10n(context).couldNotLoadGroups,
+      style: theme.textTheme.bodySmall?.copyWith(color: context.dangerText),
     ),
   );
 }

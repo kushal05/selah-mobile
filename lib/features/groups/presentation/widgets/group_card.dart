@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/domain/enums/group_enums.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/sync/models/group_model.dart';
+import '../../../../core/theme/theme_colors.dart';
 
 /// Displays a group in the groups list
 class GroupCard extends StatelessWidget {
@@ -61,13 +62,13 @@ class GroupCard extends StatelessWidget {
                       if (memberCount != null) ...[
                         const SizedBox(width: AppTheme.spacing8),
                         Icon(Icons.people_outline,
-                            size: AppTheme.iconSM, color: AppTheme.gray500),
+                            size: AppTheme.iconSM, color: context.mutedText),
                         const SizedBox(width: AppTheme.spacing4),
                         Text(
                           '$memberCount',
                           style: TextStyle(
                             fontSize: AppTheme.bodySmallStyle.fontSize,
-                            color: AppTheme.gray500,
+                            color: context.mutedText,
                           ),
                         ),
                       ],
@@ -81,14 +82,14 @@ class GroupCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: AppTheme.bodySmallStyle.fontSize,
-                        color: AppTheme.gray600,
+                        color: context.mutedText,
                       ),
                     ),
                   ],
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: AppTheme.gray400),
+            Icon(Icons.chevron_right, color: context.hintText),
           ],
         ),
       ),
@@ -120,7 +121,7 @@ class _GroupTypeBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing8, vertical: AppTheme.spacing2),
       decoration: BoxDecoration(
-        color: AppTheme.gray100,
+        color: context.subtleFill,
         borderRadius: AppTheme.borderRadiusXS,
       ),
       child: Text(
@@ -128,7 +129,7 @@ class _GroupTypeBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: AppTheme.tiny.fontSize,
           fontWeight: FontWeight.w500,
-          color: AppTheme.gray600,
+          color: context.mutedText,
         ),
       ),
     );

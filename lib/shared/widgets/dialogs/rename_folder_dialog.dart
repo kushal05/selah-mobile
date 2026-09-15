@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/sync/models/folder_model.dart';
 import '../../../core/sync/providers/sync_providers.dart';
 import '../../../core/sync/repositories/folder_repository.dart';
+import '../../../l10n/l10n.dart';
 
 /// Dialog for renaming a folder
 class RenameFolderDialog extends ConsumerStatefulWidget {
@@ -66,7 +67,7 @@ class _RenameFolderDialogState extends ConsumerState<RenameFolderDialog> {
         children: [
           const Icon(Icons.edit_rounded, color: AppTheme.brandPurple),
           const SizedBox(width: AppTheme.spacing12),
-          const Expanded(child: Text('Rename Folder')),
+          Expanded(child: Text(l10n(context).renameFolder)),
         ],
       ),
       content: Form(
@@ -79,12 +80,12 @@ class _RenameFolderDialogState extends ConsumerState<RenameFolderDialog> {
               controller: _nameController,
               focusNode: _nameFocusNode,
               decoration: InputDecoration(
-                labelText: 'Folder name',
-                hintText: 'Enter new name',
+                labelText: l10n(context).folderName,
+                hintText: l10n(context).enterNewName,
                 floatingLabelBehavior: FloatingLabelBehavior.always,
                 filled: true,
                 fillColor: AppTheme.inputFillColor,
-                prefixIcon: Icon(Icons.folder_outlined, color: AppTheme.hintColor),
+                prefixIcon: Icon(Icons.folder_outlined, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 border: OutlineInputBorder(
                   borderRadius: AppTheme.borderRadius3XL,
                   borderSide: BorderSide.none,
@@ -117,11 +118,11 @@ class _RenameFolderDialogState extends ConsumerState<RenameFolderDialog> {
                 labelStyle: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.gray700,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
                 hintStyle: TextStyle(
                   fontSize: AppTheme.headingSmall.fontSize,
-                  color: AppTheme.hintColor,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
                 errorText: _errorMessage,
                 contentPadding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing16, vertical: AppTheme.spacing16),
@@ -149,7 +150,7 @@ class _RenameFolderDialogState extends ConsumerState<RenameFolderDialog> {
       actions: [
         TextButton(
           onPressed: _isRenaming ? null : () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
+          child: Text(l10n(context).actionCancel),
         ),
         FilledButton(
           onPressed: _isRenaming ? null : _renameFolder,
@@ -159,7 +160,7 @@ class _RenameFolderDialogState extends ConsumerState<RenameFolderDialog> {
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Rename'),
+              : Text(l10n(context).rename),
         ),
       ],
     );

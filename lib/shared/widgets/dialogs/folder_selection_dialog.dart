@@ -10,6 +10,10 @@ import 'delete_folder_dialog.dart';
 import 'rename_folder_dialog.dart';
 import '../../../features/notes/presentation/providers/database_provider.dart';
 import '../skeletons/skeletons.dart';
+import '../../../core/services/user_facing_error.dart';
+import '../../../core/providers/motion_preferences.dart';
+import '../../../core/theme/theme_colors.dart';
+import '../../../l10n/l10n.dart';
 
 /// Dialog result containing the selected folder ID (null for root/no folder)
 class FolderSelectionResult {
@@ -110,6 +114,7 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
                     ),
                   ),
                   IconButton(
+                    tooltip: l10n(context).close,
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.of(context).pop(),
                     visualDensity: VisualDensity.compact,
@@ -128,7 +133,7 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
                 error: (e, _) => Center(
                   child: Padding(
                     padding: const EdgeInsets.all(32),
-                    child: Text('Error loading folders: $e'),
+                    child: Text(UserFacingError.forLoad(e)),
                   ),
                 ),
                 data: (folders) => _buildFolderList(context, folders),
@@ -143,7 +148,7 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 border: Border(
-                  top: BorderSide(color: Colors.grey.shade200),
+                  top: BorderSide(color: context.hairline),
                 ),
               ),
               child: Column(
@@ -173,7 +178,7 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.grey.shade700,
                           ),
-                          child: const Text('Cancel'),
+                          child: Text(l10n(context).actionCancel),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -230,7 +235,7 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
             child: Text(
               _isSongType ? 'SONGBOOKS' : 'FOLDERS',
               style: theme.textTheme.labelSmall?.copyWith(
-                color: Colors.grey,
+                color: context.mutedText,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.5,
               ),
@@ -258,13 +263,13 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
                 const SizedBox(height: 8),
                 Text(
                   'No ${_entityLabelLower}s yet',
-                  style: TextStyle(color: Colors.grey.shade600),
+                  style: TextStyle(color: context.subtleFill),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Create a $_entityLabelLower to organize your ${_contentLabelLower}s',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.grey.shade400,
+                    color: context.subtleFill,
                   ),
                 ),
               ],
@@ -351,7 +356,7 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
       decoration: BoxDecoration(
         color: _accentColor.withValues(alpha: 0.05),
         border: Border(
-          top: BorderSide(color: Colors.grey.shade200),
+          top: BorderSide(color: context.hairline),
         ),
       ),
       child: Column(
@@ -364,8 +369,8 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
               child: Text(
                 'Creating $_entityLabelLower in "$parentName"',
                 style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: 12,
+                  color: context.subtleFill,
+                  fontSize: 13,
                 ),
               ),
             ),
@@ -377,7 +382,7 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
                   focusNode: _newFolderFocusNode,
                   decoration: InputDecoration(
                     hintText: '$_entityLabel name',
-                    prefixIcon: Icon(Icons.folder_outlined, color: Colors.grey.shade400, size: 20),
+                    prefixIcon: Icon(Icons.folder_outlined, color: context.hintText, size: 20),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide.none,
@@ -394,8 +399,8 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
                       ),
                     ),
                     hintStyle: TextStyle(
-                      fontSize: 15,
-                      color: Colors.grey.shade400,
+                      fontSize: 16,
+                      color: context.hintText,
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -403,7 +408,7 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
                     ),
                   ),
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w500,
                   ),
                   textCapitalization: TextCapitalization.words,
@@ -412,6 +417,7 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
               ),
               const SizedBox(width: 8),
               IconButton(
+                tooltip: l10n(context).createFolder,
                 icon: const Icon(Icons.check),
                 onPressed: _createFolder,
                 style: IconButton.styleFrom(
@@ -420,6 +426,7 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
                 ),
               ),
               IconButton(
+                tooltip: l10n(context).actionCancel,
                 icon: const Icon(Icons.close),
                 onPressed: _cancelCreatingFolder,
               ),
@@ -488,7 +495,7 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to create $_entityLabelLower: $e'),
+            content: Text(UserFacingError.message(e, action: 'create $_entityLabelLower')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -573,9 +580,9 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error deleting $_entityLabelLower: $e'),
+            content: Text(UserFacingError.message(e, action: 'delete this $_entityLabelLower')),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorSurface,
           ),
         );
       }
@@ -619,9 +626,9 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error deleting $_entityLabelLower: $e'),
+            content: Text(UserFacingError.message(e, action: 'delete this $_entityLabelLower')),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorSurface,
           ),
         );
       }
@@ -706,7 +713,7 @@ class _FolderTile extends StatelessWidget {
                     padding: const EdgeInsets.only(right: 4),
                     child: AnimatedRotation(
                       turns: isExpanded ? 0.25 : 0,
-                      duration: const Duration(milliseconds: 200),
+                      duration: context.motion(const Duration(milliseconds: 200)),
                       child: Icon(
                         Icons.chevron_right_rounded,
                         size: 18,
@@ -746,7 +753,7 @@ class _FolderTile extends StatelessWidget {
                           Icon(
                             visibility!.icon,
                             size: 14,
-                            color: Colors.grey.shade500,
+                            color: context.mutedText,
                           ),
                         ],
                       ],
@@ -755,7 +762,7 @@ class _FolderTile extends StatelessWidget {
                       Text(
                         subtitle!,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.grey,
+                          color: context.mutedText,
                         ),
                       ),
                   ],
@@ -790,24 +797,24 @@ class _FolderTile extends StatelessWidget {
                   },
                   itemBuilder: (context) => [
                     if (onAddSubfolder != null)
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'add_subfolder',
                         child: Row(
                           children: [
                             Icon(Icons.create_new_folder_outlined, size: 18),
                             SizedBox(width: 8),
-                            Text('Add subfolder'),
+                            Text(l10n(context).addSubfolder),
                           ],
                         ),
                       ),
                     if (onRename != null)
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'rename',
                         child: Row(
                           children: [
                             Icon(Icons.edit_outlined, size: 18),
                             SizedBox(width: 8),
-                            Text('Rename'),
+                            Text(l10n(context).rename),
                           ],
                         ),
                       ),
@@ -817,9 +824,9 @@ class _FolderTile extends StatelessWidget {
                         value: 'delete',
                         child: Row(
                           children: [
-                            Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                            Icon(Icons.delete_outline, size: 18, color: context.dangerText),
                             const SizedBox(width: 8),
-                            const Text('Delete', style: TextStyle(color: Colors.red)),
+                            Text(l10n(context).actionDelete, style: TextStyle(color: context.dangerText)),
                           ],
                         ),
                       ),

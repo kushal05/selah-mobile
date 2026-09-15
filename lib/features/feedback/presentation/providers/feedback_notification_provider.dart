@@ -64,6 +64,10 @@ Future<void> _showAdminReplyNotification(
     final notificationService = ref.read(notificationServiceProvider);
     await notificationService.showNotification(
       id: _feedbackNotificationIdBase + (threadId.hashCode % 1000).abs(),
+      // Posted from a sync callback: no BuildContext and no widget tree to
+      // resolve a locale against, the same reason notification_service.dart
+      // is exempt.
+      // l10n-exempt: no BuildContext at the call site.
       title: 'Support replied to your feedback',
       body: subject,
     );

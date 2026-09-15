@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../colored_badge.dart';
+import '../../../core/theme/theme_colors.dart';
 
 class PromiseCard extends StatelessWidget {
   final String reference;
@@ -24,7 +25,7 @@ class PromiseCard extends StatelessWidget {
     return Container(
       margin: AppTheme.cardMargin,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardTheme.color,
         borderRadius: AppTheme.borderRadius2XL,
         boxShadow: AppTheme.cardShadow,
       ),
@@ -62,7 +63,8 @@ class PromiseCard extends StatelessWidget {
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w600,
                           height: 1.2,
-                          color: AppTheme.rosePink,
+                          color: AppTheme.accentOnTintFor(
+                              AppTheme.rosePink, theme.brightness),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -72,7 +74,7 @@ class PromiseCard extends StatelessWidget {
                         Text(
                           content,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: AppTheme.unselectedColor,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             fontStyle: FontStyle.italic,
                             height: 1.4,
                           ),
@@ -98,7 +100,7 @@ class PromiseCard extends StatelessWidget {
                   child: Icon(
                     Icons.chevron_right_rounded,
                     size: AppTheme.iconBase,
-                    color: AppTheme.chevronColor,
+                    color: context.decorativeInk,
                   ),
                 ),
               ],

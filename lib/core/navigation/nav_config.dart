@@ -46,10 +46,27 @@ class NavTab {
   }
 }
 
+/// How many tabs get their own slot in the bottom bar. Anything beyond this
+/// moves into a "More" sheet.
+///
+/// Material 3 specifies 3–5 destinations for a `NavigationBar`. At the previous
+/// 7, each tab was 45.7px wide on a 320px phone — under the 48dp minimum touch
+/// target, with mistap risk between neighbours. Four primary tabs plus More
+/// keeps every destination reachable while giving each a comfortable target.
+///
+/// The split is presentation only: the router still registers all 7 branches,
+/// and a tab in the More sheet is the same destination it always was.
+int kPrimaryNavTabCount = 4;
+
 /// The 7 base tabs, in router-branch order. This is the in-code default the
 /// server overlays — and the guaranteed fallback if a bad override would hide
 /// everything.
-const List<NavTab> kDefaultNavTabs = [
+///
+/// Order matters now: the first [kPrimaryNavTabCount] visible tabs get their
+/// own slot in the bar, the rest go to the More sheet. `order` overrides from
+/// remote config therefore also decide what is promoted or demoted, with no
+/// app release required.
+List<NavTab> kDefaultNavTabs = [
   NavTab(
     id: 'home',
     label: 'Home',

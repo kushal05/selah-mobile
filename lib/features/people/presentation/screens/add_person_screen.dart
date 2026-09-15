@@ -4,6 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/sync/models/person_model.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../shared/widgets/selectable_chip.dart';
 
 /// Screen for adding or editing a person
 /// Provides form fields for name, relation, church, notes, and tags
@@ -82,6 +87,7 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         leading: IconButton(
+          tooltip: l10n(context).close,
           icon: const Icon(Icons.close),
           onPressed: () => _handleClose(context),
         ),
@@ -89,7 +95,7 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
         actions: [
           TextButton(
             onPressed: _handleSave,
-            child: const Text('Save'),
+            child: Text(l10n(context).actionSave),
           ),
         ],
       ),
@@ -131,10 +137,10 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
     return TextFormField(
       controller: _nameController,
       decoration: InputDecoration(
-        labelText: 'Name',
+        labelText: l10n(context).name,
         hintText: 'Enter person\'s name',
         floatingLabelBehavior: FloatingLabelBehavior.always,
-        prefixIcon: Icon(Icons.person_outline, color: Colors.grey.shade400),
+        prefixIcon: Icon(Icons.person_outline, color: context.hintText),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
@@ -158,11 +164,11 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
         labelStyle: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
-          color: Colors.grey.shade700,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
         hintStyle: TextStyle(
-          fontSize: 15,
-          color: Colors.grey.shade400,
+          fontSize: 16,
+          color: context.hintText,
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
@@ -186,11 +192,11 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Relation',
+          l10n(context).relation,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Colors.grey.shade700,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 8),
@@ -234,10 +240,10 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
     return TextFormField(
       controller: _churchController,
       decoration: InputDecoration(
-        labelText: 'Church/Organization',
-        hintText: 'Enter church or organization name',
+        labelText: l10n(context).churchOrganization,
+        hintText: l10n(context).enterChurchOrOrganizationName,
         floatingLabelBehavior: FloatingLabelBehavior.always,
-        prefixIcon: Icon(Icons.church_outlined, color: Colors.grey.shade400),
+        prefixIcon: Icon(Icons.church_outlined, color: context.hintText),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
@@ -253,11 +259,11 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
         labelStyle: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
-          color: Colors.grey.shade700,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
         hintStyle: TextStyle(
-          fontSize: 15,
-          color: Colors.grey.shade400,
+          fontSize: 16,
+          color: context.hintText,
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
@@ -274,13 +280,13 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
     return TextFormField(
       controller: _notesController,
       decoration: InputDecoration(
-        labelText: 'Notes',
-        hintText: 'Add any notes about this person...',
+        labelText: l10n(context).navNotes,
+        hintText: l10n(context).addAnyNotesAboutThisPerson,
         floatingLabelBehavior: FloatingLabelBehavior.always,
         alignLabelWithHint: true,
         prefixIcon: Padding(
           padding: const EdgeInsets.only(bottom: 64),
-          child: Icon(Icons.notes_outlined, color: Colors.grey.shade400),
+          child: Icon(Icons.notes_outlined, color: context.hintText),
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -297,11 +303,11 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
         labelStyle: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
-          color: Colors.grey.shade700,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
         hintStyle: TextStyle(
-          fontSize: 15,
-          color: Colors.grey.shade400,
+          fontSize: 16,
+          color: context.hintText,
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
@@ -310,7 +316,7 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
       textCapitalization: TextCapitalization.sentences,
       textInputAction: TextInputAction.newline,
       style: const TextStyle(
-        fontSize: 15,
+        fontSize: 16,
         height: 1.5,
       ),
     );
@@ -321,11 +327,11 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Tags',
+          l10n(context).tags,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Colors.grey.shade700,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 8),
@@ -333,7 +339,7 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            ..._tags.map((tag) => _SelectableChip(
+            ..._tags.map((tag) => SelectableChip(
                   label: tag,
                   isSelected: true,
                   onTap: () {
@@ -348,7 +354,7 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
         if (_isAddingTag)
           Container(
             decoration: BoxDecoration(
-              color: Colors.grey.shade50,
+              color: context.subtleFill,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -358,8 +364,8 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
                     controller: _tagController,
                     focusNode: _tagInputFocusNode,
                     decoration: InputDecoration(
-                      hintText: 'Enter tag name...',
-                      prefixIcon: Icon(Icons.label_outline, size: 20, color: Colors.grey.shade400),
+                      hintText: l10n(context).enterTagName,
+                      prefixIcon: Icon(Icons.label_outline, size: 20, color: context.hintText),
                       filled: true,
                       fillColor: Colors.transparent,
                       isDense: true,
@@ -368,17 +374,18 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
                       enabledBorder: InputBorder.none,
                       focusedBorder: InputBorder.none,
                       hintStyle: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade400,
+                        fontSize: 16,
+                        color: context.hintText,
                       ),
                     ),
-                    style: const TextStyle(fontSize: 14),
+                    style: const TextStyle(fontSize: 16),
                     textCapitalization: TextCapitalization.words,
                     onSubmitted: _submitTag,
                   ),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
+                  tooltip: l10n(context).addTag,
                   icon: Icon(
                     Icons.check,
                     color: Theme.of(context).primaryColor,
@@ -386,9 +393,10 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
                   onPressed: () => _submitTag(_tagController.text),
                 ),
                 IconButton(
+                  tooltip: l10n(context).actionCancel,
                   icon: Icon(
                     Icons.close,
-                    color: Colors.grey.shade500,
+                    color: context.mutedText,
                   ),
                   onPressed: () {
                     FocusScope.of(context).unfocus();
@@ -410,7 +418,7 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
               });
             },
             icon: const Icon(Icons.add, size: 18),
-            label: const Text('Add tag'),
+            label: Text(l10n(context).addTag),
           ),
       ],
     );
@@ -442,19 +450,19 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Discard changes?'),
-          content: const Text('You have unsaved changes. Are you sure you want to discard them?'),
+          title: Text(l10n(context).discardChanges),
+          content: Text(l10n(context).youHaveUnsavedChangesAreYouSureYouWantToDisc),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text(l10n(context).actionCancel),
             ),
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
                 context.pop();
               },
-              child: const Text('Discard'),
+              child: Text(l10n(context).discard),
             ),
           ],
         ),
@@ -509,9 +517,9 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error saving person: $e'),
+              content: Text(UserFacingError.message(e, action: 'save this person')),
               behavior: SnackBarBehavior.floating,
-              backgroundColor: Colors.red,
+              backgroundColor: AppTheme.errorSurface,
             ),
           );
         }
@@ -520,54 +528,3 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
   }
 }
 
-/// A selectable chip widget for tags
-class _SelectableChip extends StatelessWidget {
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final bool showDelete;
-
-  const _SelectableChip({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-    this.showDelete = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? theme.colorScheme.primary : Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                color: isSelected ? Colors.white : Colors.grey.shade700,
-              ),
-            ),
-            if (showDelete && isSelected) ...[
-              const SizedBox(width: 4),
-              Icon(
-                Icons.close,
-                size: 16,
-                color: Colors.white.withValues(alpha: 0.8),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}

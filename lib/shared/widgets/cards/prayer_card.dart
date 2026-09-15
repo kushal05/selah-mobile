@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../colored_badge.dart';
+import '../row_actions.dart';
+import '../../../core/theme/theme_colors.dart';
 
 /// Card widget for displaying a prayer in a list.
 ///
@@ -24,6 +26,11 @@ class PrayerCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
 
+  /// Actions also available by swipe or long-press. Rendered as a visible
+  /// overflow menu so they are discoverable, and reachable by screen readers,
+  /// which cannot perform either gesture.
+  final List<RowAction> actions;
+
   const PrayerCard({
     super.key,
     required this.title,
@@ -35,6 +42,7 @@ class PrayerCard extends StatelessWidget {
     this.showStatusBadge = true,
     this.onTap,
     this.onLongPress,
+    this.actions = const [],
   });
 
   @override
@@ -44,7 +52,7 @@ class PrayerCard extends StatelessWidget {
     return Container(
       margin: AppTheme.cardMargin,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardTheme.color,
         borderRadius: AppTheme.borderRadius2XL,
         boxShadow: AppTheme.cardShadow,
       ),
@@ -88,7 +96,7 @@ class PrayerCard extends StatelessWidget {
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w600,
                           height: 1.2,
-                          color: AppTheme.textDark,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -103,7 +111,7 @@ class PrayerCard extends StatelessWidget {
                             child: Text(
                               frequencyLabel,
                               style: theme.textTheme.labelSmall?.copyWith(
-                                color: AppTheme.unselectedColor,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -123,7 +131,7 @@ class PrayerCard extends StatelessWidget {
                         Text(
                           description,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: AppTheme.unselectedColor,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             height: 1.4,
                           ),
                           maxLines: 2,
@@ -139,14 +147,14 @@ class PrayerCard extends StatelessWidget {
                             Icon(
                               Icons.people_outline,
                               size: AppTheme.iconXS,
-                              color: AppTheme.hintColor,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
                             const SizedBox(width: AppTheme.spacing4),
                             Expanded(
                               child: Text(
                                 linkedPeopleNames.join(', '),
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  color: AppTheme.unselectedColor,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -160,17 +168,20 @@ class PrayerCard extends StatelessWidget {
                 ),
 
                 // Chevron
-                Padding(
-                  padding: const EdgeInsets.only(
-                    left: AppTheme.spacing8,
-                    top: AppTheme.spacing10,
+                if (actions.isNotEmpty)
+                  RowOverflowButton(actions: actions, semanticLabel: title)
+                else
+                  Padding(
+                    padding: EdgeInsets.only(
+                      left: AppTheme.spacing8,
+                      top: AppTheme.spacing10,
+                    ),
+                    child: Icon(
+                      Icons.chevron_right_rounded,
+                      size: AppTheme.iconBase,
+                      color: context.decorativeInk,
+                    ),
                   ),
-                  child: Icon(
-                    Icons.chevron_right_rounded,
-                    size: AppTheme.iconBase,
-                    color: AppTheme.chevronColor,
-                  ),
-                ),
               ],
             ),
           ),

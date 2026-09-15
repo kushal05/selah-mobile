@@ -7,6 +7,8 @@ import '../../../core/sync/models/folder_model.dart';
 import '../../../core/sync/providers/sync_providers.dart';
 import '../../../core/sync/repositories/folder_repository.dart';
 import 'folder_dialog_helpers.dart';
+import '../../../l10n/l10n.dart';
+import '../../../core/theme/theme_colors.dart';
 
 /// Dialog for creating a new folder
 class CreateFolderDialog extends ConsumerStatefulWidget {
@@ -115,7 +117,7 @@ class _CreateFolderDialogState extends ConsumerState<CreateFolderDialog> {
             if (widget.parentName != null) ...[
               Text(
                 'Creating $_entityLabelLower inside "${widget.parentName}"',
-                style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+                style: theme.textTheme.bodySmall?.copyWith(color: context.mutedText),
               ),
               const SizedBox(height: AppTheme.spacing16),
             ],
@@ -123,6 +125,7 @@ class _CreateFolderDialogState extends ConsumerState<CreateFolderDialog> {
               controller: _nameController,
               focusNode: _nameFocusNode,
               decoration: folderNameFieldDecoration(
+                theme: theme,
                 accentColor: _accentColor,
                 errorColor: colorScheme.error,
                 entityLabel: _entityLabel,
@@ -142,6 +145,7 @@ class _CreateFolderDialogState extends ConsumerState<CreateFolderDialog> {
             ),
             const SizedBox(height: AppTheme.spacing20),
             buildFolderVisibilitySelector(
+              context: context,
               theme: theme,
               isSubfolder: _isSubfolder,
               selected: _selectedVisibility,
@@ -160,6 +164,7 @@ class _CreateFolderDialogState extends ConsumerState<CreateFolderDialog> {
                 !_isSubfolder) ...[
               const SizedBox(height: AppTheme.spacing12),
               buildFolderGroupPicker(
+              context: context,
                 ref: ref,
                 theme: theme,
                 selectedGroupId: _selectedGroupId,
@@ -181,7 +186,7 @@ class _CreateFolderDialogState extends ConsumerState<CreateFolderDialog> {
               ? null
               : () => Navigator.of(context).pop(false),
           style: TextButton.styleFrom(foregroundColor: Colors.grey.shade700),
-          child: const Text('Cancel'),
+          child: Text(l10n(context).actionCancel),
         ),
         FilledButton(
           onPressed: _isCreating ||
@@ -196,7 +201,7 @@ class _CreateFolderDialogState extends ConsumerState<CreateFolderDialog> {
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Create'),
+              : Text(l10n(context).create),
         ),
       ],
     );

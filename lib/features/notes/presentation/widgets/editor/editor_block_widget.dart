@@ -14,6 +14,8 @@ import '../../providers/note_editor_provider.dart';
 import 'bible_reference_block_widget.dart';
 import 'bible_reference_picker.dart';
 import 'formatted_text_controller.dart';
+import '../../../../../core/theme/app_theme.dart';
+import '../../../../../core/theme/theme_colors.dart';
 
 /// Base widget for rendering editor blocks
 /// Each block type extends this with specific styling
@@ -191,7 +193,9 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
 
     if (widget.isMultiSelectActive) {
       // In multi-select mode, intercept all taps to toggle selection
-      content = GestureDetector(
+      content = Semantics(
+        button: true,
+        child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () {
           ref
@@ -199,6 +203,7 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
               .toggleBlockSelection(widget.block.id);
         },
         child: AbsorbPointer(child: content),
+      ),
       );
     } else {
       // Use Listener to detect long-press without losing gesture arena to TextField
@@ -225,11 +230,11 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
   Widget _buildBlockContent() {
     switch (widget.block.type) {
       case BlockType.heading1:
-        return _buildHeading(28, FontWeight.bold);
+        return _buildHeading(AppTheme.noteHeading1);
       case BlockType.heading2:
-        return _buildHeading(24, FontWeight.bold);
+        return _buildHeading(AppTheme.noteHeading2);
       case BlockType.heading3:
-        return _buildHeading(20, FontWeight.bold);
+        return _buildHeading(AppTheme.noteHeading3);
       case BlockType.bulletList:
         return _buildListItem(bullet: true);
       case BlockType.numberedList:
@@ -249,15 +254,9 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
     );
   }
 
-  Widget _buildHeading(double fontSize, FontWeight fontWeight) {
-    return _buildTextField(
-      style: TextStyle(
-        fontSize: fontSize,
-        fontWeight: fontWeight,
-        height: 1.3,
-      ),
-    );
-  }
+  /// Headings come from the shared note scale so the editor and the
+  /// read-only view render the same document identically.
+  Widget _buildHeading(TextStyle style) => _buildTextField(style: style);
 
   Widget _buildListItem({bool bullet = false, bool numbered = false}) {
     final indentLevel = widget.block.indentLevel;
@@ -287,7 +286,7 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
               style: TextStyle(
                 fontSize: 16,
                 height: 1.4,
-                color: Colors.grey.shade600,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ),
@@ -435,7 +434,7 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
         isDense: true,
         isCollapsed: true,
         hintText: _getHintText(),
-        hintStyle: effectiveStyle.copyWith(color: Colors.grey.shade400),
+        hintStyle: effectiveStyle.copyWith(color: context.hintText),
       ),
       maxLines: null,
       keyboardType: TextInputType.multiline,

@@ -7,6 +7,7 @@ import '../../../../core/sync/providers/sync_providers.dart';
 import '../widgets/aurora_background.dart';
 import '../widgets/firefly_particles.dart';
 import '../widgets/selah_logo.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Premium splash screen shown on app launch.
 ///
@@ -193,8 +194,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                         // Wordmark
                         FadeTransition(
                           opacity: _wordmarkFade,
-                          child: const Text(
-                            'Selah',
+                          child: Text(
+                            l10n(context).appName,
                             style: TextStyle(
                               fontSize: 36,
                               fontWeight: FontWeight.w700,
@@ -211,7 +212,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                           child: SlideTransition(
                             position: _taglineSlide,
                             child: Text(
-                              'Pause. Reflect. Grow.',
+                              l10n(context).pauseReflectGrow,
                               style: TextStyle(
                                 fontSize: 16,
                                 color:

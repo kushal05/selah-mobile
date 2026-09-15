@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/services/app_update_service.dart';
+import '../../../core/theme/theme_colors.dart';
+import '../../../l10n/l10n.dart';
 
 /// Shows an update dialog — non-dismissible for forced updates, dismissible
 /// for optional ones.
@@ -170,14 +172,14 @@ class _UpdateDialogState extends State<UpdateDialog> {
               result.isForced
                   ? 'This version is no longer supported. Please update to continue.'
                   : 'Version ${result.latestVersion} is available.',
-              style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
+              style: const TextStyle(fontSize: 16, color: Color(0xFF6B7280)),
             ),
             if (result.releaseNotes.isNotEmpty) ...[
               const SizedBox(height: 12),
               const Text(
                 "What's new:",
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF111827),
                 ),
@@ -185,7 +187,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
               const SizedBox(height: 4),
               Text(
                 result.releaseNotes,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
               ),
             ],
             if (_needsPermission) ...[
@@ -201,7 +203,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
           if (!result.isForced && !_downloading && !_needsPermission)
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Later'),
+              child: Text(l10n(context).later),
             ),
           _ActionButton(
             result: result,
@@ -227,13 +229,13 @@ class _PermissionPrompt extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
+      children: [
         Icon(Icons.info_outline, size: 16, color: Color(0xFFF59E0B)),
         SizedBox(width: 8),
         Expanded(
           child: Text(
-            'Enable "Install unknown apps" for Selah on the Settings page that just opened, then tap Retry Install.',
-            style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+            l10n(context).enableInstallUnknownAppsForSelahOnTheSetting,
+            style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
           ),
         ),
       ],
@@ -269,7 +271,7 @@ class _ActionButton extends StatelessWidget {
       return FilledButton.icon(
         onPressed: onRetryInstall,
         icon: const Icon(Icons.refresh, size: 16),
-        label: const Text('Retry Install'),
+        label: Text(l10n(context).retryInstall),
         style: FilledButton.styleFrom(backgroundColor: Colors.orange),
       );
     }
@@ -279,7 +281,7 @@ class _ActionButton extends StatelessWidget {
       return FilledButton.icon(
         onPressed: onDownload,
         icon: const Icon(Icons.refresh, size: 16),
-        label: const Text('Retry'),
+        label: Text(l10n(context).retry),
         style: FilledButton.styleFrom(backgroundColor: Colors.orange),
       );
     }
@@ -288,7 +290,7 @@ class _ActionButton extends StatelessWidget {
     if (progress?.isDone == true) {
       return FilledButton(
         onPressed: null,
-        child: const Text('Installing…'),
+        child: Text(l10n(context).installing),
       );
     }
 
@@ -296,7 +298,7 @@ class _ActionButton extends StatelessWidget {
     if (downloading) {
       return FilledButton(
         onPressed: null,
-        child: const Text('Downloading…'),
+        child: Text(l10n(context).downloading),
       );
     }
 
@@ -305,7 +307,7 @@ class _ActionButton extends StatelessWidget {
       return FilledButton.icon(
         onPressed: onDownload,
         icon: const Icon(Icons.download, size: 16),
-        label: const Text('Download & Install'),
+        label: Text(l10n(context).downloadInstall),
         style: FilledButton.styleFrom(
           backgroundColor: result.isForced ? Colors.red : Colors.blue,
         ),
@@ -320,7 +322,7 @@ class _ActionButton extends StatelessWidget {
       style: FilledButton.styleFrom(
         backgroundColor: result.isForced ? Colors.red : Colors.blue,
       ),
-      child: const Text('Update Now'),
+      child: Text(l10n(context).updateNow),
     );
   }
 }
@@ -341,13 +343,13 @@ class _DownloadProgressBar extends StatelessWidget {
     if (p.hasError) {
       return Text(
         'Download failed: ${p.error}',
-        style: const TextStyle(fontSize: 12, color: Colors.red),
+        style: TextStyle(fontSize: 13, color: context.dangerText),
       );
     }
     if (p.isDone) {
-      return const Text(
-        'Download complete. Opening installer…',
-        style: TextStyle(fontSize: 12, color: Colors.green),
+      return Text(
+        l10n(context).downloadCompleteOpeningInstaller,
+        style: TextStyle(fontSize: 13, color: context.successText),
       );
     }
 
@@ -362,7 +364,7 @@ class _DownloadProgressBar extends StatelessWidget {
       children: [
         LinearProgressIndicator(value: pct),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+        Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
       ],
     );
   }

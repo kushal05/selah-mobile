@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/testing/test_clock.dart';
+import '../../../notes/domain/models/note.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Filter type for the trash screen
 enum _TrashFilter { all, notes, prayers, promises, songs, people, folders, preachers, tags }
@@ -23,7 +26,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Trash'),
+        title: Text(l10n(context).trash),
         backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
         actions: [
@@ -33,9 +36,9 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
               if (value == 'empty') _confirmEmptyTrash();
             },
             itemBuilder: (_) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'empty',
-                child: Text('Empty Trash'),
+                child: Text(l10n(context).emptyTrash),
               ),
             ],
           ),
@@ -81,13 +84,13 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
         for (final n in list) {
           items.add(_TrashItem(
             id: n.id,
-            title: n.title.isEmpty ? 'Untitled Note' : n.title,
+            title: n.title.isEmpty ? Note.untitledLabel : n.title,
             icon: Icons.note_outlined,
             type: 'Note',
             trashedAt: n.trashedAt ?? 0,
             onRestore: () => _restore(() => ref.read(noteRepositoryProvider).restoreNote(n.id)),
             onDelete: () => _confirmPermanentDelete(
-              n.title.isEmpty ? 'Untitled Note' : n.title,
+              n.title.isEmpty ? Note.untitledLabel : n.title,
               () => ref.read(noteRepositoryProvider).deleteNote(n.id),
             ),
           ));
@@ -244,11 +247,11 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.delete_outline, size: 48, color: Colors.grey.shade400),
+            Icon(Icons.delete_outline, size: 48, color: context.hintText),
             const SizedBox(height: 12),
             Text(
-              'Trash is empty',
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+              l10n(context).trashEmptyTitle,
+              style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           ],
         ),
@@ -277,19 +280,19 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
         ),
         subtitle: Text(
           '${item.type} \u2022 ${daysLeft > 0 ? '$daysLeft days left' : 'Expiring soon'}',
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+          style: TextStyle(fontSize: 13, color: context.mutedText),
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
               icon: const Icon(Icons.restore, size: 20),
-              tooltip: 'Restore',
+              tooltip: l10n(context).restore,
               onPressed: item.onRestore,
             ),
             IconButton(
-              icon: Icon(Icons.delete_forever, size: 20, color: Colors.red.shade400),
-              tooltip: 'Delete permanently',
+              icon: Icon(Icons.delete_forever, size: 20, color: context.dangerText),
+              tooltip: l10n(context).deletePermanently,
               onPressed: item.onDelete,
             ),
           ],
@@ -302,8 +305,8 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
     await action();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Restored'),
+        SnackBar(
+          content: Text(l10n(context).restored),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -314,24 +317,24 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Permanently'),
+        title: Text(l10n(context).deletePermanently),
         content: Text('"$title" will be permanently deleted. This cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n(context).actionCancel)),
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
               await action();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Permanently deleted'),
+                  SnackBar(
+                    content: Text(l10n(context).permanentlyDeleted),
                     behavior: SnackBarBehavior.floating,
                   ),
                 );
               }
             },
-            child: Text('Delete', style: TextStyle(color: Colors.red.shade400)),
+            child: Text(l10n(context).actionDelete, style: TextStyle(color: context.dangerText)),
           ),
         ],
       ),
@@ -342,10 +345,10 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Empty Trash'),
-        content: const Text('All items in trash will be permanently deleted. This cannot be undone.'),
+        title: Text(l10n(context).emptyTrash),
+        content: Text(l10n(context).allItemsInTrashWillBePermanentlyDeletedThisC),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n(context).actionCancel)),
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
@@ -401,14 +404,14 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
 
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Trash emptied'),
+                  SnackBar(
+                    content: Text(l10n(context).trashEmptied),
                     behavior: SnackBarBehavior.floating,
                   ),
                 );
               }
             },
-            child: Text('Empty Trash', style: TextStyle(color: Colors.red.shade400)),
+            child: Text(l10n(context).emptyTrash, style: TextStyle(color: context.dangerText)),
           ),
         ],
       ),

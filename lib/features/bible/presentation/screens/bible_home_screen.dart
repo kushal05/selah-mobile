@@ -8,6 +8,9 @@ import '../../../../core/theme/app_theme.dart';
 import '../../domain/models/bible_book_entity.dart';
 import '../providers/bible_chapter_providers.dart';
 import '../providers/bible_providers.dart';
+import '../../../../shared/widgets/feature_intro.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 class BibleHomeScreen extends ConsumerStatefulWidget {
   const BibleHomeScreen({super.key});
@@ -48,7 +51,9 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
 
   void _onChapterTap(int bookId, int chapter) {
     final translation = ref.read(defaultBibleVersionProvider);
-    context.go(
+    // push, not go: opening a chapter is going *into* something, and go
+    // replaces the stack so the reader had no way back to the book list.
+    context.push(
       '${Routes.bible}/chapter'
       '?bookId=$bookId'
       '&chapter=$chapter'
@@ -80,7 +85,7 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
           elevation: 0,
           automaticallyImplyLeading: false,
           title: Text(
-            'Bible',
+            l10n(context).navBible,
             style: parentTheme.textTheme.titleLarge?.copyWith(
               color: parentTheme.colorScheme.onSurface,
             ),
@@ -89,56 +94,81 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
             if (dbOpen)
               IconButton(
                 icon: const Icon(Icons.download_for_offline_outlined),
-                tooltip: 'Manage Bible Versions',
+                tooltip: l10n(context).manageBibleVersions,
                 onPressed: () => context.push(Routes.bibleVersions),
               ),
             IconButton(
               icon: const Icon(Icons.history),
-              tooltip: 'Reading History',
-              onPressed: () => context.go(Routes.bibleHistory),
+              tooltip: l10n(context).readingHistory,
+              onPressed: () => context.push(Routes.bibleHistory),
             ),
             IconButton(
               icon: const Icon(Icons.search),
-              tooltip: 'Search Bible',
+              tooltip: l10n(context).searchBible,
               onPressed: () => context.push(Routes.bibleSearch),
             ),
           ],
         ),
+        // One scroll view for the whole page. This was a fixed Column, so the
+        // 66 book chips and the intro above them could not be scrolled to —
+        // on a shorter screen (or at a large text size) the lower testament
+        // was simply unreachable, and only the chapter grid scrolled.
         body: !dbOpen
             ? BibleVersionOnboardingScreen(onComplete: () {})
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Bookmarks strip
-                  _buildBookmarksStrip(theme),
-                  // Book chips
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppTheme.spacing16, AppTheme.spacing12,
-                      AppTheme.spacing16, AppTheme.spacing4,
-                    ),
+            : CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildTestamentChips('Old Testament', otBooks, 0, parentTheme.colorScheme),
-                        const SizedBox(height: AppTheme.spacing12),
-                        _buildTestamentChips('New Testament', ntBooks, 39, parentTheme.colorScheme),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: FeatureIntros.bible,
+                        ),
+                        // Bookmarks strip
+                        _buildBookmarksStrip(theme),
+                        // Book chips
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppTheme.spacing16, AppTheme.spacing12,
+                            AppTheme.spacing16, AppTheme.spacing4,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildTestamentChips('Old Testament', otBooks, 0,
+                                  parentTheme.colorScheme),
+                              const SizedBox(height: AppTheme.spacing12),
+                              _buildTestamentChips('New Testament', ntBooks, 39,
+                                  parentTheme.colorScheme),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
                   // Chapter grid
-                  if (_selectedBook != null) ...[
-                    const SizedBox(height: AppTheme.spacing8),
-                    Divider(color: Colors.grey.shade200, height: 1),
-                    Expanded(child: _buildChapterGrid(_selectedBook!, theme)),
-                  ] else
-                    Expanded(
+                  if (_selectedBook != null)
+                    ..._buildChapterSlivers(_selectedBook!, theme, parentTheme)
+                  else
+                    SliverFillRemaining(
+                      // Centres in the leftover space when there is any, and
+                      // falls back to its own height when the chips already
+                      // fill the viewport.
+                      hasScrollBody: false,
                       child: Center(
-                        child: Text(
-                          'Select a book to browse chapters',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: parentTheme.colorScheme.onSurface.withValues(alpha: 0.4),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppTheme.spacing16,
+                            vertical: AppTheme.spacing24,
+                          ),
+                          child: Text(
+                            l10n(context).selectABookToBrowseChapters,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: parentTheme.colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ),
                       ),
@@ -168,9 +198,9 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
               const SizedBox(width: 4),
               Text(
-                'Bookmarks',
+                l10n(context).bookmarks,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                   letterSpacing: 0.5,
@@ -211,7 +241,7 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
                   child: Text(
                     '${bm.bookName} ${bm.chapter}',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: _bibleGreen,
                     ),
@@ -222,7 +252,7 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
           ),
         ),
         const SizedBox(height: AppTheme.spacing8),
-        Divider(color: Colors.grey.shade200, height: 1),
+        Divider(color: context.hairline, height: 1),
       ],
     );
   }
@@ -239,7 +269,7 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
         Text(
           label,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: FontWeight.w600,
             color: cs.onSurface.withValues(alpha: 0.5),
             letterSpacing: 0.5,
@@ -264,7 +294,7 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
               }),
               showCheckmark: false,
               labelStyle: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 color: isSelected ? color.withValues(alpha: 0.9) : color.withValues(alpha: 0.7),
               ),
@@ -284,70 +314,96 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
     );
   }
 
-  Widget _buildChapterGrid(BibleBookEntity book, ThemeData theme) {
+  /// The book heading plus its chapter grid, as slivers so they scroll with
+  /// the book chips above rather than in a nested scroll view of their own.
+  List<Widget> _buildChapterSlivers(
+    BibleBookEntity book,
+    ThemeData theme,
+    ThemeData parentTheme,
+  ) {
     final translations = ref.watch(bibleTranslationsProvider);
     final translation = translations.isNotEmpty ? translations.first : 'KJV';
     final chapters = ref.watch(
       bibleChaptersProvider((bookId: book.id, translation: translation)),
     );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppTheme.spacing16, AppTheme.spacing12,
-            AppTheme.spacing16, AppTheme.spacing4,
+    return [
+      SliverToBoxAdapter(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: AppTheme.spacing8),
+            Divider(color: parentTheme.dividerColor, height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppTheme.spacing16, AppTheme.spacing12,
+                AppTheme.spacing16, AppTheme.spacing4,
+              ),
+              child: Text(
+                book.name,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      if (chapters.isEmpty)
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: AppTheme.spacing24),
+            child: Center(child: Text(l10n(context).noChaptersAvailable)),
           ),
-          child: Text(
-            book.name,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+        )
+      else
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(
+            AppTheme.spacing16, AppTheme.spacing4,
+            AppTheme.spacing16, AppTheme.spacing16,
+          ),
+          sliver: SliverGrid(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisSpacing: AppTheme.spacing6,
+              crossAxisSpacing: AppTheme.spacing6,
+              childAspectRatio: 1,
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final chapter = chapters[index];
+                return Semantics(
+                  button: true,
+                  label: '${book.name} chapter $chapter',
+                  excludeSemantics: true,
+                  onTap: () => _onChapterTap(book.id, chapter),
+                  child: GestureDetector(
+                    onTap: () => _onChapterTap(book.id, chapter),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHigh,
+                        borderRadius: AppTheme.borderRadiusMD,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '$chapter',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+              childCount: chapters.length,
             ),
           ),
         ),
-        Expanded(
-          child: chapters.isEmpty
-              ? const Center(child: Text('No chapters available'))
-              : GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppTheme.spacing16, AppTheme.spacing4,
-                    AppTheme.spacing16, AppTheme.spacing16,
-                  ),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 7,
-                    mainAxisSpacing: AppTheme.spacing6,
-                    crossAxisSpacing: AppTheme.spacing6,
-                    childAspectRatio: 1,
-                  ),
-                  itemCount: chapters.length,
-                  itemBuilder: (context, index) {
-                    final chapter = chapters[index];
-                    return GestureDetector(
-                      onTap: () => _onChapterTap(book.id, chapter),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHigh,
-                          borderRadius: AppTheme.borderRadiusMD,
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          '$chapter',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
+    ];
   }
 
 }

@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/sync/services/public_share_api_service.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../shared/widgets/error_state.dart';
 
 /// Unauthenticated read-only viewer for a public-link shared note.
 ///
@@ -78,11 +80,11 @@ class _PublicNoteViewerScreenState
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Shared note'),
+        title: Text(l10n(context).sharedNote),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
+            tooltip: l10n(context).refresh,
             onPressed: _loading ? null : _load,
           ),
         ],
@@ -96,7 +98,7 @@ class _PublicNoteViewerScreenState
       return const Center(child: CircularProgressIndicator());
     }
     if (_error != null && _snapshot == null) {
-      return _ErrorState(error: _error!, onRetry: _load);
+      return ErrorState(error: _error!, onRetry: _load);
     }
     final snap = _snapshot!;
     final title = (snap.note['title'] as String?) ?? 'Untitled';
@@ -147,7 +149,7 @@ class _ViewOnlyBanner extends StatelessWidget {
             children: [
               const Icon(Icons.visibility_outlined, size: 18),
               const SizedBox(width: 6),
-              Text('Read-only',
+              Text(l10n(context).readOnly,
                   style: theme.textTheme.labelLarge),
               const Spacer(),
               Text(
@@ -192,55 +194,8 @@ class _BlockView extends StatelessWidget {
   }
 }
 
-class _ErrorState extends StatelessWidget {
-  final Object error;
-  final VoidCallback onRetry;
-  const _ErrorState({required this.error, required this.onRetry});
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.link_off, size: 48, color: theme.colorScheme.error),
-            const SizedBox(height: 12),
-            Text(
-              'Couldn\'t load this note',
-              style: theme.textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _friendlyError(error),
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-              onPressed: onRetry,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
-String _friendlyError(Object err) {
-  final s = err.toString();
-  if (s.contains('404') || s.contains('not found')) {
-    return 'This share link is no longer valid.';
-  }
-  if (s.contains('429')) {
-    return 'Too many requests. Try again in a minute.';
-  }
-  return 'Check your connection and try again.';
-}
 
 String _relative(int ms) {
   final diff = DateTime.now().millisecondsSinceEpoch - ms;

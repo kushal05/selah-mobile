@@ -5,6 +5,9 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../widgets/friend_request_card.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Screen showing incoming and outgoing friend requests
 class FriendRequestsScreen extends ConsumerWidget {
@@ -16,7 +19,7 @@ class FriendRequestsScreen extends ConsumerWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Friend Requests'),
+          title: Text(l10n(context).friendRequests),
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           elevation: 0,
           bottom: const TabBar(
@@ -47,13 +50,14 @@ class _IncomingRequestsTab extends ConsumerWidget {
 
     return requestsAsync.when(
       loading: () => const ListTileSkeletonList(count: 4),
-      error: (error, stack) => Center(child: Text('Error: $error')),
+      error: (error, stack) => Center(child: Text(UserFacingError.forLoad(error))),
       data: (requests) {
         if (requests.isEmpty) {
           return _buildEmptyState(
+            context,
             icon: Icons.inbox_outlined,
-            title: 'No incoming requests',
-            subtitle: 'Friend requests you receive will appear here',
+            title: l10n(context).noIncomingRequests,
+            subtitle: l10n(context).friendRequestsYouReceiveWillAppearHere,
           );
         }
 
@@ -86,8 +90,8 @@ class _IncomingRequestsTab extends ConsumerWidget {
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Friend request accepted!'),
+          SnackBar(
+            content: Text(l10n(context).friendRequestAccepted),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -96,7 +100,7 @@ class _IncomingRequestsTab extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to accept request: $e'),
+            content: Text(UserFacingError.message(e, action: 'accept request')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -114,8 +118,8 @@ class _IncomingRequestsTab extends ConsumerWidget {
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Request declined'),
+          SnackBar(
+            content: Text(l10n(context).requestDeclined),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -124,7 +128,7 @@ class _IncomingRequestsTab extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to decline request: $e'),
+            content: Text(UserFacingError.message(e, action: 'decline request')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -140,13 +144,14 @@ class _OutgoingRequestsTab extends ConsumerWidget {
 
     return requestsAsync.when(
       loading: () => const ListTileSkeletonList(count: 4),
-      error: (error, stack) => Center(child: Text('Error: $error')),
+      error: (error, stack) => Center(child: Text(UserFacingError.forLoad(error))),
       data: (requests) {
         if (requests.isEmpty) {
           return _buildEmptyState(
+            context,
             icon: Icons.outbox_outlined,
-            title: 'No outgoing requests',
-            subtitle: 'Requests you send will appear here',
+            title: l10n(context).noOutgoingRequests,
+            subtitle: l10n(context).requestsYouSendWillAppearHere,
           );
         }
 
@@ -175,8 +180,8 @@ class _OutgoingRequestsTab extends ConsumerWidget {
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Request cancelled'),
+          SnackBar(
+            content: Text(l10n(context).requestCancelled),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -185,7 +190,7 @@ class _OutgoingRequestsTab extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to cancel request: $e'),
+            content: Text(UserFacingError.message(e, action: 'cancel request')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -194,7 +199,8 @@ class _OutgoingRequestsTab extends ConsumerWidget {
   }
 }
 
-Widget _buildEmptyState({
+Widget _buildEmptyState(
+  BuildContext context, {
   required IconData icon,
   required String title,
   required String subtitle,
@@ -205,22 +211,22 @@ Widget _buildEmptyState({
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 64, color: Colors.grey.shade400),
+          Icon(icon, size: 64, color: context.hintText),
           const SizedBox(height: 16),
           Text(
             title,
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w500,
-              color: Colors.grey.shade600,
+              color: context.mutedText,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             subtitle,
             style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade500,
+              fontSize: 16,
+              color: context.mutedText,
             ),
             textAlign: TextAlign.center,
           ),

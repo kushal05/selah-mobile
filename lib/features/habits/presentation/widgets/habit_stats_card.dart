@@ -6,6 +6,9 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../features/home/presentation/providers/habit_providers.dart';
 import '../providers/habit_analytics_providers.dart';
 import 'habit_heatmap_widget.dart';
+import '../../../../core/providers/motion_preferences.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Per-habit card showing today's toggle, current streak, best streak,
 /// weekly stats, and a 3-month heatmap calendar.
@@ -40,12 +43,12 @@ class HabitStatsCard extends ConsumerWidget {
       margin: const EdgeInsets.symmetric(
           horizontal: AppTheme.spacing16, vertical: AppTheme.spacing6),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.cardSurface,
         borderRadius: AppTheme.borderRadius3XL,
         border: Border.all(
           color: isDone
               ? color.withValues(alpha: 0.3)
-              : AppTheme.dividerColor,
+              : context.hairline,
         ),
         boxShadow: [
           BoxShadow(
@@ -84,7 +87,12 @@ class HabitStatsCard extends ConsumerWidget {
                         ?.copyWith(fontWeight: FontWeight.w600),
                   ),
                 ),
-                GestureDetector(
+                Semantics(
+                  button: true,
+                  label: isDone
+                      ? '${habit.label}, done today. Mark not done'
+                      : '${habit.label}, not done. Mark done',
+                  child: GestureDetector(
                   onTap: () async {
                     try {
                       await ref
@@ -99,7 +107,7 @@ class HabitStatsCard extends ConsumerWidget {
                     }
                   },
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
+                    duration: context.motion(const Duration(milliseconds: 200)),
                     padding: const EdgeInsets.symmetric(
                         horizontal: AppTheme.spacing12,
                         vertical: AppTheme.spacing6),
@@ -142,6 +150,7 @@ class HabitStatsCard extends ConsumerWidget {
                     ),
                   ),
                 ),
+                ),
               ],
             ),
 
@@ -157,7 +166,7 @@ class HabitStatsCard extends ConsumerWidget {
                   label: streak > 0
                       ? '$streak day${streak == 1 ? '' : 's'}'
                       : '0 days',
-                  sublabel: 'Current streak',
+                  sublabel: l10n(context).currentStreak,
                   theme: theme,
                 ),
                 const SizedBox(width: AppTheme.spacing8),
@@ -167,7 +176,7 @@ class HabitStatsCard extends ConsumerWidget {
                       ? const Color(0xFFF59E0B)
                       : theme.colorScheme.onSurface.withValues(alpha: 0.3),
                   label: best > 0 ? '$best day${best == 1 ? '' : 's'}' : '—',
-                  sublabel: 'Best streak',
+                  sublabel: l10n(context).bestStreak,
                   theme: theme,
                 ),
               ],
@@ -220,19 +229,29 @@ class _StatChip extends StatelessWidget {
           children: [
             Icon(icon, size: 16, color: iconColor),
             const SizedBox(width: AppTheme.spacing6),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: theme.textTheme.labelMedium
-                        ?.copyWith(fontWeight: FontWeight.w700)),
-                Text(sublabel,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      fontSize: 10,
-                      color:
-                          theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                    )),
-              ],
+            // Flexible, and the labels ellipsise: the Column had no bound, so
+            // a long streak label pushed this Row 44px past its half of the
+            // card. Found by the first run of the screen smoke tests.
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                  Text(sublabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        fontSize: 12,
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      )),
+                ],
+              ),
             ),
           ],
         ),
@@ -293,7 +312,7 @@ class _WeekRow extends StatelessWidget {
               Text(
                 _days[i],
                 style: theme.textTheme.labelSmall?.copyWith(
-                  fontSize: 10,
+                  fontSize: 12,
                   fontWeight:
                       isToday ? FontWeight.w700 : FontWeight.normal,
                   color: isToday

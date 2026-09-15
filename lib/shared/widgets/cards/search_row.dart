@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colors.dart';
 
 /// Displays a search result row with optional entity type color indicator.
 class SearchRow extends StatelessWidget {
@@ -27,7 +28,7 @@ class SearchRow extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
@@ -68,7 +69,7 @@ class SearchRow extends StatelessWidget {
                         Text(
                           title,
                           style: theme.textTheme.titleSmall?.copyWith(
-                            color: AppTheme.textDark,
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontWeight: FontWeight.w600,
                           ),
                           maxLines: 1,
@@ -79,7 +80,7 @@ class SearchRow extends StatelessWidget {
                           Text(
                             subtitle,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.grey.shade500,
+                              color: context.subtleFill,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -93,7 +94,7 @@ class SearchRow extends StatelessWidget {
                   padding: const EdgeInsets.only(right: 12),
                   child: Icon(
                     Icons.chevron_right_rounded,
-                    color: Colors.grey.shade300,
+                    color: context.mutedText,
                     size: 20,
                   ),
                 ),

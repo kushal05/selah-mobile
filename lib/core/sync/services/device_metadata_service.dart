@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
@@ -20,7 +21,11 @@ class DeviceMetadataService {
         final info = await _deviceInfo.iosInfo;
         return info.utsname.machine;
       }
-    } catch (_) {}
+    } catch (e) {
+      // Device name is cosmetic — it labels a row in the Devices screen.
+      // 'Unknown' is a correct answer when the platform will not say.
+      debugPrint('Device name unavailable: $e');
+    }
     return 'Unknown';
   }
 
@@ -34,7 +39,11 @@ class DeviceMetadataService {
         final info = await _deviceInfo.iosInfo;
         return 'iOS ${info.systemVersion}';
       }
-    } catch (_) {}
+    } catch (e) {
+      // As above: falls back to the platform name, which is always right if
+      // less specific.
+      debugPrint('OS version unavailable: $e');
+    }
     return Platform.operatingSystem;
   }
 

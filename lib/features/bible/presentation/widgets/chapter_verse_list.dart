@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/providers/reading_preferences.dart';
 import '../../domain/models/bible_highlight_entity.dart';
 import '../../domain/models/bible_verse_entity.dart';
+import '../../../../core/providers/motion_preferences.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Displays all verses of a Bible chapter in a scrollable list.
 ///
@@ -85,7 +90,7 @@ class _ChapterVerseListState extends State<ChapterVerseList> {
     if (widget.verses.isEmpty) {
       return Center(
         child: Text(
-          'No verses available',
+          l10n(context).noVersesAvailable,
           style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
         ),
       );
@@ -121,7 +126,7 @@ class _ChapterVerseListState extends State<ChapterVerseList> {
 }
 
 /// A single verse row with optional highlight background.
-class _VerseRow extends StatelessWidget {
+class _VerseRow extends ConsumerWidget {
   final BibleVerseEntity verse;
   final BibleHighlightEntity? highlight;
   final bool isFlashing;
@@ -138,8 +143,10 @@ class _VerseRow extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final bodySize = ref.watch(readingFontSizeProvider);
+    final numberSize = ref.watch(verseNumberFontSizeProvider);
 
     Color? bgColor;
     if (isFlashing) {
@@ -148,12 +155,14 @@ class _VerseRow extends StatelessWidget {
       bgColor = highlight!.color.backgroundColor;
     }
 
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      child: GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
+        duration: context.motion(const Duration(milliseconds: 300)),
         padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
         margin: const EdgeInsets.only(bottom: 2),
         decoration: BoxDecoration(
@@ -165,14 +174,16 @@ class _VerseRow extends StatelessWidget {
           children: [
             // Verse number
             SizedBox(
-              width: 28,
+              // Sized from the text, not a fixed 28px: a 3-digit verse number
+              // at the largest reading size overflows a fixed gutter.
+              width: numberSize * 2.2,
               child: Text(
                 '${verse.verse}',
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: numberSize,
                   fontWeight: FontWeight.w600,
                   color: highlight != null
-                      ? highlight!.color.foregroundColor
+                      ? AppTheme.onHighlight
                       : theme.colorScheme.primary,
                   height: 1.8,
                 ),
@@ -183,9 +194,15 @@ class _VerseRow extends StatelessWidget {
               child: Text(
                 verse.text,
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: bodySize,
                   height: 1.6,
-                  color: theme.colorScheme.onSurface,
+                  // A highlight paints a light pastel behind the verse in both
+                  // themes, so the text must go dark when one is present.
+                  // Following colorScheme.onSurface here would put near-white
+                  // text on pale yellow in dark mode — 1.08:1, unreadable.
+                  color: highlight != null
+                      ? AppTheme.onHighlight
+                      : theme.colorScheme.onSurface,
                 ),
               ),
             ),
@@ -196,12 +213,13 @@ class _VerseRow extends StatelessWidget {
                 child: Icon(
                   Icons.sticky_note_2_outlined,
                   size: 14,
-                  color: highlight!.color.foregroundColor,
+                  color: AppTheme.onHighlight,
                 ),
               ),
           ],
         ),
       ),
+    ),
     );
   }
 }

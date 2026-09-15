@@ -6,6 +6,8 @@ import '../../../../core/navigation/routes.dart';
 import '../../../../core/sync/models/feedback_thread_model.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/sync/services/device_metadata_service.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Screen for creating a new feedback thread with initial message
 class CreateFeedbackScreen extends ConsumerStatefulWidget {
@@ -36,7 +38,7 @@ class _CreateFeedbackScreenState extends ConsumerState<CreateFeedbackScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('New Feedback'),
+        title: Text(l10n(context).newFeedback),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
       ),
@@ -47,11 +49,11 @@ class _CreateFeedbackScreenState extends ConsumerState<CreateFeedbackScreen> {
           children: [
             // Category selector
             Text(
-              'Category',
+              l10n(context).category,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 8),
@@ -82,8 +84,8 @@ class _CreateFeedbackScreenState extends ConsumerState<CreateFeedbackScreen> {
             TextFormField(
               controller: _subjectController,
               decoration: InputDecoration(
-                labelText: 'Subject',
-                hintText: 'Brief summary of your feedback',
+                labelText: l10n(context).subject,
+                hintText: l10n(context).briefSummaryOfYourFeedback,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -104,8 +106,8 @@ class _CreateFeedbackScreenState extends ConsumerState<CreateFeedbackScreen> {
             TextFormField(
               controller: _messageController,
               decoration: InputDecoration(
-                labelText: 'Message',
-                hintText: 'Describe your feedback in detail...',
+                labelText: l10n(context).message,
+                hintText: l10n(context).describeYourFeedbackInDetail,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -139,7 +141,7 @@ class _CreateFeedbackScreenState extends ConsumerState<CreateFeedbackScreen> {
                           color: Colors.white,
                         ),
                       )
-                    : const Text('Submit Feedback'),
+                    : Text(l10n(context).submitFeedback),
               ),
             ),
           ],
@@ -191,7 +193,7 @@ class _CreateFeedbackScreenState extends ConsumerState<CreateFeedbackScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to submit feedback: $e'),
+          content: Text(UserFacingError.message(e, action: 'submit feedback')),
           behavior: SnackBarBehavior.floating,
         ),
       );

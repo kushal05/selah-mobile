@@ -21,6 +21,16 @@ import '../widgets/note_template_picker_sheet.dart';
 import 'folder_management_screen.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../shared/widgets/undo_snackbar.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../shared/widgets/row_actions.dart';
+import '../../../../shared/widgets/feature_intro.dart';
+import '../../../../core/providers/motion_preferences.dart';
+import '../../../../shared/widgets/swipe_action.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../core/navigation/tab_navigation.dart';
+import '../../../../shared/widgets/filter_pill.dart';
 
 /// Sort options for notes list
 enum NotesSortOption {
@@ -190,8 +200,8 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to move note'),
+        SnackBar(
+          content: Text(l10n(context).failedToMoveNote),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -236,8 +246,8 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       if (!mounted) return;
       _exitSelectMode();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to move notes'),
+        SnackBar(
+          content: Text(l10n(context).failedToMoveNotes),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -251,17 +261,17 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Move to Trash'),
+            title: Text(l10n(context).moveToTrash),
             content: Text('Move $count selected note${count == 1 ? '' : 's'} to trash?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
+                child: Text(l10n(context).actionCancel),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Move to Trash'),
+                child: Text(l10n(context).moveToTrash),
               ),
             ],
           ),
@@ -288,8 +298,8 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       if (!mounted) return;
       _exitSelectMode();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to move notes to trash'),
+        SnackBar(
+          content: Text(l10n(context).failedToMoveNotesToTrash),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -382,17 +392,20 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final shell = StatefulNavigationShell.of(context);
 
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop && context.mounted) {
-          shell.goBranch(0); // Switch to Home tab
+          goToTab(context, 0); // Switch to Home tab
         }
       },
       child: Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        // Same ground as every other tab. What made the top of this list look
+        // muddy was not the page grey but the two *extra* greys stacked on it
+        // — the folder band and the filter bar each had their own fill. Those
+        // now match the page, so there is one grey rather than three.
+        backgroundColor: context.pageGround,
         appBar: _isSelecting
             ? _buildSelectionAppBar(context)
             : _buildNormalAppBar(context),
@@ -402,7 +415,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                 heroTag: null,
                 onPressed: () => _showFolderSelectionAndCreateNote(context),
                 backgroundColor: AppTheme.brandPurple,
-                foregroundColor: Colors.white,
+                foregroundColor: AppTheme.onAccent(AppTheme.brandPurple),
                 child: const Icon(Icons.add_rounded),
               ),
         body: _showingTrash
@@ -411,7 +424,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
           children: [
             // Folder Section (collapsible accordion)
             AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
+              duration: context.motion(const Duration(milliseconds: 300)),
               curve: Curves.easeInOut,
               height: _isFolderSectionExpanded
                   ? MediaQuery.of(context).size.height * 0.35
@@ -457,11 +470,12 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
           },
         ),
         if (!_showingTrash) IconButton(
-          icon: Icon(Icons.search_rounded, color: Colors.grey.shade600),
+          tooltip: l10n(context).actionSearch,
+          icon: Icon(Icons.search_rounded, color: Theme.of(context).colorScheme.onSurfaceVariant),
           onPressed: () => context.push(Routes.search),
         ),
         if (!_showingTrash) PopupMenuButton<String>(
-          icon: Icon(Icons.more_vert_rounded, color: Colors.grey.shade600),
+          icon: Icon(Icons.more_vert_rounded, color: Theme.of(context).colorScheme.onSurfaceVariant),
           onSelected: (value) {
             switch (value) {
               case 'select':
@@ -476,17 +490,17 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
             }
           },
           itemBuilder: (context) => [
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'sort',
-              child: Text('Sort notes'),
+              child: Text(l10n(context).sortNotes),
             ),
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'density',
-              child: Text('Change view density'),
+              child: Text(l10n(context).changeViewDensity),
             ),
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'select',
-              child: Text('Select mode'),
+              child: Text(l10n(context).selectMode),
             ),
           ],
         ),
@@ -503,6 +517,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       backgroundColor: theme.colorScheme.surface,
       elevation: 0,
       leading: IconButton(
+        tooltip: l10n(context).exitSelection,
         icon: const Icon(Icons.close),
         onPressed: _exitSelectMode,
       ),
@@ -515,12 +530,12 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       actions: [
         IconButton(
           icon: const Icon(Icons.drive_file_move_outlined),
-          tooltip: 'Move',
+          tooltip: l10n(context).move,
           onPressed: count > 0 ? _moveSelectedNotes : null,
         ),
         IconButton(
           icon: Icon(Icons.delete_outline, color: count > 0 ? Colors.red : null),
-          tooltip: 'Move to Trash',
+          tooltip: l10n(context).moveToTrash,
           onPressed: count > 0 ? _deleteSelectedNotes : null,
         ),
       ],
@@ -533,7 +548,11 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     final notesAsync = ref.watch(notesStreamProvider);
 
     return Container(
-      color: Colors.grey.shade50,
+      // The folder section is part of the page, not a raised panel. A filled
+      // band here reads as a grey slab across the top of the list — it was
+      // Colors.grey.shade100 before, which the theme migration turned into a
+      // heavier container fill.
+      color: context.pageGround,
       child: Column(
         children: [
           // Collapsible Header
@@ -544,13 +563,13 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
             Expanded(
               child: foldersAsync.when(
                 loading: () => const ListTileSkeletonList(count: 4, hasLeading: false),
-                error: (e, _) => Center(child: Text('Error: $e')),
+                error: (e, _) => Center(child: Text(UserFacingError.forLoad(e))),
                 data: (folders) {
                   if (folders.isEmpty) {
                     return Center(
                       child: Text(
-                        'No folders yet',
-                        style: TextStyle(color: Colors.grey.shade500),
+                        l10n(context).noFoldersYet,
+                        style: TextStyle(color: context.mutedText),
                       ),
                     );
                   }
@@ -593,7 +612,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                   final folderWidgets = <Widget>[
                     // "All Notes" option
                     FolderRow(
-                      title: 'All Notes',
+                      title: l10n(context).allNotes,
                       noteCount: notes.length,
                       depth: 0,
                       hasChildren: false,
@@ -683,7 +702,6 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
 
   /// Builds the notes section
   Widget _buildNotesSection(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final notesAsync = ref.watch(notesStreamProvider);
     final peopleAsync = ref.watch(peopleStreamProvider);
 
@@ -704,10 +722,13 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
         : null;
 
     return Container(
-      color: colorScheme.surface,
+      // The list sits directly on the page, as it does on every other tab. A
+      // white block here put the rows on a different ground from the folder
+      // band above them.
+      color: context.pageGround,
       child: notesAsync.when(
         loading: () => const ListTileSkeletonList(count: 8, hasLeading: false),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => Center(child: Text(UserFacingError.forLoad(e))),
         data: (notes) {
           // Smart collection overrides folder/filter selection
           final List<domain.Note> baseNotes;
@@ -766,9 +787,15 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                     ? _buildEmptyNotesState(context)
                     : ListView.builder(
                         padding: const EdgeInsets.only(top: 8, bottom: 80),
-                        itemCount: sortedNotes.length,
+                        itemCount: sortedNotes.length + 1,
                         itemBuilder: (context, index) {
-                          final note = sortedNotes[index];
+                          if (index == 0) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 16),
+                              child: FeatureIntros.notes,
+                            );
+                          }
+                          final note = sortedNotes[index - 1];
                           final preacherName = note.preacherId != null
                               ? peopleMap[note.preacherId]
                               : null;
@@ -778,96 +805,71 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
 
                           final isSelected = _selectedNoteIds.contains(note.id);
 
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 6),
-                            child: _isSelecting
-                                ? _buildSelectableNoteRow(
-                                    note: note,
-                                    isSelected: isSelected,
+                          // Spacing comes from NoteRow's own cardMargin (4
+                          // top and bottom). A wrapper here used to add 6
+                          // more on each side, putting consecutive rows 20px
+                          // apart where every other list leaves 8.
+                          return _isSelecting
+                              ? _buildSelectableNoteRow(
+                                  note: note,
+                                  isSelected: isSelected,
+                                  preacherName: preacherName,
+                                  folderName: folderName,
+                                )
+                              : Slidable(
+                                  key: Key(note.id),
+                                  endActionPane: ActionPane(
+                                    motion: const DrawerMotion(),
+                                    extentRatio: swipePaneExtent(2),
+                                    children: [
+                                      buildSwipeAction(
+                                        icon: Icons.drive_file_move_outlined,
+                                        label: l10n(context).move,
+                                        accent: AppTheme.brandPurple,
+                                        isLast: false,
+                                        onPressed: (_) => _moveNote(note),
+                                      ),
+                                      buildSwipeAction(
+                                        icon: Icons.delete_outline_rounded,
+                                        label: l10n(context).trash,
+                                        accent: AppTheme.error,
+                                        isFirst: false,
+                                        onPressed: (context) async {
+                                          final shouldDelete =
+                                              await _showDeleteConfirmation(
+                                                  context);
+                                          if (shouldDelete) {
+                                            _deleteNote(note.id);
+                                          }
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                  child: NoteRow(
+                                    title: note.displayTitle,
+                                    preview: _getNotePreview(note),
+                                    noteDate: note.noteDate,
                                     preacherName: preacherName,
                                     folderName: folderName,
-                                  )
-                                : Slidable(
-                                    key: Key(note.id),
-                                    endActionPane: ActionPane(
-                                      motion: const DrawerMotion(),
-                                      extentRatio: 0.45,
-                                      children: [
-                                        CustomSlidableAction(
-                                          onPressed: (_) => _moveNote(note),
-                                          padding: EdgeInsets.zero,
-                                          child: Container(
-                                            margin: const EdgeInsets.only(left: 8, right: 4),
-                                            decoration: BoxDecoration(
-                                              color: AppTheme.brandPurple,
-                                              borderRadius: BorderRadius.circular(12),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: AppTheme.brandPurple.withValues(alpha: 0.3),
-                                                  blurRadius: 8,
-                                                  offset: const Offset(0, 2),
-                                                ),
-                                              ],
-                                            ),
-                                            child: const Center(
-                                              child: Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Icon(Icons.drive_file_move_outlined, color: Colors.white, size: 22),
-                                                  SizedBox(height: 4),
-                                                  Text('Move', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        CustomSlidableAction(
-                                          onPressed: (context) async {
-                                            final shouldDelete = await _showDeleteConfirmation(context);
-                                            if (shouldDelete) {
-                                              _deleteNote(note.id);
-                                            }
-                                          },
-                                          padding: EdgeInsets.zero,
-                                          child: Container(
-                                            margin: const EdgeInsets.only(left: 4, right: 8),
-                                            decoration: BoxDecoration(
-                                              color: Colors.red,
-                                              borderRadius: BorderRadius.circular(12),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: Colors.red.withValues(alpha: 0.3),
-                                                  blurRadius: 8,
-                                                  offset: const Offset(0, 2),
-                                                ),
-                                              ],
-                                            ),
-                                            child: const Center(
-                                              child: Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Icon(Icons.delete, color: Colors.white, size: 22),
-                                                  SizedBox(height: 4),
-                                                  Text('Trash', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    child: NoteRow(
-                                      title: note.title,
-                                      preview: _getNotePreview(note),
-                                      noteDate: note.noteDate,
-                                      preacherName: preacherName,
-                                      folderName: folderName,
-                                      tags: const [],
-                                      onTap: () => context.push('/notes/${note.id}'),
-                                      onLongPress: () => _enterSelectMode(initialNoteId: note.id),
-                                    ),
+                                    tags: const [],
+                                    onTap: () => context.push('/notes/${note.id}'),
+                                    onLongPress: () => _enterSelectMode(initialNoteId: note.id),
+                                    actions: [
+                                      RowAction(
+                                        icon: Icons.checklist_rounded,
+                                        label: l10n(context).select,
+                                        onSelected: () => _enterSelectMode(
+                                            initialNoteId: note.id),
+                                      ),
+                                      RowAction(
+                                        icon: Icons.delete_outline_rounded,
+                                        label: l10n(context).moveToTrash,
+                                        isDestructive: true,
+                                        onSelected: () => _deleteNote(note.id),
+                                      ),
+                                    ],
                                   ),
-                          );
+                                );
                         },
                       ),
               ),
@@ -899,7 +901,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
-                color: Colors.grey.shade200,
+                color: context.hairline,
                 width: 1,
               ),
             ),
@@ -909,7 +911,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
               // Expand/collapse indicator
               AnimatedRotation(
                 turns: _isFolderSectionExpanded ? 0.25 : 0,
-                duration: const Duration(milliseconds: 300),
+                duration: context.motion(const Duration(milliseconds: 300)),
                 child: Icon(
                   Icons.chevron_right_rounded,
                   size: 20,
@@ -922,13 +924,14 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                 'FOLDERS ($folderCount)',
                 style: theme.textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey,
+                  color: context.mutedText,
                   letterSpacing: 0.5,
                 ),
               ),
               const Spacer(),
               // Add folder button
               IconButton(
+                tooltip: l10n(context).newFolder,
                 icon: Icon(
                   Icons.create_new_folder_rounded,
                   color: AppTheme.brandPurple,
@@ -963,7 +966,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: Colors.grey.shade200,
+            color: context.hairline,
             width: 1,
           ),
         ),
@@ -974,7 +977,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
             '$title ($count)',
             style: theme.textTheme.labelMedium?.copyWith(
               fontWeight: FontWeight.w600,
-              color: Colors.grey,
+              color: context.mutedText,
               letterSpacing: 0.5,
             ),
           ),
@@ -1003,7 +1006,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
             size: 18,
             color: _hasActiveFilters
                 ? AppTheme.brandPurple
-                : Colors.grey,
+                : context.mutedText,
           ),
           if (_hasActiveFilters) ...[
             const SizedBox(width: 2),
@@ -1017,7 +1020,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                 '$_activeFilterCount',
                 style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 10,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600),
               ),
             ),
@@ -1035,9 +1038,9 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: context.pageGround,
         border: Border(
-          bottom: BorderSide(color: Colors.grey.shade200, width: 1),
+          bottom: BorderSide(color: context.hairline, width: 1),
         ),
       ),
       child: Row(
@@ -1047,14 +1050,14 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
             child: tagsAsync.when(
               loading: () => const SizedBox.shrink(),
               error: (_, _) => const SizedBox.shrink(),
-              data: (tags) => _FilterChip(
+              data: (tags) => FilterPill(
                 icon: Icons.label_outlined,
                 label: _filterTagIds.isEmpty
                     ? 'Tags'
                     : '${_filterTagIds.length} tag${_filterTagIds.length == 1 ? '' : 's'}',
-                isActive: _filterTagIds.isNotEmpty,
+                selected: _filterTagIds.isNotEmpty,
                 onTap: () => _showTagFilterSheet(context, tags),
-              ),
+                accent: AppTheme.brandPurple,),
             ),
           ),
           const SizedBox(width: 8),
@@ -1071,12 +1074,12 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                         .map((p) => p.name)
                         .firstOrNull
                     : null;
-                return _FilterChip(
+                return FilterPill(
                   icon: Icons.person_outlined,
                   label: selectedName ?? 'Preacher',
-                  isActive: _filterPreacherId != null,
+                  selected: _filterPreacherId != null,
                   onTap: () => _showPreacherFilterSheet(context, people),
-                );
+                  accent: AppTheme.brandPurple,);
               },
             ),
           ),
@@ -1084,14 +1087,14 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
 
           // Date range chip
           Expanded(
-            child: _FilterChip(
+            child: FilterPill(
               icon: Icons.calendar_today_outlined,
               label: _filterDateRange != null
                   ? '${_filterDateRange!.start.day}/${_filterDateRange!.start.month} – ${_filterDateRange!.end.day}/${_filterDateRange!.end.month}'
                   : 'Date',
-              isActive: _filterDateRange != null,
+              selected: _filterDateRange != null,
               onTap: () => _showDateRangeFilter(context),
-            ),
+              accent: AppTheme.brandPurple,),
           ),
 
           // Clear all
@@ -1106,7 +1109,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
                 ),
-                child: const Icon(Icons.close, size: 16, color: Colors.red),
+                child: Icon(Icons.close, size: 16, color: context.dangerText),
               ),
             ),
           ],
@@ -1121,7 +1124,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       padding: const EdgeInsets.fromLTRB(20, 16, 8, 12),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Colors.grey.shade200),
+          bottom: BorderSide(color: context.hairline),
         ),
       ),
       child: Row(
@@ -1134,6 +1137,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
           ),
           const Spacer(),
           IconButton(
+            tooltip: l10n(context).close,
             icon: const Icon(Icons.close),
             onPressed: () => Navigator.pop(context),
             visualDensity: VisualDensity.compact,
@@ -1145,6 +1149,9 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
 
   void _showTagFilterSheet(BuildContext context, List<dynamic> tags) {
     showModalBottomSheet(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -1164,10 +1171,10 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                       child: Column(
                         children: [
                           Icon(Icons.label_off_outlined,
-                              size: 40, color: Colors.grey.shade400),
+                              size: 40, color: context.hintText),
                           const SizedBox(height: 8),
-                          Text('No tags available',
-                              style: TextStyle(color: Colors.grey.shade600)),
+                          Text(l10n(context).noTagsAvailable,
+                              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                         ],
                       ),
                     )
@@ -1202,7 +1209,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                         Navigator.pop(context);
                         _applyFilters();
                       },
-                      child: const Text('Apply'),
+                      child: Text(l10n(context).apply),
                     ),
                   ),
                 ],
@@ -1217,6 +1224,9 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   void _showPreacherFilterSheet(
       BuildContext context, List<dynamic> people) {
     showModalBottomSheet(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -1236,28 +1246,28 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                       child: Column(
                         children: [
                           Icon(Icons.person_off_outlined,
-                              size: 40, color: Colors.grey.shade400),
+                              size: 40, color: context.hintText),
                           const SizedBox(height: 8),
-                          Text('No people available',
-                              style: TextStyle(color: Colors.grey.shade600)),
+                          Text(l10n(context).noPeopleAvailable,
+                              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                           const SizedBox(height: 4),
-                          Text('Add people via note details',
+                          Text(l10n(context).addPeopleViaNoteDetails,
                               style: TextStyle(
-                                  color: Colors.grey.shade400, fontSize: 12)),
+                                  color: context.hintText, fontSize: 13)),
                         ],
                       ),
                     )
                   else ...[
                     // "Any preacher" option to clear
                     ListTile(
-                      title: const Text('Any preacher'),
+                      title: Text(l10n(context).anyPreacher),
                       leading: Icon(
                         _filterPreacherId == null
                             ? Icons.radio_button_checked
                             : Icons.radio_button_unchecked,
                         color: _filterPreacherId == null
                             ? AppTheme.brandPurple
-                            : Colors.grey,
+                            : context.mutedText,
                         size: 20,
                       ),
                       dense: true,
@@ -1277,7 +1287,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                               : Icons.radio_button_unchecked,
                           color: isSelected
                               ? AppTheme.brandPurple
-                              : Colors.grey,
+                              : context.mutedText,
                           size: 20,
                         ),
                         dense: true,
@@ -1298,7 +1308,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                         Navigator.pop(context);
                         _applyFilters();
                       },
-                      child: const Text('Apply'),
+                      child: Text(l10n(context).apply),
                     ),
                   ),
                 ],
@@ -1312,6 +1322,9 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
 
   Future<void> _showDateRangeFilter(BuildContext context) async {
     await showModalBottomSheet(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -1321,10 +1334,10 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
           builder: (context, setSheetState) {
             final now = DateTime.now();
             final presets = [
-              (label: 'Last 7 days', range: DateTimeRange(start: now.subtract(const Duration(days: 7)), end: now)),
-              (label: 'Last 30 days', range: DateTimeRange(start: now.subtract(const Duration(days: 30)), end: now)),
-              (label: 'Last 90 days', range: DateTimeRange(start: now.subtract(const Duration(days: 90)), end: now)),
-              (label: 'This year', range: DateTimeRange(start: DateTime(now.year), end: now)),
+              (label: l10n(context).last7Days, range: DateTimeRange(start: now.subtract(const Duration(days: 7)), end: now)),
+              (label: l10n(context).last30Days, range: DateTimeRange(start: now.subtract(const Duration(days: 30)), end: now)),
+              (label: l10n(context).last90Days, range: DateTimeRange(start: now.subtract(const Duration(days: 90)), end: now)),
+              (label: l10n(context).thisYear, range: DateTimeRange(start: DateTime(now.year), end: now)),
             ];
 
             return SafeArea(
@@ -1341,14 +1354,14 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                         children: [
                   // Preset options
                   ListTile(
-                    title: const Text('Any date'),
+                    title: Text(l10n(context).anyDate),
                     leading: Icon(
                       _filterDateRange == null
                           ? Icons.radio_button_checked
                           : Icons.radio_button_unchecked,
                       color: _filterDateRange == null
                           ? AppTheme.brandPurple
-                          : Colors.grey,
+                          : context.mutedText,
                       size: 20,
                     ),
                     dense: true,
@@ -1371,7 +1384,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                             : Icons.radio_button_unchecked,
                         color: isSelected
                             ? AppTheme.brandPurple
-                            : Colors.grey,
+                            : context.mutedText,
                         size: 20,
                       ),
                       dense: true,
@@ -1385,7 +1398,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                   // Custom range option
                   ListTile(
                     leading: const Icon(Icons.date_range_outlined, size: 20),
-                    title: const Text('Custom range...'),
+                    title: Text(l10n(context).customRange),
                     dense: true,
                     onTap: () async {
                       Navigator.pop(context);
@@ -1424,7 +1437,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                         Navigator.pop(context);
                         _applyFilters();
                       },
-                      child: const Text('Apply'),
+                      child: Text(l10n(context).apply),
                     ),
                   ),
                 ],
@@ -1467,6 +1480,9 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   /// Shows sort options bottom sheet
   void _showSortOptions(BuildContext context) {
     showModalBottomSheet(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -1505,11 +1521,11 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                     child: Row(
                       children: [
                         Text(
-                          'Direction',
+                          l10n(context).direction,
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade700,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                         const Spacer(),
@@ -1529,7 +1545,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                               border: Border.all(
                                 color: _sortAscending
                                     ? AppTheme.brandPurple
-                                    : Colors.grey.shade300,
+                                    : context.hairline,
                               ),
                             ),
                             child: Row(
@@ -1538,9 +1554,9 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                                 Icon(Icons.arrow_upward_rounded, size: 14,
                                     color: _sortAscending ? AppTheme.brandPurple : Colors.grey.shade600),
                                 const SizedBox(width: 4),
-                                Text('Asc',
+                                Text(l10n(context).asc,
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 13,
                                       fontWeight: _sortAscending ? FontWeight.w600 : FontWeight.normal,
                                       color: _sortAscending ? AppTheme.brandPurple : Colors.grey.shade600,
                                     )),
@@ -1565,7 +1581,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                               border: Border.all(
                                 color: !_sortAscending
                                     ? AppTheme.brandPurple
-                                    : Colors.grey.shade300,
+                                    : context.hairline,
                               ),
                             ),
                             child: Row(
@@ -1574,9 +1590,9 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                                 Icon(Icons.arrow_downward_rounded, size: 14,
                                     color: !_sortAscending ? AppTheme.brandPurple : Colors.grey.shade600),
                                 const SizedBox(width: 4),
-                                Text('Desc',
+                                Text(l10n(context).desc,
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 13,
                                       fontWeight: !_sortAscending ? FontWeight.w600 : FontWeight.normal,
                                       color: !_sortAscending ? AppTheme.brandPurple : Colors.grey.shade600,
                                     )),
@@ -1601,17 +1617,17 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     return await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Move to Trash'),
-            content: const Text('Are you sure you want to move this note to trash?'),
+            title: Text(l10n(context).moveToTrash),
+            content: Text(l10n(context).areYouSureYouWantToMoveThisNoteToTrash),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
+                child: Text(l10n(context).actionCancel),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Move to Trash'),
+                child: Text(l10n(context).moveToTrash),
               ),
             ],
           ),
@@ -1624,17 +1640,16 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     try {
       await repository.trashNote(noteId);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Moved to trash'),
-          behavior: SnackBarBehavior.floating,
-        ),
+      showUndoSnackBar(
+        context,
+        itemLabel: 'Note',
+        onUndo: () => repository.restoreNote(noteId),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to move note to trash'),
+        SnackBar(
+          content: Text(l10n(context).failedToMoveNoteToTrash),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -1660,7 +1675,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
         ),
         Expanded(
           child: NoteRow(
-            title: note.title,
+            title: note.displayTitle,
             preview: _getNotePreview(note),
             noteDate: note.noteDate,
             preacherName: preacherName,
@@ -1699,9 +1714,9 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       height: 44,
       padding: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: context.pageGround,
         border: Border(
-          bottom: BorderSide(color: Colors.grey.shade200, width: 1),
+          bottom: BorderSide(color: context.hairline, width: 1),
         ),
       ),
       child: ListView.separated(
@@ -1736,7 +1751,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                 border: Border.all(
                   color: isActive
                       ? AppTheme.brandPurple
-                      : Colors.grey.shade300,
+                      : context.hairline,
                 ),
               ),
               child: Row(
@@ -1751,7 +1766,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                   Text(
                     c.name,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: isActive ? Colors.white : Colors.grey.shade700,
                     ),
@@ -1763,13 +1778,13 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                       decoration: BoxDecoration(
                         color: isActive
                             ? Colors.white.withValues(alpha: 0.25)
-                            : Colors.grey.shade200,
+                            : context.subtleFill,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         '$count',
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: isActive ? Colors.white : Colors.grey.shade600,
                         ),
@@ -1792,7 +1807,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
 
     return trashedNotesAsync.when(
       loading: () => const ListTileSkeletonList(count: 8, hasLeading: false),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => Center(child: Text(UserFacingError.forLoad(e))),
       data: (trashedNotes) {
         if (trashedNotes.isEmpty) {
           return Center(
@@ -1808,9 +1823,9 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Trash is empty',
+                    l10n(context).trashEmptyTitle,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.grey,
+                      color: context.mutedText,
                     ),
                   ),
                 ],
@@ -1824,80 +1839,37 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
           itemCount: trashedNotes.length,
           itemBuilder: (context, index) {
             final note = trashedNotes[index];
-            final title = note.title.isEmpty ? 'Untitled Note' : note.title;
+            final title =
+                note.title.isEmpty ? domain.Note.untitledLabel : note.title;
 
             return Slidable(
               key: Key(note.id),
               startActionPane: ActionPane(
                 motion: const DrawerMotion(),
-                extentRatio: 0.25,
+                extentRatio: swipePaneExtent(1),
                 children: [
-                  CustomSlidableAction(
+                  buildSwipeAction(
+                    icon: Icons.restore_rounded,
+                    label: l10n(context).restore,
+                    accent: AppTheme.emerald,
                     onPressed: (_) => _restoreNote(note.id, title),
-                    padding: EdgeInsets.zero,
-                    child: Container(
-                      margin: const EdgeInsets.only(left: 8, right: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.green.withValues(alpha: 0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: const Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.restore, color: Colors.white, size: 22),
-                            SizedBox(height: 4),
-                            Text('Restore', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
-                          ],
-                        ),
-                      ),
-                    ),
                   ),
                 ],
               ),
               endActionPane: ActionPane(
                 motion: const DrawerMotion(),
-                extentRatio: 0.25,
+                extentRatio: swipePaneExtent(1),
                 children: [
-                  CustomSlidableAction(
+                  buildSwipeAction(
+                    icon: Icons.delete_forever_rounded,
+                    label: l10n(context).actionDelete,
+                    accent: AppTheme.error,
                     onPressed: (_) => _permanentlyDeleteNote(note.id, title),
-                    padding: EdgeInsets.zero,
-                    child: Container(
-                      margin: const EdgeInsets.only(left: 4, right: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.red.withValues(alpha: 0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: const Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.delete_forever, color: Colors.white, size: 22),
-                            SizedBox(height: 4),
-                            Text('Delete', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
-                          ],
-                        ),
-                      ),
-                    ),
                   ),
                 ],
               ),
               child: ListTile(
-                leading: Icon(Icons.note_outlined, color: Colors.grey.shade500),
+                leading: Icon(Icons.note_outlined, color: context.mutedText),
                 title: Text(
                   title,
                   maxLines: 1,
@@ -1905,19 +1877,19 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                 ),
                 subtitle: Text(
                   'Trashed ${_formatTimestamp(DateTime.fromMillisecondsSinceEpoch(note.updatedAt))}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                  style: TextStyle(fontSize: 13, color: context.mutedText),
                 ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.restore, color: Colors.green, size: 20),
-                      tooltip: 'Restore',
+                      icon: Icon(Icons.restore, color: context.successText, size: 20),
+                      tooltip: l10n(context).restore,
                       onPressed: () => _restoreNote(note.id, title),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.delete_forever, color: Colors.red, size: 20),
-                      tooltip: 'Delete permanently',
+                      icon: Icon(Icons.delete_forever, color: context.dangerText, size: 20),
+                      tooltip: l10n(context).deletePermanently,
                       onPressed: () => _permanentlyDeleteNote(note.id, title),
                     ),
                   ],
@@ -1943,8 +1915,8 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to restore note'),
+        SnackBar(
+          content: Text(l10n(context).failedToRestoreNote),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -1955,17 +1927,17 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Delete Permanently'),
+            title: Text(l10n(context).deletePermanently),
             content: Text('Permanently delete "$title"? This cannot be undone.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
+                child: Text(l10n(context).actionCancel),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Delete'),
+                child: Text(l10n(context).actionDelete),
               ),
             ],
           ),
@@ -1986,8 +1958,8 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to delete note'),
+        SnackBar(
+          content: Text(l10n(context).failedToDeleteNote),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -2012,16 +1984,16 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'No notes yet',
+              l10n(context).emptyNotesTitle,
               style: theme.textTheme.titleMedium?.copyWith(
-                color: Colors.grey,
+                color: context.mutedText,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Tap + to create your first note',
+              l10n(context).tapToCreateYourFirstNote,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: Colors.grey,
+                color: context.mutedText,
               ),
             ),
           ],
@@ -2031,60 +2003,3 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   }
 }
 
-/// Reusable filter chip for the filter bar
-class _FilterChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _FilterChip({
-    required this.icon,
-    required this.label,
-    required this.isActive,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: isActive
-              ? AppTheme.brandPurple.withValues(alpha: 0.08)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isActive ? AppTheme.brandPurple : Colors.grey.shade300,
-            width: isActive ? 1.5 : 0.5,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isActive ? Icons.check_rounded : icon,
-              size: 14,
-              color: isActive ? AppTheme.brandPurple : Colors.grey.shade500,
-            ),
-            const SizedBox(width: 4),
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isActive ? AppTheme.brandPurple : Colors.grey.shade700,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

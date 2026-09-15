@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
@@ -155,7 +156,11 @@ class NoteBlockFtsService {
               .join();
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      // Malformed rich-text spans in one block must not break indexing for
+      // the whole note; the block contributes no search text instead.
+      debugPrint('FTS: could not extract text from block spans: $e');
+    }
     return '';
   }
 }

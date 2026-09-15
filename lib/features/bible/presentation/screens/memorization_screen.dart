@@ -5,6 +5,8 @@ import 'package:uuid/uuid.dart';
 
 import '../../domain/models/memory_verse.dart';
 import '../providers/memory_verse_providers.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Home for scripture memorization: lists all cards, surfaces the due count,
 /// links into the review session, and opens an add-card sheet.
@@ -17,7 +19,7 @@ class MemorizationScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Memorization')),
+      appBar: AppBar(title: Text(l10n(context).memorization)),
       floatingActionButton: FloatingActionButton(
         heroTag: null,
         onPressed: () => _showAddSheet(context, ref),
@@ -25,7 +27,7 @@ class MemorizationScreen extends ConsumerWidget {
       ),
       body: versesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => Center(child: Text(UserFacingError.forLoad(e))),
         data: (verses) {
           final now = DateTime.now().millisecondsSinceEpoch;
           final dueCount = verses.where((v) => v.dueAt <= now).length;
@@ -88,10 +90,16 @@ class MemorizationScreen extends ConsumerWidget {
     final navigator = Navigator.of(context);
 
     await showModalBottomSheet<void>(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (sheetCtx) => Padding(
+      builder: (sheetCtx) => SafeArea(
+        // Keeps the sheet's last control clear of the gesture bar.
+        top: false,
+        child: Padding(
         padding: EdgeInsets.only(
           left: 16,
           right: 16,
@@ -103,14 +111,14 @@ class MemorizationScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'New memory verse',
+              l10n(context).newMemoryVerse,
               style: Theme.of(sheetCtx).textTheme.titleMedium,
             ),
             const SizedBox(height: 12),
             TextField(
               controller: reference,
-              decoration: const InputDecoration(
-                labelText: 'Reference (e.g. John 3:16)',
+              decoration: InputDecoration(
+                labelText: l10n(context).referenceEGJohn316,
                 border: OutlineInputBorder(),
               ),
               autofocus: true,
@@ -118,8 +126,8 @@ class MemorizationScreen extends ConsumerWidget {
             const SizedBox(height: 8),
             TextField(
               controller: version,
-              decoration: const InputDecoration(
-                labelText: 'Translation (optional)',
+              decoration: InputDecoration(
+                labelText: l10n(context).translationOptional,
                 border: OutlineInputBorder(),
               ),
             ),
@@ -128,8 +136,8 @@ class MemorizationScreen extends ConsumerWidget {
               controller: text,
               minLines: 3,
               maxLines: 6,
-              decoration: const InputDecoration(
-                labelText: 'Verse text',
+              decoration: InputDecoration(
+                labelText: l10n(context).verseText,
                 border: OutlineInputBorder(),
               ),
             ),
@@ -150,11 +158,11 @@ class MemorizationScreen extends ConsumerWidget {
                 ref.invalidate(dueMemoryVersesProvider);
                 navigator.pop();
               },
-              child: const Text('Save'),
+              child: Text(l10n(context).actionSave),
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 }
@@ -234,7 +242,7 @@ class _VerseCard extends StatelessWidget {
             ),
             IconButton(
               icon: const Icon(Icons.delete_outline),
-              tooltip: 'Delete',
+              tooltip: l10n(context).actionDelete,
               onPressed: onDelete,
             ),
           ],
@@ -269,11 +277,11 @@ class _Empty extends StatelessWidget {
             Icon(Icons.psychology_outlined,
                 size: 48, color: theme.disabledColor),
             const SizedBox(height: 12),
-            Text('No memory verses yet',
+            Text(l10n(context).noMemoryVersesYet,
                 style: theme.textTheme.titleMedium),
             const SizedBox(height: 6),
             Text(
-              'Add a verse and review it across spaced intervals (1, 3, 7, 14, 30, 60, 120, 240 days).',
+              l10n(context).addAVerseAndReviewItAcrossSpacedIntervals137,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
@@ -282,7 +290,7 @@ class _Empty extends StatelessWidget {
             const SizedBox(height: 16),
             ElevatedButton.icon(
               icon: const Icon(Icons.add),
-              label: const Text('Add your first verse'),
+              label: Text(l10n(context).addYourFirstVerse),
               onPressed: onAdd,
             ),
           ],

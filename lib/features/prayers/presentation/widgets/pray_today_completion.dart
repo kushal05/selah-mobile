@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Completion screen shown when all daily prayers are logged
 class PrayTodayCompletion extends StatelessWidget {
@@ -53,8 +54,8 @@ class PrayTodayCompletion extends StatelessWidget {
             Text(
               '$totalPrayers prayer${totalPrayers == 1 ? '' : 's'} logged',
               style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade600,
+                fontSize: 16,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 32),
@@ -65,10 +66,10 @@ class PrayTodayCompletion extends StatelessWidget {
               child: ElevatedButton.icon(
                 onPressed: onAddReflection,
                 icon: const Icon(Icons.edit_note, size: 20),
-                label: const Text('Add a Reflection'),
+                label: Text(l10n(context).addAReflection),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.brandBlue,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppTheme.onAccent(AppTheme.brandBlue),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
@@ -82,7 +83,7 @@ class PrayTodayCompletion extends StatelessWidget {
               child: OutlinedButton.icon(
                 onPressed: onReviewLogs,
                 icon: const Icon(Icons.history, size: 20),
-                label: const Text('Review Logs'),
+                label: Text(l10n(context).reviewLogs),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.brandBlue,
                   side: const BorderSide(color: AppTheme.brandBlue),
@@ -97,10 +98,10 @@ class PrayTodayCompletion extends StatelessWidget {
             TextButton(
               onPressed: onExit,
               child: Text(
-                'Done',
+                l10n(context).done,
                 style: TextStyle(
-                  fontSize: 15,
-                  color: Colors.grey.shade600,
+                  fontSize: 16,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ),

@@ -7,6 +7,7 @@ import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/navigation/routes.dart';
 import '../providers/bible_providers.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Groups history entries into Today / Yesterday / Older date buckets.
 enum _DateGroup {
@@ -39,11 +40,11 @@ class BibleHistoryScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
-        title: Text('Reading History', style: AppTheme.headingMedium),
+        title: Text(l10n(context).readingHistory, style: AppTheme.headingMedium),
         actions: [
           IconButton(
             icon: const Icon(Icons.delete_outline),
-            tooltip: 'Clear all history',
+            tooltip: l10n(context).clearAllHistory,
             onPressed: () => _confirmClearAll(context, ref),
           ),
         ],
@@ -54,13 +55,13 @@ class BibleHistoryScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Failed to load history',
+              Text(l10n(context).failedToLoadHistory,
                   style: TextStyle(color: theme.colorScheme.error)),
               const SizedBox(height: 8),
               TextButton(
                 onPressed: () =>
                     ref.invalidate(bibleReferenceHistoryStreamProvider),
-                child: const Text('Retry'),
+                child: Text(l10n(context).retry),
               ),
             ],
           ),
@@ -75,13 +76,13 @@ class BibleHistoryScreen extends ConsumerWidget {
                       size: 64, color: theme.colorScheme.outline),
                   const SizedBox(height: 16),
                   Text(
-                    'No reading history yet',
+                    l10n(context).noReadingHistoryYet,
                     style: AppTheme.bodyBase
                         .copyWith(color: theme.colorScheme.outline),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Open a Bible chapter to start tracking',
+                    l10n(context).openABibleChapterToStartTracking,
                     style: AppTheme.bodySmallStyle
                         .copyWith(color: theme.colorScheme.outline),
                   ),
@@ -187,13 +188,13 @@ class BibleHistoryScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Clear Reading History'),
-        content: const Text(
-            'This will delete all your reading history. This action cannot be undone.'),
+        title: Text(l10n(context).clearReadingHistory),
+        content: Text(
+            l10n(context).thisWillDeleteAllYourReadingHistoryThisActio),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
+            child: Text(l10n(context).actionCancel),
           ),
           TextButton(
             onPressed: () {
@@ -203,7 +204,7 @@ class BibleHistoryScreen extends ConsumerWidget {
                   .read(bibleReferenceHistoryRepositoryProvider)
                   .clearHistory(userId);
             },
-            child: Text('Clear All',
+            child: Text(l10n(context).clearAll,
                 style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ),
         ],
@@ -299,7 +300,7 @@ class _HistoryListTile extends StatelessWidget {
       trailing: IconButton(
         icon: Icon(Icons.close, size: 18, color: theme.colorScheme.outline),
         onPressed: onDelete,
-        tooltip: 'Remove',
+        tooltip: l10n(context).remove,
       ),
       onTap: onTap,
     );

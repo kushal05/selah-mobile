@@ -4,11 +4,16 @@ import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/providers/reading_preferences.dart';
 import '../../../../core/services/chord_transposition.dart';
 import '../../../../core/sync/models/song_model.dart';
 import '../../../../core/navigation/routes.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../shared/widgets/undo_snackbar.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 String _transposeKey(String songId) => 'song_transpose_$songId';
 
@@ -66,13 +71,13 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
       loading: () => const Scaffold(body: DetailPageSkeleton()),
       error: (error, stack) => Scaffold(
         appBar: AppBar(),
-        body: Center(child: Text('Error: $error')),
+        body: Center(child: Text(UserFacingError.forLoad(error))),
       ),
       data: (song) {
         if (song == null) {
           return Scaffold(
             appBar: AppBar(),
-            body: const Center(child: Text('Song not found')),
+            body: Center(child: Text(l10n(context).songNotFound)),
           );
         }
 
@@ -83,12 +88,14 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
                   backgroundColor: Theme.of(context).scaffoldBackgroundColor,
                   elevation: 0,
                   leading: IconButton(
+                    tooltip: l10n(context).actionBack,
                     icon: const Icon(Icons.arrow_back),
                     onPressed: () => context.pop(),
                   ),
                   title: Text(song.title, style: AppTheme.headingMedium),
                   actions: [
                     IconButton(
+                      tooltip: song.isFavorite ? 'Remove from favourites' : 'Add to favourites',
                       icon: Icon(
                         song.isFavorite
                             ? Icons.favorite
@@ -100,37 +107,37 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
                     PopupMenuButton<String>(
                       onSelected: (value) => _handleMenuAction(value, song.id),
                       itemBuilder: (context) => [
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'edit',
                           child: Row(
                             children: [
                               Icon(Icons.edit, size: AppTheme.iconBase),
                               SizedBox(width: AppTheme.spacing12),
-                              Text('Edit'),
+                              Text(l10n(context).edit),
                             ],
                           ),
                         ),
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'share',
                           child: Row(
                             children: [
                               Icon(Icons.share, size: AppTheme.iconBase),
                               SizedBox(width: AppTheme.spacing12),
-                              Text('Share Lyrics'),
+                              Text(l10n(context).shareLyrics),
                             ],
                           ),
                         ),
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'duplicate',
                           child: Row(
                             children: [
                               Icon(Icons.copy, size: AppTheme.iconBase),
                               SizedBox(width: AppTheme.spacing12),
-                              Text('Duplicate'),
+                              Text(l10n(context).duplicate),
                             ],
                           ),
                         ),
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'delete',
                           child: Row(
                             children: [
@@ -141,7 +148,7 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
                               ),
                               SizedBox(width: AppTheme.spacing12),
                               Text(
-                                'Move to Trash',
+                                l10n(context).moveToTrash,
                                 style: TextStyle(color: AppTheme.error),
                               ),
                             ],
@@ -215,7 +222,7 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
                         shape: const CircleBorder(),
                         child: IconButton(
                           icon: const Icon(Icons.close, color: Colors.white),
-                          tooltip: 'Exit full screen',
+                          tooltip: l10n(context).exitFullScreen,
                           onPressed: () =>
                               setState(() => _isFullscreen = false),
                         ),
@@ -243,19 +250,19 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
           if (song.hasChords)
             Container(
               decoration: BoxDecoration(
-                color: AppTheme.gray100,
+                color: context.subtleFill,
                 borderRadius: AppTheme.borderRadiusMD,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _ModeButton(
-                    label: 'Lyrics',
+                    label: l10n(context).lyrics,
                     isSelected: !_showChords,
                     onTap: () => setState(() => _showChords = false),
                   ),
                   _ModeButton(
-                    label: 'Chords',
+                    label: l10n(context).chords,
                     isSelected: _showChords,
                     onTap: () => setState(() => _showChords = true),
                   ),
@@ -264,6 +271,7 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
             ),
           const Spacer(),
           IconButton(
+            tooltip: l10n(context).fullScreen,
             icon: const Icon(Icons.fullscreen),
             onPressed: () => setState(() => _isFullscreen = true),
           ),
@@ -368,10 +376,10 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
           ),
           const SizedBox(width: AppTheme.spacing8),
           Text(
-            'Transpose',
+            l10n(context).transpose,
             style: AppTheme.bodySmallStyle.copyWith(
               fontWeight: FontWeight.w600,
-              color: AppTheme.gray700,
+              color: context.subtleFill,
             ),
           ),
           const SizedBox(width: AppTheme.spacing12),
@@ -433,7 +441,7 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              child: Text('Reset', style: AppTheme.caption),
+              child: Text(l10n(context).reset, style: AppTheme.caption),
             ),
         ],
       ),
@@ -493,7 +501,7 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
               fontSize: _isFullscreen ? 18 : 15,
               fontFamily: 'monospace',
               height: 1.6,
-              color: AppTheme.gray800,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
           if (i < lyricLines.length - 1)
@@ -530,16 +538,16 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
       return Text(
         line,
         style: TextStyle(
-          fontSize: _isFullscreen ? 18 : 15,
+          fontSize: _lyricFontSize,
           height: 1.6,
-          color: AppTheme.gray800,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
       );
     }
 
     final segments = _parseLegacyLineSegments(line, preferFlats, matches);
-    final chordFontSize = _isFullscreen ? 15.0 : 13.0;
-    final lyricFontSize = _isFullscreen ? 18.0 : 15.0;
+    final chordFontSize = _chordFontSize;
+    final lyricFontSize = _lyricFontSize;
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -570,7 +578,7 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
                     fontSize: lyricFontSize,
                     fontFamily: 'monospace',
                     height: 1.6,
-                    color: AppTheme.gray800,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ],
@@ -631,9 +639,9 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(AppTheme.spacing12),
       decoration: BoxDecoration(
-        color: AppTheme.gray100,
+        color: context.subtleFill,
         borderRadius: AppTheme.borderRadiusMD,
-        border: Border.all(color: AppTheme.gray200),
+        border: Border.all(color: context.subtleFill),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -643,14 +651,14 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
               Icon(
                 Icons.sticky_note_2_outlined,
                 size: AppTheme.iconSM,
-                color: AppTheme.gray600,
+                color: context.mutedText,
               ),
               const SizedBox(width: AppTheme.spacing6),
               Text(
-                'Notes',
+                l10n(context).navNotes,
                 style: AppTheme.bodySmallStyle.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.gray700,
+                  color: context.subtleFill,
                 ),
               ),
             ],
@@ -659,9 +667,9 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
           SelectableText(
             notes,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 16,
               height: 1.5,
-              color: AppTheme.gray800,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
         ],
@@ -669,17 +677,27 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
     );
   }
 
+  /// Lyrics are a reading surface, so they follow the same reader text size
+  /// as scripture. Fullscreen keeps its extra bump on top of the user's choice.
+  double get _lyricFontSize {
+    final base = ref.watch(readingFontSizeProvider);
+    return _isFullscreen ? base * 1.25 : base;
+  }
+
+  /// Chords sit above the lyric and stay proportionally smaller.
+  double get _chordFontSize => _lyricFontSize * 0.85;
+
   Widget _buildLyricsView(String lyrics) {
     if (lyrics.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.music_off, size: 48, color: AppTheme.gray400),
+            Icon(Icons.music_off, size: 48, color: context.hintText),
             const SizedBox(height: AppTheme.spacing12),
             Text(
-              'No lyrics added yet',
-              style: TextStyle(fontSize: 16, color: AppTheme.gray600),
+              l10n(context).noLyricsAddedYet,
+              style: TextStyle(fontSize: 16, color: context.mutedText),
             ),
           ],
         ),
@@ -689,9 +707,9 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
     return SelectableText(
       lyrics,
       style: TextStyle(
-        fontSize: _isFullscreen ? 20 : 16,
+        fontSize: _lyricFontSize,
         height: 1.8,
-        color: AppTheme.gray800,
+        color: Theme.of(context).colorScheme.onSurface,
       ),
     );
   }
@@ -715,9 +733,9 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to update favorite: $e'),
+            content: Text(UserFacingError.message(e, action: 'update favorite')),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: AppTheme.error,
+            backgroundColor: AppTheme.errorSurface,
           ),
         );
       }
@@ -746,8 +764,8 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
     final song = songAsync.valueOrNull;
     if (song == null || song.lyrics.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No lyrics to share'),
+        SnackBar(
+          content: Text(l10n(context).noLyricsToShare),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -763,19 +781,19 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Move to Trash'),
-        content: const Text(
-          'Are you sure you want to move this song to trash?',
+        title: Text(l10n(context).moveToTrash),
+        content: Text(
+          l10n(context).areYouSureYouWantToMoveThisSongToTrash,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(l10n(context).actionCancel),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: TextButton.styleFrom(foregroundColor: AppTheme.error),
-            child: const Text('Move to Trash'),
+            child: Text(l10n(context).moveToTrash),
           ),
         ],
       ),
@@ -783,14 +801,26 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
 
     if (confirmed == true && mounted) {
       final repository = ref.read(songRepositoryProvider);
-      await repository.trashSong(songId);
+      try {
+        await repository.trashSong(songId);
+      } catch (e) {
+        // Otherwise the delete fails with no feedback at all.
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                UserFacingError.message(e, action: 'move this song to Trash')),
+            backgroundColor: AppTheme.errorSurface,
+          ),
+        );
+        return;
+      }
       if (mounted) {
         context.pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Moved to trash'),
-            behavior: SnackBarBehavior.floating,
-          ),
+        showUndoSnackBar(
+          context,
+          itemLabel: 'Song',
+          onUndo: () => repository.restoreSong(songId),
         );
       }
     }
@@ -802,8 +832,8 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
       final copy = await repository.duplicateSong(songId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Song duplicated'),
+          SnackBar(
+            content: Text(l10n(context).songDuplicated),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -813,9 +843,9 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to duplicate: $e'),
+            content: Text(UserFacingError.message(e, action: 'duplicate')),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: AppTheme.error,
+            backgroundColor: AppTheme.errorSurface,
           ),
         );
       }
@@ -870,7 +900,7 @@ class _ModeButton extends StatelessWidget {
           style: TextStyle(
             fontSize: AppTheme.bodySmallStyle.fontSize,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-            color: isSelected ? AppTheme.orange : AppTheme.gray600,
+            color: isSelected ? AppTheme.orange : context.mutedText,
           ),
         ),
       ),
@@ -887,7 +917,7 @@ class _TransposeButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: context.cardSurface,
       shape: const CircleBorder(),
       elevation: 1,
       child: InkWell(
@@ -916,17 +946,17 @@ class _MetadataChip extends StatelessWidget {
         vertical: AppTheme.spacing6,
       ),
       decoration: BoxDecoration(
-        color: AppTheme.gray100,
+        color: context.subtleFill,
         borderRadius: AppTheme.borderRadius3XL,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: AppTheme.iconSM, color: AppTheme.gray600),
+          Icon(icon, size: AppTheme.iconSM, color: context.mutedText),
           const SizedBox(width: AppTheme.spacing4),
           Text(
             label,
-            style: AppTheme.caption.copyWith(color: AppTheme.gray700),
+            style: AppTheme.caption.copyWith(color: context.primaryText),
           ),
         ],
       ),

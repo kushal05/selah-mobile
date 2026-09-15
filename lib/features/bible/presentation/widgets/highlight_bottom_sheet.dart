@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../shared/widgets/drag_handle.dart';
 import '../../domain/models/bible_highlight_entity.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../core/theme/theme_colors.dart';
 
 /// Bottom sheet for creating or editing a Bible verse highlight.
 ///
@@ -53,6 +55,9 @@ class HighlightBottomSheet extends StatefulWidget {
     void Function(String reference, String verseText)? onSaveToNotes,
   }) {
     return showModalBottomSheet(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -138,7 +143,7 @@ class _HighlightBottomSheetState extends State<HighlightBottomSheet> {
             Text(
               isEditing ? 'Edit highlight' : 'Highlight verse',
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 14,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
@@ -163,7 +168,7 @@ class _HighlightBottomSheetState extends State<HighlightBottomSheet> {
               TextField(
                 controller: _noteController,
                 decoration: InputDecoration(
-                  hintText: 'Add a note...',
+                  hintText: l10n(context).addANote,
                   filled: true,
                   fillColor: theme.colorScheme.surfaceContainerHighest,
                   border: OutlineInputBorder(
@@ -194,7 +199,7 @@ class _HighlightBottomSheetState extends State<HighlightBottomSheet> {
                         widget.onSaveToPromises!(widget.reference, widget.verseText);
                       },
                       icon: const Icon(Icons.bookmark_outline, size: 16),
-                      label: const Text('Save as Promise'),
+                      label: Text(l10n(context).saveAsPromise),
                       style: OutlinedButton.styleFrom(
                         visualDensity: VisualDensity.compact,
                       ),
@@ -206,7 +211,7 @@ class _HighlightBottomSheetState extends State<HighlightBottomSheet> {
                         widget.onSaveToNotes!(widget.reference, widget.verseText);
                       },
                       icon: const Icon(Icons.edit_note, size: 16),
-                      label: const Text('Add to Notes'),
+                      label: Text(l10n(context).addToNotes),
                       style: OutlinedButton.styleFrom(
                         visualDensity: VisualDensity.compact,
                       ),
@@ -223,7 +228,7 @@ class _HighlightBottomSheetState extends State<HighlightBottomSheet> {
                   TextButton(
                     onPressed: _remove,
                     child: Text(
-                      'Remove',
+                      l10n(context).remove,
                       style: TextStyle(color: theme.colorScheme.error),
                     ),
                   ),
@@ -232,7 +237,7 @@ class _HighlightBottomSheetState extends State<HighlightBottomSheet> {
                   TextButton(
                     onPressed: () =>
                         setState(() => _showNoteField = true),
-                    child: const Text('Add Note'),
+                    child: Text(l10n(context).addNote),
                   ),
                 const SizedBox(width: 8),
                 FilledButton(
@@ -262,7 +267,11 @@ class _ColorSwatch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      label: '${color.label} highlight'
+          '${isSelected ? ", selected" : ""}',
+      child: GestureDetector(
       onTap: onTap,
       child: Container(
         width: 40,
@@ -273,7 +282,7 @@ class _ColorSwatch extends StatelessWidget {
           border: Border.all(
             color: isSelected
                 ? color.foregroundColor
-                : Colors.grey.shade300,
+                : context.hairline,
             width: isSelected ? 2.5 : 1,
           ),
         ),
@@ -285,6 +294,7 @@ class _ColorSwatch extends StatelessWidget {
               )
             : null,
       ),
+    ),
     );
   }
 }

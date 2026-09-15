@@ -5,6 +5,8 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../features/settings/domain/models/notification_preference.dart';
 import '../../../../features/settings/presentation/providers/notification_prefs_provider.dart';
 import '../../../../features/settings/presentation/utils/reminder_time_utils.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 const _catMeditation = habitCategoryMeditation;
 const _catBibleReading = habitCategoryBibleReading;
@@ -24,9 +26,9 @@ class HabitReminderSection extends ConsumerWidget {
       margin: const EdgeInsets.symmetric(
           horizontal: AppTheme.spacing16, vertical: AppTheme.spacing6),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.cardSurface,
         borderRadius: AppTheme.borderRadius3XL,
-        border: Border.all(color: AppTheme.dividerColor),
+        border: Border.all(color: context.hairline),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -49,7 +51,7 @@ class HabitReminderSection extends ConsumerWidget {
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                 const SizedBox(width: AppTheme.spacing6),
                 Text(
-                  'Daily Reminders',
+                  l10n(context).dailyReminders,
                   style: theme.textTheme.titleSmall
                       ?.copyWith(fontWeight: FontWeight.w600),
                 ),
@@ -63,9 +65,9 @@ class HabitReminderSection extends ConsumerWidget {
             ),
             error: (_, _) => Padding(
               padding: const EdgeInsets.all(AppTheme.spacing16),
-              child: Text('Could not load reminders',
+              child: Text(l10n(context).couldNotLoadReminders,
                   style: AppTheme.caption
-                      .copyWith(color: AppTheme.unselectedColor)),
+                      .copyWith(color: context.mutedText)),
             ),
             data: (prefs) {
               NotificationPreference? pref(String cat) {
@@ -80,7 +82,7 @@ class HabitReminderSection extends ConsumerWidget {
 
               final tiles = [
                 _ReminderTile(
-                  label: 'Bible Reading',
+                  label: l10n(context).bibleReading,
                   pref: pref(_catBibleReading),
                   onToggle: (v) =>
                       notifier.setEnabled(_catBibleReading, enabled: v),
@@ -88,7 +90,7 @@ class HabitReminderSection extends ConsumerWidget {
                       notifier.setReminderTime(_catBibleReading, t),
                 ),
                 _ReminderTile(
-                  label: 'Meditation',
+                  label: l10n(context).meditation,
                   pref: pref(_catMeditation),
                   onToggle: (v) =>
                       notifier.setEnabled(_catMeditation, enabled: v),
@@ -106,7 +108,7 @@ class HabitReminderSection extends ConsumerWidget {
                           height: 1,
                           thickness: 0.5,
                           indent: 16,
-                          color: AppTheme.dividerColor),
+                          color: context.hairline),
                   ],
                 ],
               );
@@ -164,7 +166,9 @@ class _ReminderTile extends StatelessWidget {
             ),
           ),
           if (enabled)
-            GestureDetector(
+            Semantics(
+              button: true,
+              child: GestureDetector(
               onTap: () => _pickTime(context),
               child: Container(
                 padding: const EdgeInsets.symmetric(
@@ -182,6 +186,7 @@ class _ReminderTile extends StatelessWidget {
                   ),
                 ),
               ),
+            ),
             ),
         ],
       ),

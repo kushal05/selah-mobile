@@ -23,6 +23,10 @@ import 'note_version_history_screen.dart';
 import 'note_activity_screen.dart';
 import '../providers/note_attribution_providers.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Provider to watch a single note by ID
 final noteDetailProvider =
@@ -47,11 +51,13 @@ class NoteDetailScreen extends ConsumerWidget {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         leading: IconButton(
+          tooltip: l10n(context).actionBack,
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
           IconButton(
+            tooltip: l10n(context).editNote,
             icon: const Icon(Icons.edit),
             onPressed: () {
               Navigator.of(context).push(
@@ -62,6 +68,7 @@ class NoteDetailScreen extends ConsumerWidget {
             },
           ),
           IconButton(
+            tooltip: l10n(context).noteOptions,
             icon: const Icon(Icons.more_vert),
             onPressed: () {
               _showOptionsMenu(context, ref);
@@ -78,19 +85,19 @@ class NoteDetailScreen extends ConsumerWidget {
               Icon(Icons.error_outline,
                   size: 48, color: Theme.of(context).colorScheme.error),
               const SizedBox(height: 16),
-              Text('Error loading note: $error'),
+              Text(UserFacingError.forLoad(error)),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => ref.invalidate(noteDetailProvider(noteId)),
-                child: const Text('Retry'),
+                child: Text(l10n(context).retry),
               ),
             ],
           ),
         ),
         data: (note) {
           if (note == null) {
-            return const Center(
-              child: Text('Note not found'),
+            return Center(
+              child: Text(l10n(context).noteNotFound),
             );
           }
           return _buildNoteContent(context, ref, note);
@@ -100,7 +107,6 @@ class NoteDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildNoteContent(BuildContext context, WidgetRef ref, domain.Note note) {
-    final theme = Theme.of(context);
     final preacherName = note.preacherId != null
         ? ref.watch(personByIdProvider(note.preacherId!)).whenOrNull(data: (p) => p?.name)
         : null;
@@ -143,10 +149,8 @@ class NoteDetailScreen extends ConsumerWidget {
 
             // Note title
             Text(
-              note.title,
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              note.displayTitle,
+              style: AppTheme.noteTitle,
             ),
             const SizedBox(height: 16),
 
@@ -187,9 +191,7 @@ class NoteDetailScreen extends ConsumerWidget {
           padding: EdgeInsets.only(left: indent, top: 16, bottom: 8),
           child: Text(
             block.content,
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: AppTheme.noteHeading1,
           ),
         );
 
@@ -198,9 +200,7 @@ class NoteDetailScreen extends ConsumerWidget {
           padding: EdgeInsets.only(left: indent, top: 12, bottom: 6),
           child: Text(
             block.content,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: AppTheme.noteHeading2,
           ),
         );
 
@@ -209,9 +209,7 @@ class NoteDetailScreen extends ConsumerWidget {
           padding: EdgeInsets.only(left: indent, top: 8, bottom: 4),
           child: Text(
             block.content,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: AppTheme.noteHeading3,
           ),
         );
 
@@ -332,14 +330,14 @@ class NoteDetailScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Divider(color: Colors.grey.shade200, height: 1),
+          Divider(color: context.hairline, height: 1),
           const SizedBox(height: 12),
           Text(
             section.displayTitle,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade600,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               letterSpacing: 0.5,
             ),
           ),
@@ -359,6 +357,9 @@ class NoteDetailScreen extends ConsumerWidget {
 
   void _showOptionsMenu(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
       context: context,
       builder: (sheetContext) => SafeArea(
         child: Column(
@@ -366,7 +367,7 @@ class NoteDetailScreen extends ConsumerWidget {
           children: [
             ListTile(
               leading: const Icon(Icons.share),
-              title: const Text('Share'),
+              title: Text(l10n(context).share),
               onTap: () {
                 Navigator.pop(sheetContext);
                 _shareNote(context, ref);
@@ -374,7 +375,7 @@ class NoteDetailScreen extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.copy),
-              title: const Text('Duplicate'),
+              title: Text(l10n(context).duplicate),
               onTap: () {
                 Navigator.pop(sheetContext);
                 _duplicateNote(context, ref);
@@ -382,7 +383,7 @@ class NoteDetailScreen extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.drive_file_move_outlined),
-              title: const Text('Move to folder'),
+              title: Text(l10n(context).moveToFolder),
               onTap: () {
                 Navigator.pop(sheetContext);
                 _moveNoteToFolder(context, ref);
@@ -390,7 +391,7 @@ class NoteDetailScreen extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.history),
-              title: const Text('Version History'),
+              title: Text(l10n(context).versionHistory),
               onTap: () {
                 Navigator.pop(sheetContext);
                 Navigator.of(context).push(
@@ -402,8 +403,8 @@ class NoteDetailScreen extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.people_alt_outlined),
-              title: const Text('Activity'),
-              subtitle: const Text('Who edited or viewed'),
+              title: Text(l10n(context).activity),
+              subtitle: Text(l10n(context).whoEditedOrViewed),
               onTap: () {
                 Navigator.pop(sheetContext);
                 Navigator.of(context).push(
@@ -415,7 +416,7 @@ class NoteDetailScreen extends ConsumerWidget {
             ),
             ListTile(
               leading: Icon(Icons.delete, color: Theme.of(sheetContext).colorScheme.error),
-              title: Text('Move to Trash', style: TextStyle(color: Theme.of(sheetContext).colorScheme.error)),
+              title: Text(l10n(context).moveToTrash, style: TextStyle(color: Theme.of(sheetContext).colorScheme.error)),
               onTap: () async {
                 Navigator.pop(sheetContext);
                 final confirmed = await _showDeleteConfirmation(context);
@@ -511,15 +512,15 @@ class NoteDetailScreen extends ConsumerWidget {
       final repository = ref.read(notesRepositoryProvider);
       final newNote = domain.Note.create(
         id: const Uuid().v4(),
-        title: '${note.title} (copy)',
+        title: '${note.displayTitle} (copy)',
         document: note.document,
       );
       await repository.createNote(newNote);
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Note duplicated'),
+          SnackBar(
+            content: Text(l10n(context).noteDuplicated),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -528,7 +529,7 @@ class NoteDetailScreen extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error duplicating note: $e'),
+            content: Text(UserFacingError.message(e, action: 'duplicate this note')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -540,17 +541,17 @@ class NoteDetailScreen extends ConsumerWidget {
     return await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Move to Trash'),
-            content: const Text('Are you sure you want to move this note to trash?'),
+            title: Text(l10n(context).moveToTrash),
+            content: Text(l10n(context).areYouSureYouWantToMoveThisNoteToTrash),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
+                child: Text(l10n(context).actionCancel),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Move to Trash'),
+                child: Text(l10n(context).moveToTrash),
               ),
             ],
           ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/services/app_update_service.dart';
+import '../../../l10n/l10n.dart';
 
 /// QA-only picker that shows the most recent builds from the S3 manifest.
 ///
@@ -35,8 +36,8 @@ class BuildSelectionDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text(
-        'Available builds',
+      title: Text(
+        l10n(context).availableBuilds,
         style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
       ),
       contentPadding: const EdgeInsets.fromLTRB(0, 12, 0, 0),
@@ -46,11 +47,11 @@ class BuildSelectionDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(horizontal: 24),
               child: Text(
-                'Select a build to download and install.',
-                style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                l10n(context).selectABuildToDownloadAndInstall,
+                style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
               ),
             ),
             const SizedBox(height: 8),
@@ -77,7 +78,7 @@ class BuildSelectionDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Close'),
+          child: Text(l10n(context).close),
         ),
       ],
     );
@@ -114,7 +115,7 @@ class _BuildTile extends StatelessWidget {
             child: Text(
               entry.displayLabel,
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -127,10 +128,10 @@ class _BuildTile extends StatelessWidget {
                 color: const Color(0xFFE0F2FE),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Text(
-                'Installed',
+              child: Text(
+                l10n(context).installed,
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF075985),
                 ),
@@ -145,7 +146,7 @@ class _BuildTile extends StatelessWidget {
               subtitleParts.join(' · '),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+              style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
             ),
       trailing: const Icon(Icons.download, size: 18, color: Color(0xFF6B7280)),
     );

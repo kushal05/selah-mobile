@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/sync/providers/sync_providers.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Resolves an incoming share-code deep link and navigates to the prayer.
 ///
@@ -51,7 +52,7 @@ class _ShareCodeScreenState extends ConsumerState<ShareCodeScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('Link Unavailable'),
+        title: Text(l10n(context).linkUnavailable),
         content: Text(message),
         actions: [
           TextButton(
@@ -59,7 +60,7 @@ class _ShareCodeScreenState extends ConsumerState<ShareCodeScreen> {
               Navigator.of(context).pop();
               if (mounted) context.go('/social');
             },
-            child: const Text('Go Back'),
+            child: Text(l10n(context).goBack),
           ),
         ],
       ),
@@ -68,17 +69,18 @@ class _ShareCodeScreenState extends ConsumerState<ShareCodeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(),
             SizedBox(height: 16),
-            Text('Opening shared prayer…'),
+            Text(l10n(context).openingSharedPrayer),
           ],
         ),
-      ),
+      )),
     );
   }
 }

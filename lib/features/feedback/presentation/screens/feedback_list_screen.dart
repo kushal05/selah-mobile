@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/navigation/routes.dart';
 import '../../../../core/sync/models/feedback_thread_model.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Screen showing all feedback threads for the current user
 class FeedbackListScreen extends ConsumerWidget {
@@ -16,7 +18,7 @@ class FeedbackListScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Send Feedback'),
+        title: Text(l10n(context).sendFeedback),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
       ),
@@ -26,11 +28,11 @@ class FeedbackListScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Error loading feedback', style: TextStyle(color: Colors.grey.shade600)),
+              Text(l10n(context).errorLoadingFeedback, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
               const SizedBox(height: 8),
               TextButton(
                 onPressed: () => ref.invalidate(feedbackThreadsStreamProvider),
-                child: const Text('Retry'),
+                child: Text(l10n(context).retry),
               ),
             ],
           ),
@@ -41,20 +43,20 @@ class FeedbackListScreen extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.feedback_outlined, size: 64, color: Colors.grey.shade400),
+                  Icon(Icons.feedback_outlined, size: 64, color: context.hintText),
                   const SizedBox(height: 16),
                   Text(
-                    'No feedback yet',
+                    l10n(context).noFeedbackYet,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w500,
-                      color: Colors.grey.shade600,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Tap + to send your first feedback',
-                    style: TextStyle(color: Colors.grey.shade500),
+                    l10n(context).tapToSendYourFirstFeedback,
+                    style: TextStyle(color: context.mutedText),
                   ),
                 ],
               ),
@@ -136,13 +138,13 @@ class _FeedbackThreadTile extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             category.displayName,
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
           const Spacer(),
           if (thread.lastMessageAt != null)
             Text(
               _formatTime(thread.lastMessageAt!),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+              style: TextStyle(fontSize: 13, color: context.mutedText),
             ),
         ],
       ),
@@ -221,7 +223,7 @@ class _StatusBadge extends StatelessWidget {
       child: Text(
         status.displayName,
         style: TextStyle(
-          fontSize: 10,
+          fontSize: 12,
           fontWeight: FontWeight.w600,
           color: _statusColor,
         ),

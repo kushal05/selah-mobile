@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models/weekly_digest.dart';
 import '../providers/weekly_digest_provider.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../shared/widgets/error_state.dart';
 
 /// Shows a 7-day summary of user activity (prayers, notes, Bible, people).
 /// Read-only — purely derived from existing data, so no writes / oplog.
@@ -15,18 +17,18 @@ class WeeklyDigestScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('This Week'),
+        title: Text(l10n(context).thisWeek),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
+            tooltip: l10n(context).refresh,
             onPressed: () => ref.invalidate(weeklyDigestProvider),
           ),
         ],
       ),
       body: digestAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => _ErrorState(
+        error: (e, _) => ErrorState(
           error: e,
           onRetry: () => ref.invalidate(weeklyDigestProvider),
         ),
@@ -59,14 +61,14 @@ class _DigestBody extends StatelessWidget {
           const SizedBox(height: 16),
           if (digest.topPrayerTitles.isNotEmpty)
             _TopList(
-              title: 'Most-prayed',
+              title: l10n(context).mostPrayed2,
               icon: Icons.volunteer_activism_outlined,
               entries: digest.topPrayerTitles,
             ),
           if (digest.topChapters.isNotEmpty) ...[
             const SizedBox(height: 12),
             _TopList(
-              title: 'Most-opened chapters',
+              title: l10n(context).mostOpenedChapters,
               icon: Icons.menu_book_outlined,
               entries: digest.topChapters,
             ),
@@ -74,7 +76,7 @@ class _DigestBody extends StatelessWidget {
           const SizedBox(height: 24),
           Center(
             child: Text(
-              'Pulled from your local activity. Nothing leaves the device for this view.',
+              l10n(context).pulledFromYourLocalActivityNothingLeavesTheD,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
@@ -105,29 +107,29 @@ class _StatGrid extends StatelessWidget {
     final tiles = <_StatTile>[
       _StatTile(
         icon: Icons.volunteer_activism_outlined,
-        label: 'Prayers logged',
+        label: l10n(context).prayersLogged,
         value: '${digest.prayersLogged}',
         sub: '${digest.prayerDaysActive} of ${digest.days} days',
       ),
       _StatTile(
         icon: Icons.celebration_outlined,
-        label: 'Prayers answered',
+        label: l10n(context).prayersAnswered,
         value: '${digest.prayersAnswered}',
       ),
       _StatTile(
         icon: Icons.note_add_outlined,
-        label: 'Notes created',
+        label: l10n(context).notesCreated,
         value: '${digest.notesCreated}',
         sub: '${digest.notesEdited} edited',
       ),
       _StatTile(
         icon: Icons.menu_book_outlined,
-        label: 'Chapters opened',
+        label: l10n(context).chaptersOpened,
         value: '${digest.chaptersOpened}',
       ),
       _StatTile(
         icon: Icons.people_outline,
-        label: 'People mentioned',
+        label: l10n(context).peopleMentioned,
         value: '${digest.peopleMentioned}',
       ),
     ];
@@ -261,10 +263,10 @@ class _EmptyState extends StatelessWidget {
             Icon(Icons.calendar_today_outlined,
                 size: 48, color: theme.disabledColor),
             const SizedBox(height: 12),
-            Text('No activity this week', style: theme.textTheme.titleMedium),
+            Text(l10n(context).noActivityThisWeek, style: theme.textTheme.titleMedium),
             const SizedBox(height: 6),
             Text(
-              'Log a prayer, capture a note, or open the Bible to see your week summarized here.',
+              l10n(context).logAPrayerCaptureANoteOrOpenTheBibleToSeeYou,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
@@ -277,39 +279,3 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-class _ErrorState extends StatelessWidget {
-  final Object error;
-  final VoidCallback onRetry;
-  const _ErrorState({required this.error, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
-            const SizedBox(height: 12),
-            Text('Couldn\'t build your digest',
-                style: theme.textTheme.titleMedium),
-            const SizedBox(height: 6),
-            Text(
-              '$error',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall,
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-              onPressed: onRetry,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/sync/models/entity_access_model.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Inbox for incoming tier-2 user shares.
 ///
@@ -22,11 +24,11 @@ class SharedWithMeScreen extends ConsumerWidget {
     final accepted = ref.watch(acceptedIncomingSharesProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Shared with me')),
+      appBar: AppBar(title: Text(l10n(context).sharedWithMe)),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
-          _SectionHeader(label: 'Pending'),
+          _SectionHeader(label: l10n(context).pending),
           pending.when(
             loading: () => const Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
@@ -34,8 +36,8 @@ class SharedWithMeScreen extends ConsumerWidget {
             ),
             error: (err, _) => _ErrorTile(message: '$err'),
             data: (items) => items.isEmpty
-                ? const _EmptyTile(
-                    message: 'No pending invites.',
+                ? _EmptyTile(
+                    message: l10n(context).noPendingInvites,
                     icon: Icons.inbox_outlined,
                   )
                 : Column(
@@ -45,7 +47,7 @@ class SharedWithMeScreen extends ConsumerWidget {
                   ),
           ),
           const SizedBox(height: 24),
-          _SectionHeader(label: 'Active'),
+          _SectionHeader(label: l10n(context).active),
           accepted.when(
             loading: () => const Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
@@ -53,8 +55,8 @@ class SharedWithMeScreen extends ConsumerWidget {
             ),
             error: (err, _) => _ErrorTile(message: '$err'),
             data: (items) => items.isEmpty
-                ? const _EmptyTile(
-                    message: 'Nothing has been shared with you yet.',
+                ? _EmptyTile(
+                    message: l10n(context).nothingHasBeenSharedWithYouYet,
                     icon: Icons.folder_shared_outlined,
                   )
                 : Column(
@@ -88,12 +90,12 @@ class _PendingShareTileState extends ConsumerState<_PendingShareTile> {
       // Providers stream off Drift, so UI updates automatically.
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Share accepted')),
+        SnackBar(content: Text(l10n(context).shareAccepted)),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to accept: $e')),
+        SnackBar(content: Text(UserFacingError.message(e, action: 'accept'))),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -108,7 +110,7 @@ class _PendingShareTileState extends ConsumerState<_PendingShareTile> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to decline: $e')),
+        SnackBar(content: Text(UserFacingError.message(e, action: 'decline'))),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -149,7 +151,7 @@ class _PendingShareTileState extends ConsumerState<_PendingShareTile> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _busy ? null : _decline,
-                    child: const Text('Decline'),
+                    child: Text(l10n(context).decline),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -162,7 +164,7 @@ class _PendingShareTileState extends ConsumerState<_PendingShareTile> {
                             width: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Accept'),
+                        : Text(l10n(context).accept),
                   ),
                 ),
               ],

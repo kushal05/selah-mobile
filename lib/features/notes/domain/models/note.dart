@@ -12,6 +12,10 @@ class Note extends Equatable {
   /// Note title
   final String title;
 
+  /// Placeholder shown wherever a note is listed without a title of its own.
+  static const String untitledLabel = 'Untitled Note';
+
+
   /// Editor document containing blocks
   final EditorDocument document;
 
@@ -54,7 +58,9 @@ class Note extends Equatable {
     final now = DateTime.now();
     return Note(
       id: id,
-      title: title ?? 'Untitled Note',
+      // No fabricated title: an untitled note stays untitled in the
+      // record, and [displayTitle] supplies the label for the UI.
+      title: title ?? '',
       document: document ?? EditorDocument.empty(),
       createdAt: now,
       updatedAt: now,
@@ -63,6 +69,17 @@ class Note extends Equatable {
   }
 
   /// Copy with modifications
+
+  /// Title to show in lists and headers.
+  ///
+  /// A note the user never titled is stored with an empty title rather than
+  /// a fabricated one, so the record stays honest about what they wrote —
+  /// the placeholder belongs to the UI. Every surface that lists notes should
+  /// use this rather than [title] directly, or an untitled note renders as a
+  /// blank row.
+  String get displayTitle =>
+      title.trim().isEmpty ? untitledLabel : title;
+
   Note copyWith({
     String? id,
     String? title,

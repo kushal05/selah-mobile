@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'tutorial_providers.dart';
 import 'tutorial_state.dart';
 import 'tutorial_step.dart';
+import '../../core/providers/motion_preferences.dart';
+import '../../l10n/l10n.dart';
 
 /// Full-screen overlay rendered via [OverlayEntry] during the tutorial.
 ///
@@ -55,10 +57,14 @@ class TutorialOverlayWidget extends ConsumerWidget {
           // For the final/celebration step tap the whole scrim to advance.
           if (step.shape == TutorialSpotlightShape.none)
             Positioned.fill(
-              child: GestureDetector(
+              child: Semantics(
+                button: true,
+                label: l10n(context).nextStepOfTheTour,
+                child: GestureDetector(
                 onTap: onNext,
                 behavior: HitTestBehavior.opaque,
                 child: const SizedBox.expand(),
+              ),
               ),
             ),
 
@@ -237,7 +243,7 @@ class _CoachMarkBubble extends StatelessWidget {
                       foregroundColor:
                           theme.colorScheme.onSurfaceVariant,
                     ),
-                    child: const Text('Skip'),
+                    child: Text(l10n(context).skip),
                   ),
                 const Spacer(),
                 FilledButton(
@@ -276,7 +282,7 @@ class _StepDots extends StatelessWidget {
       children: List.generate(total, (i) {
         final isActive = i == current;
         return AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: context.motion(const Duration(milliseconds: 200)),
           margin: const EdgeInsets.symmetric(horizontal: 2),
           width: isActive ? 16 : 6,
           height: 6,

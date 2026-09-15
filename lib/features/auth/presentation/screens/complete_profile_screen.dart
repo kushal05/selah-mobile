@@ -10,6 +10,10 @@ import '../providers/auth_providers.dart';
 import '../widgets/auth_shell.dart';
 import '../widgets/glass_login_card.dart';
 import '../widgets/selah_logo.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../core/theme/theme_colors.dart';
 
 /// Premium profile-completion screen — dark aurora theme with glass inputs,
 /// entrance animation, and animated username availability feedback.
@@ -158,9 +162,9 @@ class _CompleteProfileScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to save profile: $e'),
+            content: Text(UserFacingError.message(e, action: 'save profile')),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.red.shade700,
+            backgroundColor: AppTheme.errorSurface,
           ),
         );
       }
@@ -201,7 +205,7 @@ class _CompleteProfileScreenState
           },
           child: Icon(
             Icons.check_circle_rounded,
-            color: Colors.green.shade300,
+            color: context.successText,
             size: 22,
           ),
         ),
@@ -213,7 +217,7 @@ class _CompleteProfileScreenState
         padding: const EdgeInsets.all(12),
         child: Icon(
           Icons.cancel_rounded,
-          color: Colors.amber.shade300,
+          color: context.warningText,
           size: 22,
         ),
       );
@@ -249,8 +253,8 @@ class _CompleteProfileScreenState
                   opacity: _titleFade,
                   child: Column(
                     children: [
-                      const Text(
-                        'Complete Your Profile',
+                      Text(
+                        l10n(context).completeYourProfile,
                         style: TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.w700,
@@ -263,7 +267,7 @@ class _CompleteProfileScreenState
                       Text(
                         'Choose a username and display name\nto get started',
                         style: TextStyle(
-                          fontSize: 15,
+                          fontSize: 16,
                           color: Colors.white.withValues(alpha: 0.6),
                           height: 1.5,
                         ),
@@ -295,7 +299,7 @@ class _CompleteProfileScreenState
                               cursorColor: Colors.white,
                               decoration: glassInputDecoration(
                                 context: context,
-                                label: 'Username',
+                                label: l10n(context).username,
                                 hint: 'Choose a username',
                                 prefixIcon: Icons.alternate_email,
                                 suffixIcon: _buildUsernameSuffix(),
@@ -329,9 +333,9 @@ class _CompleteProfileScreenState
                             Padding(
                               padding: const EdgeInsets.only(left: 16),
                               child: Text(
-                                'Your unique username for friends to find you',
+                                l10n(context).yourUniqueUsernameForFriendsToFindYou,
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 13,
                                   color:
                                       Colors.white.withValues(alpha: 0.45),
                                 ),
@@ -349,7 +353,7 @@ class _CompleteProfileScreenState
                               cursorColor: Colors.white,
                               decoration: glassInputDecoration(
                                 context: context,
-                                label: 'Display Name',
+                                label: l10n(context).displayName,
                                 hint: 'Enter your display name',
                                 prefixIcon: Icons.badge_outlined,
                               ),
@@ -364,7 +368,7 @@ class _CompleteProfileScreenState
 
                             // Continue button
                             GlassButton(
-                              label: 'Continue',
+                              label: l10n(context).continueLabel,
                               isLoading: _isSaving,
                               onPressed: _handleContinue,
                             ),

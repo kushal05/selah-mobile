@@ -204,7 +204,12 @@ class BibleDatabaseService extends ChangeNotifier {
     } finally {
       try {
         File(tempPath).deleteSync();
-      } catch (_) {}
+      } catch (e) {
+        // Best-effort cleanup of a scratch copy in the temp directory. The
+        // import has already succeeded by this point; a leftover file costs
+        // disk space and the OS reclaims it.
+        debugPrint('Could not delete temp Bible db $tempPath: $e');
+      }
     }
 
     notifyListeners();

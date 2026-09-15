@@ -8,6 +8,9 @@ import '../../../../core/services/chord_transposition.dart';
 import '../../../../core/sync/models/song_model.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Screen for adding or editing a song
 /// Provides form fields for title, lyrics, structured chord lines, scale, language, and tags
@@ -180,6 +183,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         leading: IconButton(
+          tooltip: l10n(context).close,
           icon: const Icon(Icons.close),
           onPressed: () => _handleClose(context),
         ),
@@ -188,7 +192,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
           TextButton(
             onPressed: _isLoading ? null : _handleSave,
             style: TextButton.styleFrom(foregroundColor: AppTheme.orange),
-            child: const Text('Save'),
+            child: Text(l10n(context).actionSave),
           ),
         ],
       ),
@@ -203,7 +207,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                       decoration: BoxDecoration(
                         color: Theme.of(context).scaffoldBackgroundColor,
                         border: Border(
-                          bottom: BorderSide(color: Colors.grey.shade200),
+                          bottom: BorderSide(color: context.hairline),
                         ),
                       ),
                       child: TabBar(
@@ -262,14 +266,14 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
         Row(
           children: [
             Icon(Icons.sticky_note_2_outlined,
-                size: 16, color: Colors.grey.shade600),
+                size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
             const SizedBox(width: 6),
             Text(
-              'Notes',
+              l10n(context).navNotes,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -279,7 +283,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
           controller: _notesController,
           decoration: InputDecoration(
             hintText:
-                'Notes or references (author, source URL, performance notes...)',
+                l10n(context).notesOrReferencesAuthorSourceUrlPerformanceN,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,
@@ -296,15 +300,15 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
               ),
             ),
             hintStyle: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade400,
+              fontSize: 16,
+              color: context.hintText,
               height: 1.5,
             ),
             contentPadding: const EdgeInsets.all(16),
           ),
           maxLines: null,
           minLines: 3,
-          style: const TextStyle(fontSize: 14, height: 1.5),
+          style: const TextStyle(fontSize: 16, height: 1.5),
           textCapitalization: TextCapitalization.sentences,
           textAlignVertical: TextAlignVertical.top,
         ),
@@ -316,8 +320,8 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
     return TextFormField(
       controller: _titleController,
       decoration: InputDecoration(
-        hintText: 'Song title',
-        prefixIcon: Icon(Icons.music_note, color: Colors.grey.shade400),
+        hintText: l10n(context).songTitle,
+        prefixIcon: Icon(Icons.music_note, color: context.hintText),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
@@ -336,7 +340,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
         hintStyle: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w500,
-          color: Colors.grey.shade400,
+          color: context.hintText,
         ),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -400,7 +404,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                 controller: _tagController,
                 focusNode: _tagInputFocusNode,
                 decoration: InputDecoration(
-                  hintText: 'Tag name...',
+                  hintText: l10n(context).tagName,
                   isDense: true,
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -410,20 +414,21 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(20),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
+                    borderSide: BorderSide(color: context.hairline),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(20),
                     borderSide: BorderSide(color: AppTheme.orange),
                   ),
                   suffixIcon: IconButton(
+                    tooltip: l10n(context).addTag,
                     icon: const Icon(Icons.check, size: 18),
                     onPressed: () => _submitTag(_tagController.text),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
                 ),
-                style: const TextStyle(fontSize: 13),
+                style: const TextStyle(fontSize: 14),
                 onSubmitted: _submitTag,
               ),
             )
@@ -451,12 +456,12 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: isPlaceholder
-                ? Colors.grey.shade100
+                ? context.subtleFill
                 : AppTheme.orange.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: isPlaceholder
-                  ? Colors.grey.shade300
+                  ? context.hairline
                   : AppTheme.orange.withValues(alpha: 0.3),
             ),
           ),
@@ -466,16 +471,16 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
               Icon(icon,
                   size: 16,
                   color: isPlaceholder
-                      ? Colors.grey.shade500
+                      ? context.mutedText
                       : AppTheme.orange),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: isPlaceholder
-                      ? Colors.grey.shade500
+                      ? context.mutedText
                       : AppTheme.orange,
                 ),
               ),
@@ -483,7 +488,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
               Icon(Icons.keyboard_arrow_down,
                   size: 16,
                   color: isPlaceholder
-                      ? Colors.grey.shade500
+                      ? context.mutedText
                       : AppTheme.orange),
             ],
           ),
@@ -508,7 +513,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
           Text(
             displayName,
             style: const TextStyle(
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w500,
               color: Colors.white,
             ),
@@ -544,21 +549,21 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.grey.shade100,
+            color: context.subtleFill,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.grey.shade300),
+            border: Border.all(color: context.hairline),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.add, size: 16, color: Colors.grey.shade600),
+              Icon(Icons.add, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
               const SizedBox(width: 4),
               Text(
-                'Add tag',
+                l10n(context).addTag,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: Colors.grey.shade600,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -590,15 +595,15 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
           ),
         ),
         hintStyle: TextStyle(
-          fontSize: 15,
-          color: Colors.grey.shade400,
+          fontSize: 16,
+          color: context.hintText,
           height: 1.6,
         ),
         contentPadding: const EdgeInsets.all(16),
       ),
       maxLines: null,
       minLines: 15,
-      style: const TextStyle(fontSize: 15, height: 1.6),
+      style: const TextStyle(fontSize: 16, height: 1.6),
       textCapitalization: TextCapitalization.sentences,
       textAlignVertical: TextAlignVertical.top,
     );
@@ -624,8 +629,8 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Enter chords for each lyric line. Use spaces to separate chords (e.g. "G  D  Em  C").',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                  l10n(context).enterChordsForEachLyricLineUseSpacesToSepara,
+                  style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
               ),
             ],
@@ -643,7 +648,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text('',
                     style: TextStyle(
-                        fontSize: 13, color: Colors.grey.shade400)),
+                        fontSize: 14, color: context.hintText)),
               );
             }
             final existing = _chordLines.where((c) => c.lineIndex == idx);
@@ -661,7 +666,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                     key: ValueKey('chord_input_${idx}_${lyricLine.hashCode}'),
                     initialValue: currentChords,
                     decoration: InputDecoration(
-                      hintText: 'Chords...',
+                      hintText: l10n(context).chords2,
                       isDense: true,
                       filled: true,
                       fillColor: AppTheme.orange.withValues(alpha: 0.05),
@@ -672,13 +677,13 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
                       hintStyle: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade400,
+                        fontSize: 14,
+                        color: context.hintText,
                         fontFamily: 'monospace',
                       ),
                     ),
                     style: const TextStyle(
-                      fontSize: 14,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                       fontFamily: 'monospace',
                       color: AppTheme.orange,
@@ -698,8 +703,8 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                     child: Text(
                       lyricLine,
                       style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade600,
+                        fontSize: 14,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         height: 1.4,
                       ),
                       maxLines: 1,
@@ -715,12 +720,12 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.grey.shade50,
+              color: context.subtleFill,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              'Add lyrics first, then you can assign chords to each line.',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+              l10n(context).addLyricsFirstThenYouCanAssignChordsToEachLi,
+              style: TextStyle(fontSize: 16, color: context.mutedText),
             ),
           ),
 
@@ -730,11 +735,11 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
 
         // Legacy inline chord field (for backward compatibility)
         Text(
-          'Or use inline notation',
+          l10n(context).orUseInlineNotation,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Colors.grey.shade600,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 8),
@@ -759,8 +764,8 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
               ),
             ),
             hintStyle: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade400,
+              fontSize: 16,
+              color: context.hintText,
               height: 1.6,
             ),
             contentPadding: const EdgeInsets.all(16),
@@ -768,7 +773,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
           maxLines: null,
           minLines: 8,
           style: const TextStyle(
-            fontSize: 15,
+            fontSize: 16,
             height: 1.6,
             fontFamily: 'monospace',
           ),
@@ -790,6 +795,9 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
 
   void _showScalePicker() {
     showModalBottomSheet(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -801,7 +809,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                'Select Key',
+                l10n(context).selectKey,
                 style: Theme.of(context)
                     .textTheme
                     .titleMedium
@@ -823,9 +831,9 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                             : Icons.circle_outlined,
                         color: _scale.isEmpty
                             ? AppTheme.orange
-                            : Colors.grey,
+                            : context.mutedText,
                       ),
-                      title: const Text('No key set'),
+                      title: Text(l10n(context).noKeySet),
                       onTap: () {
                         setState(() => _scale = '');
                         Navigator.pop(context);
@@ -834,11 +842,11 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                     // Major keys header
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                      child: Text('Major',
+                      child: Text(l10n(context).major,
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade600,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           )),
                     ),
                     ...ChordTransposer.majorKeys.map((key) => ListTile(
@@ -848,7 +856,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                                 : Icons.circle_outlined,
                             color: _scale == key
                                 ? AppTheme.orange
-                                : Colors.grey,
+                                : context.mutedText,
                           ),
                           title: Text(key),
                           dense: true,
@@ -860,11 +868,11 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                     // Minor keys header
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                      child: Text('Minor',
+                      child: Text(l10n(context).minor,
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade600,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           )),
                     ),
                     ...ChordTransposer.minorKeys.map((key) => ListTile(
@@ -874,7 +882,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                                 : Icons.circle_outlined,
                             color: _scale == key
                                 ? AppTheme.orange
-                                : Colors.grey,
+                                : context.mutedText,
                           ),
                           title: Text(key),
                           dense: true,
@@ -896,6 +904,9 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
 
   void _showLanguagePicker() {
     showModalBottomSheet(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -907,7 +918,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                'Select Language',
+                l10n(context).selectLanguage,
                 style: Theme.of(context)
                     .textTheme
                     .titleMedium
@@ -922,7 +933,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                         : Icons.circle_outlined,
                     color: lang == _language
                         ? AppTheme.orange
-                        : Colors.grey,
+                        : context.mutedText,
                   ),
                   title: Text(lang),
                   onTap: () {
@@ -949,6 +960,9 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
   void _showFolderPicker() {
     final folders = ref.read(songFoldersStreamProvider).valueOrNull ?? [];
     showModalBottomSheet(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -960,7 +974,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                'Select Songbook',
+                l10n(context).selectSongbook,
                 style: Theme.of(context)
                     .textTheme
                     .titleMedium
@@ -974,7 +988,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                 color:
                     _folderId == null ? AppTheme.orange : Colors.grey,
               ),
-              title: const Text('No songbook'),
+              title: Text(l10n(context).noSongbook),
               onTap: () {
                 setState(() => _folderId = null);
                 Navigator.pop(context);
@@ -987,7 +1001,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                         : Icons.circle_outlined,
                     color: _folderId == folder.id
                         ? AppTheme.orange
-                        : Colors.grey,
+                        : context.mutedText,
                   ),
                   title: Text(folder.name),
                   onTap: () {
@@ -1077,20 +1091,20 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
       showDialog(
         context: outerContext,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('Discard changes?'),
-          content: const Text(
-              'You have unsaved changes. Are you sure you want to discard them?'),
+          title: Text(l10n(context).discardChanges),
+          content: Text(
+              l10n(context).youHaveUnsavedChangesAreYouSureYouWantToDisc),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
+              child: Text(l10n(context).actionCancel),
             ),
             TextButton(
               onPressed: () {
                 Navigator.pop(dialogContext);
                 outerContext.pop();
               },
-              child: const Text('Discard'),
+              child: Text(l10n(context).discard),
             ),
           ],
         ),
@@ -1164,9 +1178,9 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
           setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error saving song: $e'),
+              content: Text(UserFacingError.message(e, action: 'save this song')),
               behavior: SnackBarBehavior.floating,
-              backgroundColor: Colors.red,
+              backgroundColor: AppTheme.errorSurface,
             ),
           );
         }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_colors.dart';
+import '../../l10n/l10n.dart';
 
 /// Full-screen, non-dismissable maintenance notice shown when the backend sets
 /// the `app.maintenanceMode` remote-config flag. Because that flag defaults to
@@ -10,8 +12,9 @@ class MaintenanceScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.scaffoldGray,
-      body: Center(
+      backgroundColor: context.pageGround,
+      body: SafeArea(
+        child: Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
@@ -21,7 +24,7 @@ class MaintenanceScreen extends StatelessWidget {
                   size: 72, color: AppTheme.brandBlue),
               const SizedBox(height: 24),
               Text(
-                'Under maintenance',
+                l10n(context).underMaintenance,
                 style: Theme.of(context).textTheme.titleLarge,
                 textAlign: TextAlign.center,
               ),
@@ -32,13 +35,13 @@ class MaintenanceScreen extends StatelessWidget {
                 style: Theme.of(context)
                     .textTheme
                     .bodyMedium
-                    ?.copyWith(color: AppTheme.textMuted),
+                    ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                 textAlign: TextAlign.center,
               ),
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 }

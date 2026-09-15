@@ -31,5 +31,36 @@ class TutorialService {
   Future<void> resetForReplay() async {
     await _prefs.setBool(_pendingKey, true);
     await _prefs.remove(_seenKey);
+    for (final id in _featureIntroKeys) {
+      await _prefs.remove(id);
+    }
   }
+
+  // ── Per-feature first-use intros ────────────────────────────────────────
+  // The home tour covered one screen out of seven. Notes, Bible, Prayers,
+  // Promises, Songs and Social were entered cold, with no explanation of what
+  // the tab is for — the single biggest gap for someone who does not already
+  // know the app.
+  //
+  // Each tab shows a one-time introduction the first time it is opened. These
+  // are separate from the home tour so a user who skipped that still gets
+  // told what each section does.
+
+  static const _featureIntroPrefix = 'feature_intro_seen_';
+  static const _featureIntroKeys = <String>[
+    '${_featureIntroPrefix}notes',
+    '${_featureIntroPrefix}bible',
+    '${_featureIntroPrefix}prayers',
+    '${_featureIntroPrefix}promises',
+    '${_featureIntroPrefix}songs',
+    '${_featureIntroPrefix}social',
+  ];
+
+  /// Whether [featureId]'s introduction still needs to be shown.
+  bool needsFeatureIntro(String featureId) =>
+      !(_prefs.getBool('$_featureIntroPrefix$featureId') ?? false);
+
+  /// Records that [featureId]'s introduction has been seen.
+  Future<void> markFeatureIntroSeen(String featureId) =>
+      _prefs.setBool('$_featureIntroPrefix$featureId', true);
 }

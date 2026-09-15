@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/sync/models/friendship_model.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Displays a friend in the friends list
 class FriendCard extends StatelessWidget {
@@ -63,8 +65,8 @@ class FriendCard extends StatelessWidget {
                   Text(
                     '@${friendship.friendUsername}',
                     style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
+                      fontSize: 16,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -72,11 +74,12 @@ class FriendCard extends StatelessWidget {
             ),
             if (onRemove != null)
               IconButton(
-                icon: Icon(Icons.more_vert, color: Colors.grey.shade400),
+                tooltip: l10n(context).friendOptions,
+                icon: Icon(Icons.more_vert, color: context.hintText),
                 onPressed: () => _showOptions(context),
               )
             else
-              Icon(Icons.chevron_right, color: Colors.grey.shade400),
+              Icon(Icons.chevron_right, color: context.hintText),
           ],
         ),
       ),
@@ -85,6 +88,9 @@ class FriendCard extends StatelessWidget {
 
   void _showOptions(BuildContext context) {
     showModalBottomSheet(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -94,10 +100,10 @@ class FriendCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: Icon(Icons.person_remove, color: Colors.red.shade600),
+              leading: Icon(Icons.person_remove, color: context.dangerText),
               title: Text(
-                'Remove Friend',
-                style: TextStyle(color: Colors.red.shade600),
+                l10n(context).removeFriend,
+                style: TextStyle(color: context.dangerText),
               ),
               onTap: () {
                 Navigator.pop(context);

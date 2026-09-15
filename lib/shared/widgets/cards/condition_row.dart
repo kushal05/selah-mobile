@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/theme_colors.dart';
 
 /// Displays a condition item with status
 class ConditionRow extends StatelessWidget {
@@ -29,9 +30,9 @@ class ConditionRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: context.hairline),
       ),
       child: Row(
         children: [
@@ -58,7 +59,7 @@ class ConditionRow extends StatelessWidget {
             child: Text(
               status.toUpperCase(),
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: statusColor,
               ),

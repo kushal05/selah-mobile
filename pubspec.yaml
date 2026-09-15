@@ -9,6 +9,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: any
   go_router: ^17.0.1
 
   # State Management
@@ -71,5 +74,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  # Generates AppLocalizations from lib/l10n/*.arb. See l10n.yaml.
+  generate: true
   assets:
     - assets/images/

@@ -57,6 +57,19 @@ class ApiInterceptor {
       return _refreshCompleter!.future;
     }
 
+    // The debug test session holds a token the server never issued, so a
+    // refresh is guaranteed to 401 — and the 401 branch below clears local
+    // auth, which would eject the tester back to the login screen on the
+    // first background sync. Fail the refresh without calling out and
+    // without touching the stored token.
+    if (authService.isTestSession) {
+      SyncLogger.info(
+        '[Interceptor] Test session — skipping token refresh and keeping '
+        'local auth. Authenticated calls will 401; this is expected.',
+      );
+      return false;
+    }
+
     _isRefreshing = true;
     _refreshCompleter = Completer<bool>();
 
@@ -246,7 +259,11 @@ class ApiInterceptor {
               '[Interceptor] SECURITY: TOKEN_REUSE_DETECTED — '
               'skipping token refresh, clearing auth state',
             );
-            await authService.clearToken();
+            // The test session's token is local-only, so a reuse report
+            // about it says nothing about a real compromised session.
+            if (!authService.isTestSession) {
+              await authService.clearToken();
+            }
             return response;
           }
 

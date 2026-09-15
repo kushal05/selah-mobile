@@ -5,6 +5,8 @@ import '../../../../core/theme/app_theme.dart';
 import '../../data/bible_version_api_service.dart';
 import '../../domain/models/bible_version_info.dart';
 import '../providers/bible_providers.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// First-launch Bible setup screen.
 ///
@@ -141,7 +143,7 @@ class _BibleVersionOnboardingScreenState
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: AppTheme.scaffoldGray,
+      backgroundColor: context.pageGround,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(AppTheme.spacing24),
@@ -152,15 +154,14 @@ class _BibleVersionOnboardingScreenState
               Icon(Icons.menu_book_rounded,
                   size: 48, color: theme.colorScheme.primary),
               const SizedBox(height: AppTheme.spacing16),
-              Text('Choose Bible Versions',
+              Text(l10n(context).chooseBibleVersions,
                   style: AppTheme.headingLarge
                       .copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: AppTheme.spacing8),
               Text(
-                'Select the translations you want to download. '
-                'NKJV is set as your default — you can change this any time in settings.',
+                l10n(context).selectTheTranslationsYouWantToDownloadNkjvIs,
                 style: AppTheme.bodyBase
-                    .copyWith(color: AppTheme.unselectedColor),
+                    .copyWith(color: context.mutedText),
               ),
               const SizedBox(height: AppTheme.spacing24),
               Expanded(child: _buildBody(theme)),
@@ -182,9 +183,9 @@ class _BibleVersionOnboardingScreenState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Could not load versions.',
+            Text(l10n(context).couldNotLoadVersions,
                 style: AppTheme.bodyBase
-                    .copyWith(color: AppTheme.unselectedColor)),
+                    .copyWith(color: context.mutedText)),
             const SizedBox(height: AppTheme.spacing12),
             FilledButton.tonal(
               onPressed: () {
@@ -194,7 +195,7 @@ class _BibleVersionOnboardingScreenState
                 });
                 _fetchVersions();
               },
-              child: const Text('Retry'),
+              child: Text(l10n(context).retry),
             ),
           ],
         ),
@@ -204,7 +205,7 @@ class _BibleVersionOnboardingScreenState
     return ListView.separated(
       itemCount: _available.length,
       separatorBuilder: (_, _) => Divider(
-          height: 1, thickness: 0.5, color: AppTheme.dividerColor),
+          height: 1, thickness: 0.5, color: context.hairline),
       itemBuilder: (_, i) {
         final v = _available[i];
         final isSelected = _selected.contains(v.code);
@@ -261,7 +262,7 @@ class _BibleVersionOnboardingScreenState
                                 color: theme.colorScheme.primaryContainer,
                                 borderRadius: BorderRadius.circular(6),
                               ),
-                              child: Text('Default',
+                              child: Text(l10n(context).defaultLabel,
                                   style: AppTheme.caption.copyWith(
                                     color: theme.colorScheme
                                         .onPrimaryContainer,
@@ -282,12 +283,12 @@ class _BibleVersionOnboardingScreenState
                               ? '${(progress * 100).toStringAsFixed(0)}%'
                               : 'Downloading…',
                           style: AppTheme.caption.copyWith(
-                              color: AppTheme.unselectedColor),
+                              color: context.mutedText),
                         ),
                       ] else
                         Text('~${v.approximateSizeMb} MB',
                             style: AppTheme.caption.copyWith(
-                                color: AppTheme.unselectedColor)),
+                                color: context.mutedText)),
                     ],
                   ),
                 ),
@@ -301,10 +302,10 @@ class _BibleVersionOnboardingScreenState
 
   Widget _buildFooter(ThemeData theme) {
     if (_downloading) {
-      return const SizedBox(
+      return SizedBox(
         height: 48,
         child: Center(
-          child: Text('Downloading selected versions…'),
+          child: Text(l10n(context).downloadingSelectedVersions),
         ),
       );
     }

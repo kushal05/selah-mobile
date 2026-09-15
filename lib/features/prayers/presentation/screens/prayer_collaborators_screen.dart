@@ -6,6 +6,9 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/sync/models/prayer_collaborator_model.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Screen for managing collaborators on a shared prayer
 class PrayerCollaboratorsScreen extends ConsumerStatefulWidget {
@@ -39,7 +42,7 @@ class _PrayerCollaboratorsScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Collaborators'),
+        title: Text(l10n(context).collaborators),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
       ),
@@ -51,7 +54,7 @@ class _PrayerCollaboratorsScreenState
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
               border: Border(
-                bottom: BorderSide(color: Colors.grey.shade200),
+                bottom: BorderSide(color: context.hairline),
               ),
             ),
             child: Row(
@@ -60,7 +63,7 @@ class _PrayerCollaboratorsScreenState
                   child: TextField(
                     controller: _usernameController,
                     decoration: InputDecoration(
-                      hintText: 'Enter username to add...',
+                      hintText: l10n(context).enterUsernameToAdd,
                       prefixIcon: const Icon(Icons.person_add_outlined),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -79,7 +82,7 @@ class _PrayerCollaboratorsScreenState
                   onPressed: _isAdding ? null : _addCollaborator,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.brandBlue,
-                    foregroundColor: Colors.white,
+                    foregroundColor: AppTheme.onAccent(AppTheme.brandBlue),
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 20,
@@ -98,7 +101,7 @@ class _PrayerCollaboratorsScreenState
                             color: Colors.white,
                           ),
                         )
-                      : const Text('Add'),
+                      : Text(l10n(context).add),
                 ),
               ],
             ),
@@ -110,7 +113,7 @@ class _PrayerCollaboratorsScreenState
               loading: () =>
                   const ListTileSkeletonList(count: 4),
               error: (error, stack) =>
-                  Center(child: Text('Error: $error')),
+                  Center(child: Text(UserFacingError.forLoad(error))),
               data: (collaborators) {
                 if (collaborators.isEmpty) {
                   return _buildEmptyState();
@@ -145,22 +148,22 @@ class _PrayerCollaboratorsScreenState
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.group_add_outlined,
-                size: 64, color: Colors.grey.shade400),
+                size: 64, color: context.hintText),
             const SizedBox(height: 16),
             Text(
-              'No collaborators yet',
+              l10n(context).noCollaboratorsYet,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w500,
-                color: Colors.grey.shade600,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Add friends by username to collaborate on this prayer',
+              l10n(context).addFriendsByUsernameToCollaborateOnThisPraye,
               style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade500,
+                fontSize: 16,
+                color: context.mutedText,
               ),
               textAlign: TextAlign.center,
             ),
@@ -198,7 +201,7 @@ class _PrayerCollaboratorsScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to add collaborator: $e'),
+            content: Text(UserFacingError.message(e, action: 'add collaborator')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -223,7 +226,7 @@ class _PrayerCollaboratorsScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to update role: $e'),
+            content: Text(UserFacingError.message(e, action: 'update role')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -236,19 +239,19 @@ class _PrayerCollaboratorsScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Remove Collaborator'),
+        title: Text(l10n(context).removeCollaborator),
         content: Text(
           'Remove ${collaborator.collaboratorUsername} from this prayer?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l10n(context).actionCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Remove'),
+            child: Text(l10n(context).remove),
           ),
         ],
       ),
@@ -277,7 +280,7 @@ class _PrayerCollaboratorsScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to remove: $e'),
+            content: Text(UserFacingError.message(e, action: 'remove')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -333,7 +336,7 @@ class _CollaboratorCard extends StatelessWidget {
                 Text(
                   '@${collaborator.collaboratorUsername}',
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -355,24 +358,24 @@ class _CollaboratorCard extends StatelessWidget {
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'collaborator',
-                child: Text('Set as Collaborator'),
+                child: Text(l10n(context).setAsCollaborator),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'viewer',
-                child: Text('Set as Viewer'),
+                child: Text(l10n(context).setAsViewer),
               ),
               const PopupMenuDivider(),
               PopupMenuItem(
                 value: 'remove',
                 child: Text(
-                  'Remove',
-                  style: TextStyle(color: Colors.red.shade600),
+                  l10n(context).remove,
+                  style: TextStyle(color: context.dangerText),
                 ),
               ),
             ],
-            child: Icon(Icons.more_vert, color: Colors.grey.shade400),
+            child: Icon(Icons.more_vert, color: context.hintText),
           ),
         ],
       ),
@@ -405,7 +408,7 @@ class _RoleBadge extends StatelessWidget {
       child: Text(
         role.displayName,
         style: TextStyle(
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: FontWeight.w600,
           color: color,
         ),

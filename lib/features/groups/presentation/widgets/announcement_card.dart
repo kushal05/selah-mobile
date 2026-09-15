@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/sync/models/group_announcement_model.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Displays a group announcement
 class AnnouncementCard extends StatelessWidget {
@@ -68,9 +70,9 @@ class AnnouncementCard extends StatelessWidget {
                     }
                   },
                   itemBuilder: (context) => [
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'edit',
-                      child: Text('Edit'),
+                      child: Text(l10n(context).edit),
                     ),
                     PopupMenuItem(
                       value: 'pin',
@@ -81,12 +83,12 @@ class AnnouncementCard extends StatelessWidget {
                     PopupMenuItem(
                       value: 'delete',
                       child: Text(
-                        'Delete',
-                        style: TextStyle(color: Colors.red.shade600),
+                        l10n(context).actionDelete,
+                        style: TextStyle(color: context.dangerText),
                       ),
                     ),
                   ],
-                  child: Icon(Icons.more_vert, color: Colors.grey.shade400),
+                  child: Icon(Icons.more_vert, color: context.hintText),
                 ),
             ],
           ),
@@ -95,8 +97,8 @@ class AnnouncementCard extends StatelessWidget {
             Text(
               announcement.content,
               style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade700,
+                fontSize: 16,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 height: 1.4,
               ),
             ),
@@ -105,25 +107,25 @@ class AnnouncementCard extends StatelessWidget {
           Row(
             children: [
               Icon(Icons.person_outline,
-                  size: 14, color: Colors.grey.shade500),
+                  size: 14, color: context.mutedText),
               const SizedBox(width: 4),
               Text(
                 announcement.authorUsername,
                 style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade500,
+                  fontSize: 13,
+                  color: context.mutedText,
                   fontWeight: FontWeight.w500,
                 ),
               ),
               const SizedBox(width: 12),
               Icon(Icons.access_time,
-                  size: 14, color: Colors.grey.shade500),
+                  size: 14, color: context.mutedText),
               const SizedBox(width: 4),
               Text(
                 timeAgo,
                 style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade500,
+                  fontSize: 13,
+                  color: context.mutedText,
                 ),
               ),
             ],

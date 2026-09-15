@@ -7,6 +7,10 @@ import '../../../../core/sync/models/person_model.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../prayers/presentation/screens/prayer_detail_screen.dart';
+import '../../../../shared/widgets/undo_snackbar.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Person detail screen with inline editing for all fields.
 /// All changes auto-save on field blur.
@@ -128,7 +132,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving: $e')),
+          SnackBar(content: Text(UserFacingError.message(e, action: 'save your changes'))),
         );
       }
     }
@@ -146,7 +150,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving: $e')),
+          SnackBar(content: Text(UserFacingError.message(e, action: 'save your changes'))),
         );
       }
     }
@@ -170,15 +174,17 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
       final repository = ref.read(personRepositoryProvider);
       await repository.trashPerson(widget.personId);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Moved to trash')),
+        showUndoSnackBar(
+          context,
+          itemLabel: 'Person',
+          onUndo: () => repository.restorePerson(widget.personId),
         );
         context.pop();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text(UserFacingError.forLoad(e))),
         );
       }
     }
@@ -188,19 +194,19 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Move to Trash?'),
-        content: const Text('Are you sure you want to move this person to trash?'),
+        title: Text(l10n(context).moveToTrash2),
+        content: Text(l10n(context).areYouSureYouWantToMoveThisPersonToTrash),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(l10n(context).actionCancel),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               _deletePerson();
             },
-            child: const Text('Move to Trash', style: TextStyle(color: Colors.red)),
+            child: Text(l10n(context).moveToTrash, style: TextStyle(color: context.dangerText)),
           ),
         ],
       ),
@@ -233,11 +239,11 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
               Icon(Icons.error_outline,
                   size: 48, color: Theme.of(context).colorScheme.error),
               const SizedBox(height: 16),
-              Text('Error loading person: $error'),
+              Text(UserFacingError.forLoad(error)),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => ref.invalidate(personByIdProvider(widget.personId)),
-                child: const Text('Retry'),
+                child: Text(l10n(context).retry),
               ),
             ],
           ),
@@ -250,7 +256,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               elevation: 0,
             ),
-            body: const Center(child: Text('Person not found')),
+            body: Center(child: Text(l10n(context).personNotFound)),
           );
         }
 
@@ -274,6 +280,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           elevation: 0,
           leading: IconButton(
+            tooltip: l10n(context).actionBack,
             icon: const Icon(Icons.arrow_back),
             onPressed: () {
               if (_editingField != null) _saveField(_editingField!);
@@ -282,6 +289,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
           ),
           actions: [
             IconButton(
+              tooltip: l10n(context).deletePerson,
               icon: const Icon(Icons.delete_outline),
               onPressed: _showDeleteConfirmation,
             ),
@@ -305,7 +313,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
                 _buildEditableField(
                   field: 'church',
                   icon: Icons.church_outlined,
-                  label: 'Church / Organization',
+                  label: l10n(context).churchOrganization2,
                   controller: _churchController,
                   focusNode: _churchFocus,
                   capitalization: TextCapitalization.words,
@@ -314,7 +322,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
                 _buildEditableField(
                   field: 'email',
                   icon: Icons.email_outlined,
-                  label: 'Email',
+                  label: l10n(context).email,
                   controller: _emailController,
                   focusNode: _emailFocus,
                   keyboardType: TextInputType.emailAddress,
@@ -323,7 +331,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
                 _buildEditableField(
                   field: 'phone',
                   icon: Icons.phone_outlined,
-                  label: 'Phone',
+                  label: l10n(context).phone,
                   controller: _phoneController,
                   focusNode: _phoneFocus,
                   keyboardType: TextInputType.phone,
@@ -373,11 +381,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
                 textAlign: TextAlign.center,
                 textCapitalization: TextCapitalization.words,
                 style: Theme.of(context).textTheme.titleLarge,
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                  isDense: true,
-                ),
+                decoration: AppTheme.inlineInput(),
                 onSubmitted: (_) => _saveField('name'),
               ),
             )
@@ -392,7 +396,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(width: 4),
-                  Icon(Icons.edit, size: 16, color: Colors.grey.shade400),
+                  Icon(Icons.edit, size: 16, color: context.hintText),
                 ],
               ),
             ),
@@ -400,7 +404,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
             const SizedBox(height: 4),
             Text(
               person.relation,
-              style: const TextStyle(color: Colors.grey, fontSize: 16),
+              style: TextStyle(color: context.mutedText, fontSize: 16),
             ),
           ],
         ],
@@ -415,11 +419,11 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Relation',
+          l10n(context).relation,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Colors.grey.shade700,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 8),
@@ -460,7 +464,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
               labelStyle: TextStyle(
                 color: isSelected
                     ? Theme.of(context).colorScheme.primary
-                    : Colors.grey.shade700,
+                    : context.primaryText,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             );
@@ -503,7 +507,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
         ),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: Colors.grey.shade500),
+            Icon(icon, size: 20, color: context.mutedText),
             const SizedBox(width: 12),
             Expanded(
               child: isEditing
@@ -512,17 +516,8 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
                       focusNode: focusNode,
                       keyboardType: keyboardType,
                       textCapitalization: capitalization,
-                      style: const TextStyle(fontSize: 15),
-                      decoration: InputDecoration(
-                        hintText: label,
-                        hintStyle: TextStyle(
-                          fontSize: 15,
-                          color: Colors.grey.shade400,
-                        ),
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.zero,
-                        isDense: true,
-                      ),
+                      style: const TextStyle(fontSize: 16),
+                      decoration: AppTheme.inlineInput(hint: label),
                       onSubmitted: (_) => _saveField(field),
                     )
                   : Column(
@@ -531,18 +526,18 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
                         Text(
                           label,
                           style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade500,
+                            fontSize: 13,
+                            color: context.mutedText,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           hasValue ? controller.text : 'Tap to add',
                           style: TextStyle(
-                            fontSize: 15,
+                            fontSize: 16,
                             color: hasValue
-                                ? Colors.grey.shade800
-                                : Colors.grey.shade400,
+                                ? context.primaryText
+                                : context.hintText,
                           ),
                         ),
                       ],
@@ -550,6 +545,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
             ),
             if (isEditing)
               IconButton(
+                tooltip: l10n(context).actionSave,
                 icon: const Icon(Icons.check, size: 20),
                 onPressed: () => _saveField(field),
                 padding: EdgeInsets.zero,
@@ -557,7 +553,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
                 color: AppTheme.teal,
               )
             else
-              Icon(Icons.edit, size: 14, color: Colors.grey.shade400),
+              Icon(Icons.edit, size: 14, color: context.hintText),
           ],
         ),
       ),
@@ -576,18 +572,18 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
         Row(
           children: [
             Text(
-              'Notes',
+              l10n(context).navNotes,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
             const Spacer(),
             if (!isEditing)
               GestureDetector(
                 onTap: () => _startEditing('notes', _notesFocus),
-                child: Icon(Icons.edit, size: 16, color: Colors.grey.shade400),
+                child: Icon(Icons.edit, size: 16, color: context.hintText),
               ),
             if (isEditing)
               GestureDetector(
@@ -622,26 +618,17 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
                     maxLines: null,
                     minLines: 3,
                     textCapitalization: TextCapitalization.sentences,
-                    style: const TextStyle(fontSize: 15, height: 1.5),
-                    decoration: InputDecoration(
-                      hintText: 'Add notes about this person...',
-                      hintStyle: TextStyle(
-                        fontSize: 15,
-                        color: Colors.grey.shade400,
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.zero,
-                      isDense: true,
-                    ),
+                    style: const TextStyle(fontSize: 16, height: 1.5),
+                    decoration: AppTheme.inlineInput(hint: l10n(context).addNotesAboutThisPerson),
                   )
                 : Text(
                     hasNotes ? _notesController.text : 'Tap to add notes...',
                     style: TextStyle(
-                      fontSize: 15,
+                      fontSize: 16,
                       height: 1.5,
                       color: hasNotes
-                          ? Colors.grey.shade800
-                          : Colors.grey.shade400,
+                          ? context.primaryText
+                          : context.hintText,
                     ),
                   ),
           ),
@@ -672,11 +659,11 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Linked Prayers',
+              l10n(context).linkedPrayers,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 8),
@@ -710,7 +697,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
                           child: Text(
                             prayer.title,
                             style: const TextStyle(
-                              fontSize: 14,
+                              fontSize: 16,
                               fontWeight: FontWeight.w500,
                             ),
                             maxLines: 1,
@@ -718,7 +705,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
                           ),
                         ),
                         Icon(Icons.chevron_right,
-                            size: 18, color: Colors.grey.shade400),
+                            size: 18, color: context.hintText),
                       ],
                     ),
                   ),

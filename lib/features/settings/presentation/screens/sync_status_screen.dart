@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/database/sync_database.dart';
 import '../../../../core/sync/engine/sync_state_machine.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Loads the persisted sync state row (last push/pull, cursor, last error,
 /// consecutive failures) for the diagnostics card. Refetched whenever the
@@ -26,14 +30,17 @@ class _EntityCategory {
       keys.fold(0, (sum, k) => sum + (counts[k] ?? 0));
 }
 
-const _entityCategories = [
+/// Built per-call rather than as a const list: the labels are localised, and
+/// a const list cannot hold a lookup. Cheap — it is read once per build of
+/// the sync screen.
+List<_EntityCategory> _entityCategories(AppLocalizations s) => [
   _EntityCategory(
-    label: 'Notes',
+    label: s.navNotes,
     icon: Icons.note_alt_outlined,
     keys: ['note', 'note_block', 'folder'],
   ),
   _EntityCategory(
-    label: 'Prayers',
+    label: s.navPrayers,
     icon: Icons.volunteer_activism_outlined,
     keys: [
       'prayer', 'prayer_log', 'prayer_update', 'prayer_tag',
@@ -41,22 +48,22 @@ const _entityCategories = [
     ],
   ),
   _EntityCategory(
-    label: 'Promises',
+    label: s.navPromises,
     icon: Icons.workspace_premium_outlined,
     keys: ['promise', 'promise_condition', 'promise_tag', 'promise_prayer_link'],
   ),
   _EntityCategory(
-    label: 'People',
+    label: s.people,
     icon: Icons.people_outline,
     keys: ['person'],
   ),
   _EntityCategory(
-    label: 'Songs',
+    label: s.navSongs,
     icon: Icons.music_note_outlined,
     keys: ['song', 'song_tag', 'preacher'],
   ),
   _EntityCategory(
-    label: 'Groups',
+    label: s.groups,
     icon: Icons.group_outlined,
     keys: [
       'group', 'group_member', 'group_prayer',
@@ -64,31 +71,31 @@ const _entityCategories = [
     ],
   ),
   _EntityCategory(
-    label: 'Friends',
+    label: s.friends,
     icon: Icons.person_add_outlined,
     keys: ['friendship', 'friend_request', 'blocked_user'],
   ),
   _EntityCategory(
-    label: 'Tags',
+    label: s.tags,
     icon: Icons.label_outline,
     keys: ['tag', 'note_tag'],
   ),
   _EntityCategory(
-    label: 'Bible',
+    label: s.navBible,
     icon: Icons.menu_book_outlined,
     keys: ['bible_highlight', 'bible_reference_history'],
   ),
   _EntityCategory(
-    label: 'Habits',
+    label: s.habits,
     icon: Icons.check_circle_outline,
     keys: ['habit_log'],
   ),
   _EntityCategory(
-    label: 'Profile',
+    label: s.profile,
     icon: Icons.account_circle_outlined,
     keys: ['user_profile'],
   ),
-];
+    ];
 
 /// Sync status screen showing detailed sync information
 class SyncStatusScreen extends ConsumerWidget {
@@ -102,7 +109,7 @@ class SyncStatusScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sync Status'),
+        title: Text(l10n(context).syncStatus),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
       ),
@@ -172,8 +179,8 @@ class SyncStatusScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Pending Operations',
+                        Text(
+                          l10n(context).pendingOperations,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -183,15 +190,15 @@ class SyncStatusScreen extends ConsumerWidget {
                         pendingOps.when(
                           data: (count) => Text(
                             '$count operations waiting to sync',
-                            style: TextStyle(color: Colors.grey.shade600),
+                            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                           ),
                           loading: () => Text(
-                            'Loading...',
-                            style: TextStyle(color: Colors.grey.shade600),
+                            l10n(context).loading,
+                            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                           ),
                           error: (_, _) => Text(
-                            'Unable to fetch',
-                            style: TextStyle(color: Colors.red.shade600),
+                            l10n(context).unableToFetch,
+                            style: TextStyle(color: context.dangerText),
                           ),
                         ),
                       ],
@@ -209,8 +216,8 @@ class SyncStatusScreen extends ConsumerWidget {
             child: ElevatedButton.icon(
               onPressed: () => _triggerSync(context, ref),
               icon: const Icon(Icons.sync),
-              label: const Text(
-                'Sync Now',
+              label: Text(
+                l10n(context).syncNow,
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               style: ElevatedButton.styleFrom(
@@ -230,8 +237,8 @@ class SyncStatusScreen extends ConsumerWidget {
             child: OutlinedButton.icon(
               onPressed: () => _triggerFullSync(context, ref),
               icon: const Icon(Icons.refresh),
-              label: const Text(
-                'Force Full Re-Sync',
+              label: Text(
+                l10n(context).forceFullReSync,
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               style: OutlinedButton.styleFrom(
@@ -284,8 +291,8 @@ class SyncStatusScreen extends ConsumerWidget {
             Text(
               'Syncing: ${progress.currentEntity}',
               style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade600,
+                fontSize: 14,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -299,22 +306,22 @@ class SyncStatusScreen extends ConsumerWidget {
     final rows = <Widget>[
       _DiagRow(
         icon: Icons.cloud_upload_outlined,
-        label: 'Last successful push',
+        label: l10n(context).lastSuccessfulPush,
         value: _formatRelative(state.lastPushTimestamp),
       ),
       _DiagRow(
         icon: Icons.cloud_download_outlined,
-        label: 'Last successful pull',
+        label: l10n(context).lastSuccessfulPull,
         value: _formatRelative(state.lastPullTimestamp),
       ),
       _DiagRow(
         icon: Icons.schedule_outlined,
-        label: 'Last sync attempt',
+        label: l10n(context).lastSyncAttempt,
         value: _formatRelative(state.lastSyncAttempt),
       ),
       _DiagRow(
         icon: Icons.numbers_outlined,
-        label: 'Consecutive failures',
+        label: l10n(context).consecutiveFailures,
         value: '${state.consecutiveFailures}',
         valueColor: state.consecutiveFailures > 0
             ? theme.colorScheme.error
@@ -322,7 +329,7 @@ class SyncStatusScreen extends ConsumerWidget {
       ),
       _DiagRow(
         icon: Icons.linear_scale,
-        label: 'Remote cursor',
+        label: l10n(context).remoteCursor,
         value: state.lastRemoteCursor == null
             ? 'none (next pull is a snapshot)'
             : _truncate(state.lastRemoteCursor!, 40),
@@ -331,7 +338,7 @@ class SyncStatusScreen extends ConsumerWidget {
       if (state.lastError != null && state.lastError!.isNotEmpty)
         _DiagRow(
           icon: Icons.error_outline,
-          label: 'Last error',
+          label: l10n(context).lastError,
           value: state.lastError!,
           valueColor: theme.colorScheme.error,
           maxLines: 3,
@@ -345,11 +352,11 @@ class SyncStatusScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.fromLTRB(20, 12, 20, 4),
               child: Text(
-                'Diagnostics',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                l10n(context).diagnostics,
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
             ),
             ...rows,
@@ -362,13 +369,13 @@ class SyncStatusScreen extends ConsumerWidget {
   Widget _buildErrorState(BuildContext context) {
     return Column(
       children: [
-        Icon(Icons.error_outline, size: 48, color: Colors.red.shade400),
+        Icon(Icons.error_outline, size: 48, color: context.dangerText),
         const SizedBox(height: 12),
         Text(
-          'Unable to connect to sync service',
+          l10n(context).unableToConnectToSyncService,
           style: TextStyle(
             fontSize: 16,
-            color: Colors.red.shade600,
+            color: context.dangerText,
           ),
           textAlign: TextAlign.center,
         ),
@@ -383,8 +390,10 @@ class SyncStatusScreen extends ConsumerWidget {
     // During sync: show only categories with activity (rows appear as data arrives).
     // When not syncing: show all categories with a state-appropriate badge.
     final visibleCategories = isSyncing
-        ? _entityCategories.where((c) => c.countFrom(counts) > 0).toList()
-        : _entityCategories;
+        ? _entityCategories(l10n(context))
+            .where((c) => c.countFrom(counts) > 0)
+            .toList()
+        : _entityCategories(l10n(context));
 
     if (visibleCategories.isEmpty) return const SizedBox.shrink();
 
@@ -398,9 +407,9 @@ class SyncStatusScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
               child: Text(
-                'Data',
+                l10n(context).data,
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -420,7 +429,7 @@ class SyncStatusScreen extends ConsumerWidget {
       children: [
         Icon(icon, size: 14, color: color),
         const SizedBox(width: 4),
-        Text(label, style: TextStyle(color: color, fontSize: 13)),
+        Text(label, style: TextStyle(color: color, fontSize: 14)),
       ],
     );
   }
@@ -439,7 +448,7 @@ class SyncStatusScreen extends ConsumerWidget {
               '$count',
               style: TextStyle(
                 color: Theme.of(context).colorScheme.primary,
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
             )
@@ -467,7 +476,7 @@ class SyncStatusScreen extends ConsumerWidget {
             ? Theme.of(context).colorScheme.primary
             : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
       ),
-      title: Text(cat.label, style: const TextStyle(fontSize: 14)),
+      title: Text(cat.label, style: const TextStyle(fontSize: 16)),
       trailing: trailing,
     );
   }
@@ -493,7 +502,7 @@ class SyncStatusScreen extends ConsumerWidget {
             SnackBar(
               content: Text('Full re-sync failed: ${result.error ?? "Unknown error"}'),
               behavior: SnackBarBehavior.floating,
-              backgroundColor: Colors.red.shade600,
+              backgroundColor: AppTheme.errorSurface,
             ),
           );
         }
@@ -502,9 +511,9 @@ class SyncStatusScreen extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Full re-sync failed: $e'),
+            content: Text(UserFacingError.message(e, action: 're-sync your data')),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.red.shade600,
+            backgroundColor: AppTheme.errorSurface,
           ),
         );
       }
@@ -536,7 +545,7 @@ class SyncStatusScreen extends ConsumerWidget {
             SnackBar(
               content: Text('Sync failed: ${result.error ?? "Unknown error"}'),
               behavior: SnackBarBehavior.floating,
-              backgroundColor: Colors.red.shade600,
+              backgroundColor: AppTheme.errorSurface,
             ),
           );
         }
@@ -545,9 +554,9 @@ class SyncStatusScreen extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Sync failed: $e'),
+            content: Text(UserFacingError.message(e, action: 'sync your data')),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.red.shade600,
+            backgroundColor: AppTheme.errorSurface,
           ),
         );
       }
@@ -585,23 +594,22 @@ class _DegradedBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.warning_amber, color: Colors.deepOrange),
+          Icon(Icons.warning_amber, color: context.warningText),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Sync degraded',
+                  l10n(context).syncDegraded,
                   style: theme.textTheme.titleSmall?.copyWith(
-                    color: Colors.deepOrange.shade700,
+                    color: context.warningText,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Too many consecutive failures — automated syncs are paused. '
-                  'Tap "Sync Now" below to try again.',
+                  l10n(context).tooManyConsecutiveFailuresAutomatedSyncsAre,
                   style: theme.textTheme.bodySmall,
                 ),
               ],

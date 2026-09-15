@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_theme.dart';
 
 /// Displays a premium status badge/chip with border and letter-spacing.
 class StatusChip extends StatelessWidget {
@@ -15,10 +16,16 @@ class StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     final bg = backgroundColor ??
         Theme.of(context).colorScheme.primary.withValues(alpha: 0.08);
-    final fg =
-        textColor ?? Theme.of(context).colorScheme.primary;
+    // The label is text on a pale tint, so the caller's colour has to be
+    // resolved to a foreground-safe variant — the raw semantic palette is
+    // tuned as a fill and fails AA as text on light.
+    final fg = AppTheme.semanticFor(
+      textColor ?? Theme.of(context).colorScheme.primary,
+      brightness,
+    );
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -33,7 +40,7 @@ class StatusChip extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: FontWeight.w600,
           color: fg,
           letterSpacing: 0.4,

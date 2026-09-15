@@ -14,6 +14,9 @@ import '../../../../shared/widgets/cards/search_row.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
 import '../providers/global_search_provider.dart';
 import '../utils/search_result_formatter.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../shared/widgets/filter_pill.dart';
 
 /// Entity types available for filtering search results.
 enum SearchEntityType { songs, notes, prayers, promises, people }
@@ -87,6 +90,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         leading: IconButton(
+          tooltip: l10n(context).actionBack,
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
@@ -100,12 +104,13 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                 controller: _searchController,
                 autofocus: true,
                 decoration: InputDecoration(
-                  hintText: 'Search across all content',
+                  hintText: l10n(context).searchAcrossAllContent,
                   filled: true,
                   fillColor: Colors.white,
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
+                        tooltip: l10n(context).clearSearch,
                           icon: const Icon(Icons.clear),
                           onPressed: () {
                             _searchController.clear();
@@ -137,47 +142,47 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
-          _FilterChip(
-            label: 'All',
+          FilterPill(
+            label: l10n(context).all,
             icon: Icons.select_all_rounded,
-            isSelected: _activeFilters.isEmpty,
+            selected: _activeFilters.isEmpty,
             onTap: () => setState(() => _activeFilters.clear()),
-          ),
+            accent: AppTheme.brandBlue,),
           const SizedBox(width: 8),
-          _FilterChip(
-            label: 'Songs',
+          FilterPill(
+            label: l10n(context).navSongs,
             icon: Icons.music_note_rounded,
-            isSelected: _activeFilters.contains(SearchEntityType.songs),
+            selected: _activeFilters.contains(SearchEntityType.songs),
             onTap: () => _toggleFilter(SearchEntityType.songs),
-          ),
+            accent: AppTheme.brandBlue,),
           const SizedBox(width: 8),
-          _FilterChip(
-            label: 'Notes',
+          FilterPill(
+            label: l10n(context).navNotes,
             icon: Icons.note_rounded,
-            isSelected: _activeFilters.contains(SearchEntityType.notes),
+            selected: _activeFilters.contains(SearchEntityType.notes),
             onTap: () => _toggleFilter(SearchEntityType.notes),
-          ),
+            accent: AppTheme.brandBlue,),
           const SizedBox(width: 8),
-          _FilterChip(
-            label: 'Prayers',
+          FilterPill(
+            label: l10n(context).navPrayers,
             icon: Icons.volunteer_activism_rounded,
-            isSelected: _activeFilters.contains(SearchEntityType.prayers),
+            selected: _activeFilters.contains(SearchEntityType.prayers),
             onTap: () => _toggleFilter(SearchEntityType.prayers),
-          ),
+            accent: AppTheme.brandBlue,),
           const SizedBox(width: 8),
-          _FilterChip(
-            label: 'Promises',
+          FilterPill(
+            label: l10n(context).navPromises,
             icon: Icons.auto_stories_rounded,
-            isSelected: _activeFilters.contains(SearchEntityType.promises),
+            selected: _activeFilters.contains(SearchEntityType.promises),
             onTap: () => _toggleFilter(SearchEntityType.promises),
-          ),
+            accent: AppTheme.brandBlue,),
           const SizedBox(width: 8),
-          _FilterChip(
-            label: 'People',
+          FilterPill(
+            label: l10n(context).people,
             icon: Icons.people_rounded,
-            isSelected: _activeFilters.contains(SearchEntityType.people),
+            selected: _activeFilters.contains(SearchEntityType.people),
             onTap: () => _toggleFilter(SearchEntityType.people),
-          ),
+            accent: AppTheme.brandBlue,),
         ],
       ),
     );
@@ -202,11 +207,11 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.search, size: 64, color: Colors.grey.shade300),
+            Icon(Icons.search, size: 64, color: context.mutedText),
             const SizedBox(height: 16),
             Text(
-              'Start typing to search...',
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+              l10n(context).startTypingToSearch,
+              style: TextStyle(fontSize: 16, color: context.mutedText),
             ),
           ],
         ),
@@ -218,11 +223,11 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.search_off, size: 64, color: Colors.grey.shade300),
+            Icon(Icons.search_off, size: 64, color: context.mutedText),
             const SizedBox(height: 16),
             Text(
-              'No results found',
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+              l10n(context).noResultsFound,
+              style: TextStyle(fontSize: 16, color: context.mutedText),
             ),
           ],
         ),
@@ -235,17 +240,17 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.filter_list_off, size: 64, color: Colors.grey.shade300),
+            Icon(Icons.filter_list_off, size: 64, color: context.mutedText),
             const SizedBox(height: 16),
             Text(
-              'No results for selected filters',
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+              l10n(context).noResultsForSelectedFilters,
+              style: TextStyle(fontSize: 16, color: context.mutedText),
             ),
             const SizedBox(height: 8),
             TextButton(
               onPressed: () => setState(() => _activeFilters.clear()),
-              style: TextButton.styleFrom(foregroundColor: AppTheme.textMuted),
-              child: const Text('Clear filters'),
+              style: TextButton.styleFrom(foregroundColor: context.mutedText),
+              child: Text(l10n(context).clearFilters),
             ),
           ],
         ),
@@ -262,7 +267,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
           // SONGS — enhanced: shows title, scale, highlighted lyric snippet
           if (searchState.songs.isNotEmpty && _isFilterActive(SearchEntityType.songs))
             SearchSection(
-              title: 'SONGS',
+              title: l10n(context).songs,
               children: searchState.songs
                   .map((s) => _SongSearchRow(
                         song: s,
@@ -277,10 +282,10 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
             ),
           if (searchState.notes.isNotEmpty && _isFilterActive(SearchEntityType.notes))
             SearchSection(
-              title: 'NOTES',
+              title: l10n(context).notes,
               children: searchState.notes
                   .map((n) => SearchRow(
-                        title: n.title,
+                        title: n.displayTitle,
                         subtitle: getNoteSubtitle(n, query),
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
@@ -292,7 +297,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
             ),
           if (searchState.prayers.isNotEmpty && _isFilterActive(SearchEntityType.prayers))
             SearchSection(
-              title: 'PRAYERS',
+              title: l10n(context).prayers,
               children: searchState.prayers
                   .map((p) => SearchRow(
                         title: p.title,
@@ -309,7 +314,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
             ),
           if (searchState.promises.isNotEmpty && _isFilterActive(SearchEntityType.promises))
             SearchSection(
-              title: 'PROMISES',
+              title: l10n(context).promises,
               children: searchState.promises
                   .map((p) => SearchRow(
                         title: p.reference,
@@ -327,7 +332,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
             ),
           if (searchState.people.isNotEmpty && _isFilterActive(SearchEntityType.people))
             SearchSection(
-              title: 'PEOPLE',
+              title: l10n(context).people2,
               children: searchState.people
                   .map((p) => SearchRow(
                         title: p.name,
@@ -375,7 +380,7 @@ class _SongSearchRow extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.cardSurface,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -393,15 +398,15 @@ class _SongSearchRow extends StatelessWidget {
                   Text(
                     subtitle,
                     style: TextStyle(
-                        fontSize: 14, color: Colors.grey.shade600),
+                        fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                   if (lyricSnippet.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
                       lyricSnippet,
                       style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade500,
+                        fontSize: 13,
+                        color: context.mutedText,
                         fontStyle: FontStyle.italic,
                       ),
                       maxLines: 2,
@@ -411,7 +416,7 @@ class _SongSearchRow extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: Colors.grey.shade400),
+            Icon(Icons.chevron_right, color: context.hintText),
           ],
         ),
       ),
@@ -419,53 +424,3 @@ class _SongSearchRow extends StatelessWidget {
   }
 }
 
-/// Styled filter chip for entity type filtering.
-class _FilterChip extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _FilterChip({
-    required this.label,
-    required this.icon,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppTheme.brandPurple
-              : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color: isSelected ? Colors.white : Colors.grey.shade600,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: isSelected ? Colors.white : Colors.grey.shade700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

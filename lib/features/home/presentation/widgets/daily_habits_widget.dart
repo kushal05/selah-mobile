@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/navigation/routes.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../providers/habit_providers.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Home-screen card showing today's three habit check-ins with streak counts.
 class DailyHabitsWidget extends ConsumerWidget {
@@ -44,13 +45,15 @@ class DailyHabitsWidget extends ConsumerWidget {
                   ),
                 ),
               ),
-              GestureDetector(
+              Semantics(
+                button: true,
+                child: GestureDetector(
                 onTap: () => context.push(Routes.habits),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'View All',
+                      l10n(context).viewAll,
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: theme.colorScheme.primary,
                         fontWeight: FontWeight.w600,
@@ -61,6 +64,7 @@ class DailyHabitsWidget extends ConsumerWidget {
                         size: 16, color: theme.colorScheme.primary),
                   ],
                 ),
+              ),
               ),
             ],
           ),
@@ -107,7 +111,12 @@ class _HabitTile extends ConsumerWidget {
     final streakAsync = ref.watch(habitStreakProvider(habit));
     final streak = streakAsync.valueOrNull ?? 0;
 
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      label: isDone
+          ? '${habit.label}, done today. Mark not done'
+          : '${habit.label}, not done. Mark done',
+      child: GestureDetector(
       onTap: () async {
         try {
           await ref.read(habitLogRepositoryProvider).toggleToday(habit);
@@ -178,7 +187,7 @@ class _HabitTile extends ConsumerWidget {
                 Text(
                   streak > 0 ? '$streak day${streak == 1 ? '' : 's'}' : '—',
                   style: theme.textTheme.labelSmall?.copyWith(
-                    fontSize: 10,
+                    fontSize: 12,
                     color: streak > 0
                         ? const Color(0xFFEF4444)
                         : theme.colorScheme.onSurface.withValues(alpha: 0.3),
@@ -189,6 +198,7 @@ class _HabitTile extends ConsumerWidget {
           ],
         ),
       ),
+    ),
     );
   }
 }

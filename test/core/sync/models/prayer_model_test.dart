@@ -90,7 +90,12 @@ void main() {
         expect(prayer.id, 'p-new');
         expect(prayer.title, 'New Prayer');
         expect(prayer.content, '');
-        expect(prayer.frequency, PrayerFrequency.daily);
+        // asNeeded, not daily: creating a prayer must not silently enrol the
+        // user in a daily commitment with reminders attached. A cadence is
+        // something they opt into — the quick-capture sheet only sets one
+        // when the Repeat chip is used. This had expected `daily` and so
+        // failed on every run since the first commit.
+        expect(prayer.frequency, PrayerFrequency.asNeeded);
         expect(prayer.status, PrayerStatus.active);
         expect(prayer.category, isNull);
         expect(prayer.answeredAt, isNull);

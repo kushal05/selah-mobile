@@ -10,6 +10,9 @@ import '../../../../core/sync/models/song_model.dart';
 import '../../../../core/sync/models/tag_model.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../shared/widgets/filter_pill.dart';
 
 /// Dedicated Song Search screen with combinable filters.
 /// Filters: tags (multi-select), scale/key (single), folder, free-text (title).
@@ -114,10 +117,11 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         leading: IconButton(
+          tooltip: l10n(context).actionBack,
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
-        title: const Text('Song Search'),
+        title: Text(l10n(context).songSearch),
       ),
       body: SafeArea(
         child: Column(
@@ -129,12 +133,13 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
                 controller: _searchController,
                 autofocus: true,
                 decoration: InputDecoration(
-                  hintText: 'Search by title...',
+                  hintText: l10n(context).searchByTitle,
                   filled: true,
                   fillColor: Colors.white,
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
+                        tooltip: l10n(context).clearSearch,
                           icon: const Icon(Icons.clear),
                           onPressed: () {
                             _searchController.clear();
@@ -160,13 +165,13 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
                   children: [
                     // Scale filter
                     scalesAsync.when(
-                      data: (scales) => _FilterChip(
+                      data: (scales) => FilterPill(
                         label: _selectedScale == null
                             ? 'Key'
                             : 'Key: $_selectedScale',
-                        isActive: _selectedScale != null,
+                        selected: _selectedScale != null,
                         onTap: () => _showScaleFilter(scales),
-                      ),
+                        accent: AppTheme.orange,),
                       loading: () => const SizedBox.shrink(),
                       error: (e, _) {
                         debugPrint('SongSearchScreen: failed to load scales: $e');
@@ -177,13 +182,13 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
 
                     // Tag filters
                     tagsAsync.when(
-                      data: (tags) => _FilterChip(
+                      data: (tags) => FilterPill(
                         label: _selectedTags.isEmpty
                             ? 'Tags'
                             : 'Tags (${_selectedTags.length})',
-                        isActive: _selectedTags.isNotEmpty,
+                        selected: _selectedTags.isNotEmpty,
                         onTap: () => _showTagFilter(tags),
-                      ),
+                        accent: AppTheme.orange,),
                       loading: () => const SizedBox.shrink(),
                       error: (e, _) {
                         debugPrint('SongSearchScreen: failed to load tags: $e');
@@ -202,11 +207,11 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
                                 .map((f) => f.name)
                                 .firstOrNull
                             : null;
-                        return _FilterChip(
+                        return FilterPill(
                           label: activeFolderName ?? 'Songbook',
-                          isActive: _selectedFolderId != null,
+                          selected: _selectedFolderId != null,
                           onTap: () => _showFolderFilter(folders),
-                        );
+                          accent: AppTheme.orange,);
                       },
                       loading: () => const SizedBox.shrink(),
                       error: (e, _) {
@@ -221,8 +226,8 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
                         _selectedFolderId != null) ...[
                       const SizedBox(width: 8),
                       ActionChip(
-                        label: const Text('Clear all',
-                            style: TextStyle(fontSize: 12)),
+                        label: Text(l10n(context).clearAll,
+                            style: TextStyle(fontSize: 13)),
                         onPressed: () {
                           setState(() {
                             _selectedScale = null;
@@ -262,11 +267,11 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.search_off, size: 48, color: Colors.grey.shade300),
+            Icon(Icons.search_off, size: 48, color: context.mutedText),
             const SizedBox(height: 12),
             Text(
-              'No songs found',
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+              l10n(context).noSongsFound,
+              style: TextStyle(fontSize: 16, color: context.mutedText),
             ),
           ],
         ),
@@ -298,6 +303,9 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
     final mergedScales = <String>{...allScales, ...scales}.toList()..sort();
 
     showModalBottomSheet(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -308,7 +316,7 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('Filter by Key',
+              child: Text(l10n(context).filterByKey,
                   style: Theme.of(context)
                       .textTheme
                       .titleMedium
@@ -327,9 +335,9 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
                             : Icons.circle_outlined,
                         color: _selectedScale == null
                             ? Theme.of(context).primaryColor
-                            : Colors.grey,
+                            : context.mutedText,
                       ),
-                      title: const Text('Any key'),
+                      title: Text(l10n(context).anyKey),
                       onTap: () {
                         setState(() => _selectedScale = null);
                         Navigator.pop(ctx);
@@ -343,7 +351,7 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
                                 : Icons.circle_outlined,
                             color: _selectedScale == s
                                 ? Theme.of(context).primaryColor
-                                : Colors.grey,
+                                : context.mutedText,
                           ),
                           title: Text(s),
                           dense: true,
@@ -366,6 +374,9 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
 
   void _showTagFilter(List<TagModel> availableTags) {
     showModalBottomSheet(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -379,7 +390,7 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    Text('Filter by Tags',
+                    Text(l10n(context).filterByTags,
                         style: Theme.of(context)
                             .textTheme
                             .titleMedium
@@ -390,16 +401,16 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
                         Navigator.pop(ctx);
                         _performSearch();
                       },
-                      child: const Text('Apply'),
+                      child: Text(l10n(context).apply),
                     ),
                   ],
                 ),
               ),
               const Divider(height: 1),
               if (availableTags.isEmpty)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.all(24),
-                  child: Text('No tags available'),
+                  child: Text(l10n(context).noTagsAvailable),
                 )
               else
                 Flexible(
@@ -437,6 +448,9 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
 
   void _showFolderFilter(List<dynamic> folders) {
     showModalBottomSheet(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -447,7 +461,7 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('Filter by Songbook',
+              child: Text(l10n(context).filterBySongbook,
                   style: Theme.of(context)
                       .textTheme
                       .titleMedium
@@ -461,9 +475,9 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
                     : Icons.circle_outlined,
                 color: _selectedFolderId == null
                     ? Theme.of(context).primaryColor
-                    : Colors.grey,
+                    : context.mutedText,
               ),
-              title: const Text('All songbooks'),
+              title: Text(l10n(context).allSongbooks),
               onTap: () {
                 setState(() => _selectedFolderId = null);
                 Navigator.pop(ctx);
@@ -477,7 +491,7 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
                         : Icons.circle_outlined,
                     color: _selectedFolderId == folder.id
                         ? Theme.of(context).primaryColor
-                        : Colors.grey,
+                        : context.mutedText,
                   ),
                   title: Text(folder.name),
                   onTap: () {
@@ -531,7 +545,7 @@ class _SongSearchResultCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.cardSurface,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -556,7 +570,7 @@ class _SongSearchResultCard extends StatelessWidget {
                   Text(
                     song.title,
                     style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w600),
+                        fontSize: 16, fontWeight: FontWeight.w600),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -577,7 +591,7 @@ class _SongSearchResultCard extends StatelessWidget {
                           child: Text(
                             'Key: ${song.scale}',
                             style: const TextStyle(
-                              fontSize: 10,
+                              fontSize: 12,
                               color: AppTheme.orange,
                               fontWeight: FontWeight.w500,
                             ),
@@ -588,7 +602,7 @@ class _SongSearchResultCard extends StatelessWidget {
                       Text(
                         song.language,
                         style: TextStyle(
-                            fontSize: 12, color: Colors.grey.shade600),
+                            fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -602,8 +616,8 @@ class _SongSearchResultCard extends StatelessWidget {
                     Text(
                       lyricSnippet,
                       style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade500,
+                        fontSize: 13,
+                        color: context.mutedText,
                         fontStyle: FontStyle.italic,
                       ),
                       maxLines: 2,
@@ -614,7 +628,7 @@ class _SongSearchResultCard extends StatelessWidget {
               ),
             ),
 
-            Icon(Icons.chevron_right, color: Colors.grey.shade400),
+            Icon(Icons.chevron_right, color: context.hintText),
           ],
         ),
       ),
@@ -624,63 +638,6 @@ class _SongSearchResultCard extends StatelessWidget {
 
 // ==================== Filter Chip Widget ====================
 
-class _FilterChip extends StatelessWidget {
-  final String label;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _FilterChip({
-    required this.label,
-    required this.isActive,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: isActive
-                ? colorScheme.primary.withValues(alpha: 0.1)
-                : Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isActive
-                  ? colorScheme.primary.withValues(alpha: 0.4)
-                  : Colors.grey.shade300,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: isActive ? colorScheme.primary : Colors.grey.shade600,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.keyboard_arrow_down,
-                size: 16,
-                color: isActive ? colorScheme.primary : Colors.grey.shade500,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 /// Displays tag chips for a song, resolved from the junction table.
 class _SongTagChips extends ConsumerWidget {
@@ -715,13 +672,13 @@ class _SongTagChips extends ConsumerWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
+                            color: context.subtleFill,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             tag,
                             style: TextStyle(
-                                fontSize: 10, color: Colors.grey.shade600),
+                                fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                           ),
                         ))
                     .toList(),

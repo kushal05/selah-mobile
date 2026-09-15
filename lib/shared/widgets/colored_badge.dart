@@ -12,6 +12,9 @@ class ColoredBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Label is text on a 7%-tint of the same colour; resolve to a
+    // foreground-safe variant for the active theme.
+    final fg = AppTheme.semanticFor(color, Theme.of(context).brightness);
     return Container(
       padding: AppTheme.tagPadding,
       decoration: BoxDecoration(
@@ -25,7 +28,7 @@ class ColoredBadge extends StatelessWidget {
       child: Text(
         label,
         style: AppTheme.tiny.copyWith(
-          color: color,
+          color: fg,
           fontWeight: FontWeight.w500,
         ),
       ),

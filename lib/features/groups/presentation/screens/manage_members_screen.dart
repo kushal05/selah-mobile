@@ -7,6 +7,9 @@ import '../../../../core/sync/models/group_member_model.dart';
 import '../../../../core/sync/models/pending_group_member_model.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Screen for managing group members (admin only)
 class ManageMembersScreen extends ConsumerStatefulWidget {
@@ -35,7 +38,7 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Manage Members'),
+        title: Text(l10n(context).manageMembers),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
       ),
@@ -47,7 +50,7 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
               border: Border(
-                bottom: BorderSide(color: Colors.grey.shade200),
+                bottom: BorderSide(color: context.hairline),
               ),
             ),
             child: Row(
@@ -56,7 +59,7 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
                   child: TextField(
                     controller: _usernameController,
                     decoration: InputDecoration(
-                      hintText: 'Add member by username...',
+                      hintText: l10n(context).addMemberByUsername,
                       prefixIcon: const Icon(Icons.person_add_outlined),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -75,7 +78,7 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
                   onPressed: _isAdding ? null : _addMember,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.teal,
-                    foregroundColor: Colors.white,
+                    foregroundColor: AppTheme.onAccent(AppTheme.teal),
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 20,
@@ -94,7 +97,7 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text('Add'),
+                      : Text(l10n(context).add),
                 ),
               ],
             ),
@@ -109,15 +112,15 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
               loading: () =>
                   const ListTileSkeletonList(count: 5),
               error: (error, stack) =>
-                  Center(child: Text('Error: $error')),
+                  Center(child: Text(UserFacingError.forLoad(error))),
               data: (members) {
                 if (members.isEmpty) {
                   return Center(
                     child: Text(
-                      'No members',
+                      l10n(context).noMembers,
                       style: TextStyle(
                         fontSize: 16,
-                        color: Colors.grey.shade600,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   );
@@ -169,14 +172,14 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
               child: Row(
                 children: [
                   Icon(Icons.pending_actions,
-                      size: 18, color: Colors.orange.shade700),
+                      size: 18, color: context.warningText),
                   const SizedBox(width: 8),
                   Text(
                     'Pending Approvals (${pending.length})',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: Colors.orange.shade800,
+                      color: context.warningText,
                     ),
                   ),
                 ],
@@ -187,7 +190,7 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
                   onApprove: () => _approveRequest(request),
                   onReject: () => _rejectRequest(request),
                 )),
-            Divider(height: 1, color: Colors.grey.shade200),
+            Divider(height: 1, color: context.hairline),
           ],
         );
       },
@@ -216,7 +219,7 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to approve: $e'),
+            content: Text(UserFacingError.message(e, action: 'approve')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -245,7 +248,7 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to reject: $e'),
+            content: Text(UserFacingError.message(e, action: 'reject')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -267,8 +270,8 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
       if (results.users.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('User not found'),
+            SnackBar(
+              content: Text(l10n(context).userNotFound),
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -300,7 +303,7 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to add member: $e'),
+            content: Text(UserFacingError.message(e, action: 'add member')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -325,7 +328,7 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to update role: $e'),
+            content: Text(UserFacingError.message(e, action: 'update role')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -337,19 +340,19 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Remove Member'),
+        title: Text(l10n(context).removeMember),
         content: Text(
           'Remove ${member.memberUsername} from this group?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l10n(context).actionCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Remove'),
+            child: Text(l10n(context).remove),
           ),
         ],
       ),
@@ -377,7 +380,7 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to remove: $e'),
+            content: Text(UserFacingError.message(e, action: 'remove')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -436,7 +439,7 @@ class _MemberTile extends StatelessWidget {
                 Text(
                   displayName,
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -444,8 +447,8 @@ class _MemberTile extends StatelessWidget {
                 Text(
                   '@${member.memberUsername}',
                   style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
+                    fontSize: 14,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -466,28 +469,28 @@ class _MemberTile extends StatelessWidget {
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'admin',
-                child: Text('Set as Admin'),
+                child: Text(l10n(context).setAsAdmin),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'moderator',
-                child: Text('Set as Moderator'),
+                child: Text(l10n(context).setAsModerator),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'member',
-                child: Text('Set as Member'),
+                child: Text(l10n(context).setAsMember),
               ),
               const PopupMenuDivider(),
               PopupMenuItem(
                 value: 'remove',
                 child: Text(
-                  'Remove',
-                  style: TextStyle(color: Colors.red.shade600),
+                  l10n(context).remove,
+                  style: TextStyle(color: context.dangerText),
                 ),
               ),
             ],
-            child: Icon(Icons.more_vert, color: Colors.grey.shade400),
+            child: Icon(Icons.more_vert, color: context.hintText),
           ),
         ],
       ),
@@ -520,7 +523,7 @@ class _RoleBadge extends StatelessWidget {
       child: Text(
         role.displayName,
         style: TextStyle(
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: FontWeight.w600,
           color: color,
         ),
@@ -555,10 +558,10 @@ class _PendingRequestTile extends StatelessWidget {
             backgroundColor: Colors.orange.withValues(alpha: 0.1),
             child: Text(
               initial,
-              style: const TextStyle(
-                fontSize: 15,
+              style: TextStyle(
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: Colors.orange,
+                color: context.warningText,
               ),
             ),
           ),
@@ -570,30 +573,30 @@ class _PendingRequestTile extends StatelessWidget {
                 Text(
                   request.requestingUsername,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
-                  'Wants to join',
+                  l10n(context).wantsToJoin,
                   style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade500,
+                    fontSize: 13,
+                    color: context.mutedText,
                   ),
                 ),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.check_circle_outline, color: Colors.green),
+            icon: Icon(Icons.check_circle_outline, color: context.successText),
             onPressed: onApprove,
-            tooltip: 'Approve',
+            tooltip: l10n(context).approve,
             visualDensity: VisualDensity.compact,
           ),
           IconButton(
-            icon: Icon(Icons.cancel_outlined, color: Colors.red.shade400),
+            icon: Icon(Icons.cancel_outlined, color: context.dangerText),
             onPressed: onReject,
-            tooltip: 'Reject',
+            tooltip: l10n(context).reject,
             visualDensity: VisualDensity.compact,
           ),
         ],

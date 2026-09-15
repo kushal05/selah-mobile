@@ -5,6 +5,8 @@ import '../../core/navigation/routes.dart';
 import '../../core/sync/engine/sync_state_machine.dart';
 import '../../core/sync/providers/sync_providers.dart';
 import 'skeletons/skeletons.dart';
+import '../../core/theme/theme_colors.dart';
+import '../../l10n/l10n.dart';
 
 /// Small sync status icon that shows current sync state
 class SyncStatusIcon extends ConsumerWidget {
@@ -21,9 +23,9 @@ class SyncStatusIcon extends ConsumerWidget {
       data: (state) => _buildIconFromState(context, state),
       loading: () => const BaseSkeleton(width: 20, height: 20, borderRadius: 10),
       error: (_, _) => IconButton(
-        icon: Icon(Icons.cloud_off, color: Colors.red.shade400, size: 20),
+        icon: Icon(Icons.cloud_off, color: context.dangerText, size: 20),
         onPressed: () => context.push(Routes.syncStatus),
-        tooltip: 'Sync error',
+        tooltip: l10n(context).syncError,
       ),
     );
   }
@@ -54,7 +56,7 @@ class SyncStatusIcon extends ConsumerWidget {
     return IconButton(
       icon: iconWidget,
       onPressed: () => context.push(Routes.syncStatus),
-      tooltip: 'Sync status',
+      tooltip: l10n(context).syncStatus,
     );
   }
 }

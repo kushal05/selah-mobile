@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../../core/providers/motion_preferences.dart';
+import 'package:flutter/semantics.dart';
+import '../../core/theme/theme_colors.dart';
 
 /// Provider that streams connectivity state
 final connectivityProvider = StreamProvider<bool>((ref) {
@@ -23,11 +26,26 @@ class ConnectivityBanner extends ConsumerWidget {
 
     final bool isOffline = connectivity.whenOrNull(data: (v) => !v) ?? false;
 
+    // A banner that only appears visually is invisible to a screen reader
+    // user, who then has no idea why saving stopped working.
+    ref.listen(connectivityProvider, (previous, next) {
+      final wasOnline = previous?.valueOrNull ?? true;
+      final isOnline = next.valueOrNull ?? true;
+      if (wasOnline == isOnline) return;
+      SemanticsService.sendAnnouncement(
+        View.of(context),
+        isOnline
+            ? 'Back online. Your changes are syncing.'
+            : "You're offline. Changes are saved on this device.",
+        Directionality.of(context),
+      );
+    });
+
     return AnimatedSize(
-      duration: const Duration(milliseconds: 300),
+      duration: context.motion(const Duration(milliseconds: 300)),
       curve: Curves.easeInOut,
       child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
+        duration: context.motion(const Duration(milliseconds: 300)),
         transitionBuilder: (child, animation) {
           final slide = Tween<Offset>(
             begin: const Offset(0, -1),
@@ -64,12 +82,12 @@ class _OfflineBanner extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.wifi_off_rounded,
-              color: Colors.amber.shade800, size: AppTheme.iconSM + 1),
+              color: context.warningText, size: AppTheme.iconSM + 1),
           const SizedBox(width: AppTheme.spacing8),
           Text(
             'You\'re offline. Changes will sync when reconnected.',
             style: AppTheme.caption.copyWith(
-              color: Colors.amber.shade800,
+              color: context.warningText,
             ),
           ),
         ],

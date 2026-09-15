@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../domain/models/note_section.dart';
 import '../../providers/note_editor_provider.dart';
 import 'editor_block_widget.dart';
+import '../../../../../core/providers/motion_preferences.dart';
+import '../../../../../core/theme/theme_colors.dart';
 
 /// Collapsible rich-text subsection for Personal Application / Prayer.
 ///
@@ -53,11 +55,13 @@ class _NoteSubSectionEditorState extends ConsumerState<NoteSubSectionEditor> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Divider
-        Divider(color: Colors.grey.shade200, height: 1),
+        Divider(color: context.hairline, height: 1),
         const SizedBox(height: 8),
 
         // Section header (tappable to expand/collapse)
-        GestureDetector(
+        Semantics(
+          button: true,
+          child: GestureDetector(
           onTap: _toggleExpanded,
           behavior: HitTestBehavior.opaque,
           child: Padding(
@@ -66,20 +70,20 @@ class _NoteSubSectionEditorState extends ConsumerState<NoteSubSectionEditor> {
               children: [
                 AnimatedRotation(
                   turns: _isExpanded ? 0.25 : 0,
-                  duration: const Duration(milliseconds: 200),
+                  duration: context.motion(const Duration(milliseconds: 200)),
                   child: Icon(
                     Icons.chevron_right,
                     size: 20,
-                    color: Colors.grey.shade500,
+                    color: context.mutedText,
                   ),
                 ),
                 const SizedBox(width: 4),
                 Text(
                   widget.section.displayTitle,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade600,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -89,8 +93,8 @@ class _NoteSubSectionEditorState extends ConsumerState<NoteSubSectionEditor> {
                     child: Text(
                       _getPreviewText(sectionBlocks),
                       style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade400,
+                        fontSize: 14,
+                        color: context.hintText,
                         fontStyle: FontStyle.italic,
                       ),
                       maxLines: 1,
@@ -102,24 +106,28 @@ class _NoteSubSectionEditorState extends ConsumerState<NoteSubSectionEditor> {
             ),
           ),
         ),
+        ),
 
         // Expanded content
         if (_isExpanded) ...[
           if (sectionBlocks.isEmpty)
             // Empty placeholder — tap to start editing
-            GestureDetector(
+            Semantics(
+              button: true,
+              child: GestureDetector(
               onTap: _activateSection,
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text(
                   widget.section.placeholder,
                   style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.grey.shade400,
+                    fontSize: 16,
+                    color: context.hintText,
                     fontStyle: FontStyle.italic,
                   ),
                 ),
               ),
+            ),
             )
           else
             // Render section blocks using the same editor widgets

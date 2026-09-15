@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/models/bible_version_info.dart';
 import '../providers/bible_providers.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Screen for managing downloadable Bible translations.
 ///
@@ -47,18 +50,18 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
     final versionsAsync = ref.watch(bibleVersionStatesProvider);
 
     return Scaffold(
-      backgroundColor: AppTheme.scaffoldGray,
+      backgroundColor: context.pageGround,
       appBar: AppBar(
-        title: const Text('Bible Versions'),
-        backgroundColor: AppTheme.scaffoldGray,
+        title: Text(l10n(context).bibleVersions),
+        backgroundColor: context.pageGround,
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
       body: versionsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => Center(child: Text(UserFacingError.forLoad(e))),
         data: (versions) => versions.isEmpty
-            ? const Center(child: Text('No versions available.'))
+            ? Center(child: Text(l10n(context).noVersionsAvailable))
             : _buildList(context, versions),
       ),
     );
@@ -72,18 +75,16 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
           padding: const EdgeInsets.only(
               bottom: AppTheme.spacing16, left: AppTheme.spacing4),
           child: Text(
-            'NKJV is downloaded on first launch. Download additional '
-            'translations to use them in Bible reading, notes, and search. '
-            'Tap ••• to set a version as default or remove it.',
+            l10n(context).nkjvIsDownloadedOnFirstLaunchDownloadAdditio2,
             style:
-                AppTheme.caption.copyWith(color: AppTheme.unselectedColor),
+                AppTheme.caption.copyWith(color: context.mutedText),
           ),
         ),
         Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.cardSurface,
             borderRadius: AppTheme.borderRadius3XL,
-            border: Border.all(color: AppTheme.dividerColor),
+            border: Border.all(color: context.hairline),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.04),
@@ -109,7 +110,7 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
                       height: 1,
                       thickness: 0.5,
                       indent: 56,
-                      color: AppTheme.dividerColor,
+                      color: context.pageGround,
                     ),
                 ],
               ],
@@ -121,11 +122,9 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
           padding:
               const EdgeInsets.symmetric(horizontal: AppTheme.spacing4),
           child: Text(
-            'Removing a version frees up ~8 MB. Notes referencing that '
-            'translation will still show the reference but verse text will '
-            'not load until you re-download it.',
+            l10n(context).removingAVersionFreesUp8MbNotesReferencingTh2,
             style:
-                AppTheme.caption.copyWith(color: AppTheme.unselectedColor),
+                AppTheme.caption.copyWith(color: context.mutedText),
           ),
         ),
       ],
@@ -201,11 +200,11 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(l10n(context).actionCancel),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('Remove',
+            child: Text(l10n(context).remove,
                 style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
           ),
         ],
@@ -272,7 +271,7 @@ class _VersionTile extends StatelessWidget {
                 ? Icons.menu_book_rounded
                 : Icons.menu_book_outlined,
             size: AppTheme.iconLG,
-            color: info.isDownloaded ? _green : AppTheme.gray400,
+            color: info.isDownloaded ? _green : context.hintText,
           ),
           const SizedBox(width: AppTheme.spacing12),
           Expanded(
@@ -286,7 +285,7 @@ class _VersionTile extends StatelessWidget {
                         info.name,
                         style: AppTheme.headingSmall.copyWith(
                           fontWeight: FontWeight.w500,
-                          color: AppTheme.textDark,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     ),
@@ -300,7 +299,7 @@ class _VersionTile extends StatelessWidget {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          'Default',
+                          l10n(context).defaultLabel,
                           style: AppTheme.caption.copyWith(
                             color: _green,
                             fontWeight: FontWeight.w600,
@@ -324,13 +323,13 @@ class _VersionTile extends StatelessWidget {
                         ? '${(downloadProgress! * 100).toStringAsFixed(0)}%'
                         : 'Starting…',
                     style: AppTheme.caption
-                        .copyWith(color: AppTheme.unselectedColor),
+                        .copyWith(color: context.mutedText),
                   ),
                 ] else
                   Text(
                     '~${info.approximateSizeMb} MB',
                     style: AppTheme.caption
-                        .copyWith(color: AppTheme.unselectedColor),
+                        .copyWith(color: context.mutedText),
                   ),
               ],
             ),
@@ -350,7 +349,7 @@ class _VersionTile extends StatelessWidget {
                 textStyle:
                     AppTheme.caption.copyWith(fontWeight: FontWeight.w600),
               ),
-              child: const Text('Download'),
+              child: Text(l10n(context).download),
             )
           else if (info.isDownloaded && !isDownloading)
             MenuAnchor(
@@ -360,24 +359,25 @@ class _VersionTile extends StatelessWidget {
                     onPressed: onSetDefault,
                     leadingIcon: Icon(Icons.star_outline,
                         size: 18, color: _green),
-                    child: Text('Set as default',
+                    child: Text(l10n(context).setAsDefault,
                         style: TextStyle(color: _green)),
                   ),
                 MenuItemButton(
                   onPressed: onDelete,
                   leadingIcon: Icon(Icons.delete_outline,
                       size: 18, color: theme.colorScheme.error),
-                  child: Text('Remove',
+                  child: Text(l10n(context).remove,
                       style: TextStyle(color: theme.colorScheme.error)),
                 ),
               ],
               builder: (context, controller, child) => IconButton(
+                tooltip: l10n(context).moreOptions,
                 onPressed: () => controller.isOpen
                     ? controller.close()
                     : controller.open(),
                 icon: const Icon(Icons.more_vert),
                 iconSize: 20,
-                color: AppTheme.unselectedColor,
+                color: context.mutedText,
               ),
             ),
         ],

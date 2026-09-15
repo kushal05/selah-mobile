@@ -76,24 +76,32 @@ final List<NoteTemplate> builtInNoteTemplates = [
     name: 'Blank Note',
     description: 'Start from scratch.',
     icon: Icons.insert_drive_file_outlined,
-    defaultTitle: 'Untitled Note',
+    // Empty, so the title field shows its placeholder and the user names the
+    // note themselves. A pre-filled 'Untitled Note' is a word they have to
+    // delete before they can write their own, and one they will often leave.
+    defaultTitle: '',
     blocksBuilder: () => [EditorBlock.paragraph()],
   ),
   NoteTemplate(
     id: 'sermon-notes',
     name: 'Sermon Notes',
-    description: 'Speaker, passage, key points, takeaways.',
+    description: 'Passage, key points, what to do next.',
     icon: Icons.record_voice_over_outlined,
     defaultTitle: 'Sermon Notes',
+    // No 'Speaker' section: the note already has a Preacher field in Note
+    // Details, which links to a real person record. Repeating it in the body
+    // stores the name twice, and the copy in the body is the one that cannot
+    // be searched, filtered or linked.
     blocksBuilder: () => [
-      _heading(2, 'Speaker'),
-      _paragraph(''),
       _heading(2, 'Passage'),
       _paragraph(''),
-      _heading(2, 'Key Points'),
+      _heading(2, 'Key points'),
       _bullet(''),
-      _heading(2, 'Application'),
-      _check('One thing I will do this week'),
+      // The prompt belongs in the heading. As the checkbox's own text it
+      // became the task — leaving the user a tick-box that reads 'One thing
+      // I will do this week' rather than the thing they decided to do.
+      _heading(2, 'Application — one thing I will do this week'),
+      _check(''),
     ],
   ),
   NoteTemplate(
@@ -154,7 +162,9 @@ final List<NoteTemplate> builtInNoteTemplates = [
     icon: Icons.favorite_outline,
     defaultTitle: 'Gratitude',
     blocksBuilder: () => [
-      _paragraph('Today I am thankful for…'),
+      // A heading, not a paragraph: as body text the prompt was content the
+      // user had to delete, and it read as though they had written it.
+      _heading(2, 'Today I am thankful for'),
       _bullet(''),
       _bullet(''),
       _bullet(''),

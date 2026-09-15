@@ -25,20 +25,25 @@ class SongCard extends StatelessWidget {
     this.onFavoriteToggle,
   });
 
-  static Widget _badge(String label) => Container(
-        padding: const EdgeInsets.symmetric(
-            horizontal: AppTheme.spacing6, vertical: AppTheme.spacing2),
-        decoration: BoxDecoration(
-          color: AppTheme.orangeFaint,
-          borderRadius: AppTheme.borderRadiusXS,
-        ),
-        child: Text(label, style: AppTheme.microOrange),
-      );
+  static Widget _badge(String label, Brightness brightness) {
+    // Raw orange on its own 10% tint is 1.90:1 — resolve to the variant
+    // tuned for exactly this background.
+    final fg = AppTheme.accentOnTintFor(AppTheme.orange, brightness);
+    return Container(
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.spacing6, vertical: AppTheme.spacing2),
+      decoration: BoxDecoration(
+        color: AppTheme.orangeFaint,
+        borderRadius: AppTheme.borderRadiusXS,
+      ),
+      child: Text(label, style: AppTheme.tiny.copyWith(color: fg)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: Theme.of(context).cardTheme.color,
       borderRadius: AppTheme.borderRadiusXL,
       child: InkWell(
         onTap: onTap,
@@ -53,9 +58,10 @@ class SongCard extends StatelessWidget {
                   color: AppTheme.orangeFaint,
                   borderRadius: AppTheme.borderRadiusLG,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.music_note,
-                  color: AppTheme.orange,
+                  color: AppTheme.accentOnTintFor(
+                      AppTheme.orange, Theme.of(context).brightness),
                   size: AppTheme.iconBase,
                 ),
               ),
@@ -72,22 +78,21 @@ class SongCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: AppTheme.spacing4),
-                    Row(
+                    // Wrap, not Row: language plus two badges overflows once
+                    // the text scale grows, and none of the three can shrink.
+                    Wrap(
+                      spacing: AppTheme.spacing8,
+                      runSpacing: AppTheme.spacing4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
                           language,
                           style: AppTheme.caption.copyWith(
-                            color: AppTheme.gray600,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
-                        if (scale.isNotEmpty) ...[
-                          const SizedBox(width: AppTheme.spacing8),
-                          _badge(scale),
-                        ],
-                        if (hasChords) ...[
-                          const SizedBox(width: AppTheme.spacing8),
-                          _badge('Chords'),
-                        ],
+                        if (scale.isNotEmpty) _badge(scale, Theme.of(context).brightness),
+                        if (hasChords) _badge('Chords', Theme.of(context).brightness),
                       ],
                     ),
                     if (preview.isNotEmpty) ...[
@@ -95,7 +100,7 @@ class SongCard extends StatelessWidget {
                       Text(
                         preview,
                         style: AppTheme.caption.copyWith(
-                          color: AppTheme.unselectedColor,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontStyle: FontStyle.italic,
                         ),
                         maxLines: 1,
@@ -108,9 +113,10 @@ class SongCard extends StatelessWidget {
 
               if (onFavoriteToggle != null)
                 IconButton(
+                  tooltip: isFavorite ? 'Remove from favourites' : 'Add to favourites',
                   icon: Icon(
                     isFavorite ? Icons.favorite : Icons.favorite_border,
-                    color: isFavorite ? Colors.red.shade400 : AppTheme.hintColor,
+                    color: isFavorite ? Colors.red.shade400 : Theme.of(context).colorScheme.onSurfaceVariant,
                     size: AppTheme.iconLG,
                   ),
                   onPressed: onFavoriteToggle,

@@ -8,6 +8,10 @@ import '../../../../core/sync/providers/sync_providers.dart';
 import '../widgets/group_card.dart';
 import '../widgets/join_group_dialog.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../shared/widgets/empty_state.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Screen showing list of user's groups
 class GroupsListScreen extends ConsumerWidget {
@@ -19,7 +23,7 @@ class GroupsListScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Groups'),
+        title: Text(l10n(context).myGroups),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
       ),
@@ -30,7 +34,7 @@ class GroupsListScreen extends ConsumerWidget {
       ),
       body: groupsAsync.when(
         loading: () => const ListTileSkeletonList(count: 5),
-        error: (error, stack) => Center(child: Text('Error: $error')),
+        error: (error, stack) => Center(child: Text(UserFacingError.forLoad(error))),
         data: (groups) {
           if (groups.isEmpty) {
             return _buildEmptyState(context, ref);
@@ -47,8 +51,8 @@ class GroupsListScreen extends ConsumerWidget {
                 padding: const EdgeInsets.only(bottom: 16),
                 child: Row(
                   children: [
-                    const Text(
-                      'Groups',
+                    Text(
+                      l10n(context).groups,
                       style:
                           TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                     ),
@@ -58,7 +62,7 @@ class GroupsListScreen extends ConsumerWidget {
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w500,
-                        color: Colors.grey.shade500,
+                        color: context.mutedText,
                       ),
                     ),
                   ],
@@ -88,14 +92,14 @@ class GroupsListScreen extends ConsumerWidget {
       ),
       child: ListTile(
         leading: const Icon(Icons.group_add, color: AppTheme.teal),
-        title: const Text(
-          'Join a Group',
+        title: Text(
+          l10n(context).joinAGroup,
           style: TextStyle(
             fontWeight: FontWeight.w600,
             color: AppTheme.teal,
           ),
         ),
-        subtitle: const Text('Enter a group code to join'),
+        subtitle: Text(l10n(context).enterAGroupCodeToJoin),
         trailing: const Icon(Icons.chevron_right, color: AppTheme.teal),
         onTap: () => showJoinGroupDialog(context, ref),
       ),
@@ -103,62 +107,11 @@ class GroupsListScreen extends ConsumerWidget {
   }
 
   Widget _buildEmptyState(BuildContext context, WidgetRef ref) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.groups_outlined, size: 64, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
-            Text(
-              'No groups yet',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey.shade600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Create or join a group to pray together with your community',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () => context.push(Routes.createGroup),
-              icon: const Icon(Icons.add),
-              label: const Text('Create Group'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.teal,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () => showJoinGroupDialog(context, ref),
-              icon: const Icon(Icons.group_add),
-              label: const Text('Join Group'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.teal,
-                side: const BorderSide(color: AppTheme.teal),
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return EmptyState(
+      icon: Icons.groups_outlined,
+      title: l10n(context).noGroupsYet,
+      message: l10n(context).aGroupIsASetOfPeopleYouPrayWithShareRequests,
+          accent: AppTheme.teal,
     );
   }
 

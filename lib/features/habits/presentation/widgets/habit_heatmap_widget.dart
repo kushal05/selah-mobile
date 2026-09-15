@@ -45,7 +45,7 @@ class HabitHeatmapWidget extends StatelessWidget {
                     d,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.labelSmall?.copyWith(
-                      fontSize: 8,
+                      fontSize: 12,
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
                     ),
                   ),

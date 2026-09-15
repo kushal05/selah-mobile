@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/theme_colors.dart';
 
 /// Displays a search results section with a title
 class SearchSection extends StatelessWidget {
@@ -25,9 +26,9 @@ class SearchSection extends StatelessWidget {
           child: Text(
             title,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade600,
+              color: context.subtleFill,
               letterSpacing: 0.5,
             ),
           ),

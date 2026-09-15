@@ -5,6 +5,9 @@ import '../../../../core/sync/models/feedback_attachment_model.dart';
 import '../../../../core/sync/models/feedback_message_model.dart';
 import '../../../../core/sync/models/feedback_thread_model.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Chat-style screen for a feedback thread
 class FeedbackThreadScreen extends ConsumerStatefulWidget {
@@ -38,8 +41,8 @@ class _FeedbackThreadScreenState extends ConsumerState<FeedbackThreadScreen> {
     return Scaffold(
       appBar: AppBar(
         title: threadAsync.when(
-          loading: () => const Text('Feedback'),
-          error: (_, _) => const Text('Feedback'),
+          loading: () => Text(l10n(context).feedback),
+          error: (_, _) => Text(l10n(context).feedback),
           data: (thread) => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -53,8 +56,8 @@ class _FeedbackThreadScreenState extends ConsumerState<FeedbackThreadScreen> {
                 Text(
                   '${thread.categoryEnum.displayName} · ${thread.statusEnum.displayName}',
                   style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
+                    fontSize: 13,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
             ],
@@ -74,12 +77,12 @@ class _FeedbackThreadScreenState extends ConsumerState<FeedbackThreadScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Error loading messages',
-                        style: TextStyle(color: Colors.grey.shade600)),
+                    Text(l10n(context).errorLoadingMessages,
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                     TextButton(
                       onPressed: () => ref.invalidate(
                           feedbackMessagesStreamProvider(widget.threadId)),
-                      child: const Text('Retry'),
+                      child: Text(l10n(context).retry),
                     ),
                   ],
                 ),
@@ -88,8 +91,8 @@ class _FeedbackThreadScreenState extends ConsumerState<FeedbackThreadScreen> {
                 if (messages.isEmpty) {
                   return Center(
                     child: Text(
-                      'No messages yet',
-                      style: TextStyle(color: Colors.grey.shade500),
+                      l10n(context).noMessagesYet,
+                      style: TextStyle(color: context.mutedText),
                     ),
                   );
                 }
@@ -135,13 +138,13 @@ class _FeedbackThreadScreenState extends ConsumerState<FeedbackThreadScreen> {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          border: Border(top: BorderSide(color: Colors.grey.shade300)),
+          color: context.pageGround,
+          border: Border(top: BorderSide(color: context.hairline)),
         ),
         child: Text(
-          'This thread is closed and no longer accepts replies.',
+          l10n(context).thisThreadIsClosedAndNoLongerAcceptsReplies,
           textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 16),
         ),
       );
     }
@@ -150,7 +153,7 @@ class _FeedbackThreadScreenState extends ConsumerState<FeedbackThreadScreen> {
       padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
-        border: Border(top: BorderSide(color: Colors.grey.shade300)),
+        border: Border(top: BorderSide(color: context.hairline)),
       ),
       child: SafeArea(
         child: Row(
@@ -159,7 +162,7 @@ class _FeedbackThreadScreenState extends ConsumerState<FeedbackThreadScreen> {
               child: TextField(
                 controller: _messageController,
                 decoration: InputDecoration(
-                  hintText: 'Type a message...',
+                  hintText: l10n(context).typeAMessage,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide.none,
@@ -226,7 +229,7 @@ class _FeedbackThreadScreenState extends ConsumerState<FeedbackThreadScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to send: $e'),
+          content: Text(UserFacingError.message(e, action: 'send')),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -266,16 +269,16 @@ class _SystemMessage extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: Colors.grey.shade100,
+            color: context.subtleFill,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
             message.message,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 14,
               fontStyle: FontStyle.italic,
-              color: Colors.grey.shade600,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
         ),
@@ -307,7 +310,7 @@ class _ChatBubble extends ConsumerWidget {
         decoration: BoxDecoration(
           color: isUser
               ? Theme.of(context).colorScheme.primary
-              : Colors.grey.shade200,
+              : context.subtleFill,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
@@ -326,19 +329,19 @@ class _ChatBubble extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
-                  'Support',
+                  l10n(context).support,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade700,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),
             Text(
               message.message,
               style: TextStyle(
-                color: isUser ? Colors.white : Colors.black87,
-                fontSize: 15,
+                color: isUser ? Colors.white : context.primaryText,
+                fontSize: 16,
               ),
             ),
             // Attachment previews
@@ -348,10 +351,10 @@ class _ChatBubble extends ConsumerWidget {
             Text(
               timeStr,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 color: isUser
                     ? Colors.white.withValues(alpha: 0.7)
-                    : Colors.grey.shade500,
+                    : context.mutedText,
               ),
             ),
           ],
@@ -412,15 +415,15 @@ class _AttachmentTile extends StatelessWidget {
           Icon(
             _iconForType(attachment.typeEnum),
             size: 16,
-            color: Colors.grey.shade600,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
           const SizedBox(width: 6),
           Flexible(
             child: Text(
               attachment.fileName ?? 'Attachment',
               style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade700,
+                fontSize: 14,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 decoration: TextDecoration.underline,
               ),
               maxLines: 1,
@@ -470,12 +473,12 @@ class _DateHeader extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
-            color: Colors.grey.shade200,
+            color: context.subtleFill,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
             label,
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 13, color: context.subtleFill),
           ),
         ),
       ),

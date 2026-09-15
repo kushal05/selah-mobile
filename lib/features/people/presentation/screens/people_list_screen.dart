@@ -7,6 +7,13 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../shared/widgets/cards/person_card.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../shared/widgets/undo_snackbar.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../shared/widgets/empty_state.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../shared/widgets/swipe_action.dart';
+import '../../../../core/navigation/tab_navigation.dart';
 
 /// People list screen
 class PeopleListScreen extends ConsumerStatefulWidget {
@@ -21,7 +28,6 @@ class _PeopleListScreenState extends ConsumerState<PeopleListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final shell = StatefulNavigationShell.of(context);
     final peopleAsync = _showingTrash
         ? ref.watch(trashedPeopleStreamProvider)
         : ref.watch(peopleStreamProvider);
@@ -30,7 +36,7 @@ class _PeopleListScreenState extends ConsumerState<PeopleListScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop && context.mounted) {
-          shell.goBranch(0); // Switch to Home tab
+          goToTab(context, 0); // Switch to Home tab
         }
       },
       child: Scaffold(
@@ -40,13 +46,13 @@ class _PeopleListScreenState extends ConsumerState<PeopleListScreen> {
                 heroTag: null,
                 onPressed: () => context.push('/people/new'),
                 backgroundColor: AppTheme.teal,
-                foregroundColor: Colors.white,
+                foregroundColor: AppTheme.onAccent(AppTheme.teal),
                 child: const Icon(Icons.add),
               ),
         body: SafeArea(
           child: peopleAsync.when(
             loading: () => const ListTileSkeletonList(count: 6),
-            error: (error, stack) => Center(child: Text('Error: $error')),
+            error: (error, stack) => Center(child: Text(UserFacingError.forLoad(error))),
             data: (people) {
               if (people.isEmpty) {
                 return _buildEmptyState(context);
@@ -96,19 +102,18 @@ class _PeopleListScreenState extends ConsumerState<PeopleListScreen> {
                       motion: const DrawerMotion(),
                       extentRatio: 0.2,
                       children: [
-                        SlidableAction(
-                          onPressed: (ctx) async {
+                        buildSwipeAction(
+            icon: Icons.delete,
+            label: l10n(context).moveToTrash,
+            accent: AppTheme.error,
+            onPressed: (ctx) async {
                             final shouldDelete = await _showDeleteConfirmation(context);
                             if (!context.mounted) return;
                             if (shouldDelete) {
                               _deletePerson(context, ref, person.id);
                             }
                           },
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
-                          icon: Icons.delete,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+          )
                       ],
                     ),
                     child: PersonCard(
@@ -128,47 +133,13 @@ class _PeopleListScreenState extends ConsumerState<PeopleListScreen> {
 
   Widget _buildEmptyState(BuildContext context) {
     if (_showingTrash) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.delete_outline, size: 48, color: Colors.grey.shade400),
-            const SizedBox(height: 12),
-            Text(
-              'Trash is empty',
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-            ),
-          ],
-        ),
-      );
+      return EmptyTrashState(itemsLabel: l10n(context).trashLabelPeople);
     }
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.people_outline, size: 64, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
-            Text(
-              'No people yet',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey.shade600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Tap + to add someone to pray for',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade500,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return EmptyState(
+      icon: Icons.people_outline_rounded,
+      title: l10n(context).noOneAddedYet,
+      message: l10n(context).addThePeopleYouPrayForSoYouCanKeepTheirReque,
+          accent: AppTheme.teal,
     );
   }
 
@@ -176,18 +147,18 @@ class _PeopleListScreenState extends ConsumerState<PeopleListScreen> {
     return await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Move to Trash'),
+            title: Text(l10n(context).moveToTrash),
             content:
-                const Text('Are you sure you want to move this person to trash?'),
+                Text(l10n(context).areYouSureYouWantToMoveThisPersonToTrash),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
+                child: Text(l10n(context).actionCancel),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Move to Trash'),
+                child: Text(l10n(context).moveToTrash),
               ),
             ],
           ),
@@ -195,14 +166,28 @@ class _PeopleListScreenState extends ConsumerState<PeopleListScreen> {
         false;
   }
 
-  void _deletePerson(BuildContext context, WidgetRef ref, String personId) {
+  Future<void> _deletePerson(
+      BuildContext context, WidgetRef ref, String personId) async {
     final repository = ref.read(personRepositoryProvider);
-    repository.trashPerson(personId);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Moved to trash'),
-        behavior: SnackBarBehavior.floating,
-      ),
+    try {
+      await repository.trashPerson(personId);
+    } catch (e) {
+      // Without this the delete fails silently: no snackbar, no error, and
+      // the row simply stays put with no explanation.
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(UserFacingError.message(e, action: 'delete this person')),
+          backgroundColor: AppTheme.errorSurface,
+        ),
+      );
+      return;
+    }
+    if (!context.mounted) return;
+    showUndoSnackBar(
+      context,
+      itemLabel: 'Person',
+      onUndo: () => repository.restorePerson(personId),
     );
   }
 }
@@ -217,14 +202,14 @@ class _TrashedPersonListTile extends ConsumerWidget {
     return ListTile(
       title: Text(
         person.name,
-        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: person.relation != null && person.relation.isNotEmpty
           ? Text(
               person.relation,
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
             )
           : null,
       trailing: Row(
@@ -232,14 +217,14 @@ class _TrashedPersonListTile extends ConsumerWidget {
         children: [
           IconButton(
             icon: const Icon(Icons.restore),
-            tooltip: 'Restore',
+            tooltip: l10n(context).restore,
             onPressed: () async {
               try {
                 await ref.read(personRepositoryProvider).restorePerson(person.id);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Person restored'),
+                    SnackBar(
+                      content: Text(l10n(context).personRestored),
                       behavior: SnackBarBehavior.floating,
                     ),
                   );
@@ -248,9 +233,9 @@ class _TrashedPersonListTile extends ConsumerWidget {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Failed to restore: $e'),
+                      content: Text(UserFacingError.message(e, action: 'restore')),
                       behavior: SnackBarBehavior.floating,
-                      backgroundColor: Colors.red,
+                      backgroundColor: AppTheme.errorSurface,
                     ),
                   );
                 }
@@ -259,25 +244,25 @@ class _TrashedPersonListTile extends ConsumerWidget {
           ),
           IconButton(
             icon: const Icon(Icons.delete_forever),
-            tooltip: 'Delete permanently',
-            color: Colors.red,
+            tooltip: l10n(context).deletePermanently,
+            color: context.dangerText,
             onPressed: () async {
               final confirmed = await showDialog<bool>(
                     context: context,
                     builder: (context) => AlertDialog(
-                      title: const Text('Delete Permanently'),
-                      content: const Text(
-                          'This person will be permanently deleted. This cannot be undone.'),
+                      title: Text(l10n(context).deletePermanently),
+                      content: Text(
+                          l10n(context).thisPersonWillBePermanentlyDeletedThisCannot),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.of(context).pop(false),
-                          child: const Text('Cancel'),
+                          child: Text(l10n(context).actionCancel),
                         ),
                         TextButton(
                           onPressed: () => Navigator.of(context).pop(true),
                           style:
                               TextButton.styleFrom(foregroundColor: Colors.red),
-                          child: const Text('Delete'),
+                          child: Text(l10n(context).actionDelete),
                         ),
                       ],
                     ),
@@ -290,8 +275,8 @@ class _TrashedPersonListTile extends ConsumerWidget {
                       .deletePerson(person.id);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Person permanently deleted'),
+                      SnackBar(
+                        content: Text(l10n(context).personPermanentlyDeleted),
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
@@ -300,9 +285,9 @@ class _TrashedPersonListTile extends ConsumerWidget {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Failed to delete: $e'),
+                        content: Text(UserFacingError.message(e, action: 'delete')),
                         behavior: SnackBarBehavior.floating,
-                        backgroundColor: Colors.red,
+                        backgroundColor: AppTheme.errorSurface,
                       ),
                     );
                   }

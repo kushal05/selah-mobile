@@ -5,6 +5,9 @@ import '../../../../core/theme/app_theme.dart';
 import '../../domain/models/notification_preference.dart';
 import '../providers/notification_prefs_provider.dart';
 import '../utils/reminder_time_utils.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../shared/widgets/section_label.dart';
 
 // ── Category name constants ────────────────────────────────────────────────────
 
@@ -32,10 +35,10 @@ class NotificationSettingsScreen extends ConsumerWidget {
     final prefsAsync = ref.watch(notifPrefNotifierProvider);
 
     return Scaffold(
-      backgroundColor: AppTheme.scaffoldGray,
+      backgroundColor: context.pageGround,
       appBar: AppBar(
-        title: const Text('Notifications'),
-        backgroundColor: AppTheme.scaffoldGray,
+        title: Text(l10n(context).notifications),
+        backgroundColor: context.pageGround,
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
@@ -45,13 +48,13 @@ class NotificationSettingsScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Failed to load preferences',
-                  style: AppTheme.bodyBase.copyWith(color: AppTheme.gray600)),
+              Text(l10n(context).failedToLoadPreferences,
+                  style: AppTheme.bodyBase.copyWith(color: context.subtleFill)),
               const SizedBox(height: 12),
               TextButton(
                 onPressed: () =>
                     ref.invalidate(notifPrefNotifierProvider),
-                child: const Text('Retry'),
+                child: Text(l10n(context).retry),
               ),
             ],
           ),
@@ -84,46 +87,46 @@ class _Body extends ConsumerWidget {
       padding: const EdgeInsets.only(bottom: 40),
       children: [
         // ── SOCIAL ────────────────────────────────────────────────────
-        _SectionLabel(title: 'SOCIAL'),
+        SectionLabel('SOCIAL'),
         _NotifGroup(tiles: [
           _ToggleTile(
-            title: 'Friend Requests',
-            subtitle: 'When someone sends you a friend request',
+            title: l10n(context).friendRequests,
+            subtitle: l10n(context).whenSomeoneSendsYouAFriendRequest,
             pref: _pref(_catFriendRequest),
             onChanged: (v) =>
                 notifier.setEnabled(_catFriendRequest, enabled: v),
           ),
           _ToggleTile(
-            title: 'New Friends',
-            subtitle: 'When someone accepts your request',
+            title: l10n(context).newFriends,
+            subtitle: l10n(context).whenSomeoneAcceptsYourRequest,
             pref: _pref(_catFriendship),
             onChanged: (v) =>
                 notifier.setEnabled(_catFriendship, enabled: v),
           ),
           _ToggleTile(
-            title: 'Group Invites',
-            subtitle: 'When you are invited to a group',
+            title: l10n(context).groupInvites,
+            subtitle: l10n(context).whenYouAreInvitedToAGroup,
             pref: _pref(_catGroupInvite),
             onChanged: (v) =>
                 notifier.setEnabled(_catGroupInvite, enabled: v),
           ),
           _ToggleTile(
-            title: 'Group Announcements',
-            subtitle: 'New announcements in your groups',
+            title: l10n(context).groupAnnouncements,
+            subtitle: l10n(context).newAnnouncementsInYourGroups,
             pref: _pref(_catGroupAnnouncement),
             onChanged: (v) =>
                 notifier.setEnabled(_catGroupAnnouncement, enabled: v),
           ),
           _ToggleTile(
-            title: 'Group Prayers',
-            subtitle: 'New shared prayers in your groups',
+            title: l10n(context).groupPrayers,
+            subtitle: l10n(context).newSharedPrayersInYourGroups,
             pref: _pref(_catGroupPrayer),
             onChanged: (v) =>
                 notifier.setEnabled(_catGroupPrayer, enabled: v),
           ),
           _ToggleTile(
-            title: 'Prayer Collaborators',
-            subtitle: 'When someone shares a prayer with you',
+            title: l10n(context).prayerCollaborators,
+            subtitle: l10n(context).whenSomeoneSharesAPrayerWithYou,
             pref: _pref(_catPrayerCollaborator),
             onChanged: (v) =>
                 notifier.setEnabled(_catPrayerCollaborator, enabled: v),
@@ -131,11 +134,11 @@ class _Body extends ConsumerWidget {
         ]),
 
         // ── PRAYER ────────────────────────────────────────────────────
-        _SectionLabel(title: 'PRAYER'),
+        SectionLabel('PRAYER'),
         _NotifGroup(tiles: [
           _ToggleTile(
-            title: 'Prayer Reminders',
-            subtitle: 'Reminders for prayers with a schedule',
+            title: l10n(context).prayerReminders,
+            subtitle: l10n(context).remindersForPrayersWithASchedule,
             pref: _pref(_catPrayerReminder),
             onChanged: (v) =>
                 notifier.setEnabled(_catPrayerReminder, enabled: v),
@@ -143,10 +146,10 @@ class _Body extends ConsumerWidget {
         ]),
 
         // ── DAILY HABITS ──────────────────────────────────────────────
-        _SectionLabel(title: 'DAILY HABITS'),
+        SectionLabel('DAILY HABITS'),
         _NotifGroup(tiles: [
           _HabitTile(
-            title: 'Meditation',
+            title: l10n(context).meditation,
             pref: _pref(_catMeditation),
             onToggle: (v) =>
                 notifier.setEnabled(_catMeditation, enabled: v),
@@ -154,7 +157,7 @@ class _Body extends ConsumerWidget {
                 notifier.setReminderTime(_catMeditation, t),
           ),
           _HabitTile(
-            title: 'Bible Reading',
+            title: l10n(context).bibleReading,
             pref: _pref(_catBibleReading),
             onToggle: (v) =>
                 notifier.setEnabled(_catBibleReading, enabled: v),
@@ -164,18 +167,18 @@ class _Body extends ConsumerWidget {
         ]),
 
         // ── ACCOUNT ───────────────────────────────────────────────────
-        _SectionLabel(title: 'ACCOUNT'),
+        SectionLabel('ACCOUNT'),
         _NotifGroup(tiles: [
           _ToggleTile(
-            title: 'Account Activity',
-            subtitle: 'Sign-ins, password changes',
+            title: l10n(context).accountActivity,
+            subtitle: l10n(context).signInsPasswordChanges,
             pref: _pref(_catAccountActivity),
             onChanged: (v) =>
                 notifier.setEnabled(_catAccountActivity, enabled: v),
           ),
           _ToggleTile(
-            title: 'App Updates',
-            subtitle: 'Important announcements and updates',
+            title: l10n(context).appUpdates,
+            subtitle: l10n(context).importantAnnouncementsAndUpdates,
             pref: _pref(_catAccountUpdates),
             onChanged: (v) =>
                 notifier.setEnabled(_catAccountUpdates, enabled: v),
@@ -188,27 +191,6 @@ class _Body extends ConsumerWidget {
 
 // ── Section label ─────────────────────────────────────────────────────────────
 
-class _SectionLabel extends StatelessWidget {
-  final String title;
-  const _SectionLabel({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          AppTheme.spacing20, AppTheme.spacing20,
-          AppTheme.spacing20, AppTheme.spacing6),
-      child: Text(
-        title,
-        style: AppTheme.tiny.copyWith(
-          fontWeight: FontWeight.w600,
-          color: AppTheme.unselectedColor,
-          letterSpacing: 0.8,
-        ),
-      ),
-    );
-  }
-}
 
 // ── Notification group (card) ─────────────────────────────────────────────────
 
@@ -222,9 +204,9 @@ class _NotifGroup extends StatelessWidget {
       margin: const EdgeInsets.symmetric(
           horizontal: AppTheme.spacing16, vertical: AppTheme.spacing2),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.cardSurface,
         borderRadius: AppTheme.borderRadius3XL,
-        border: Border.all(color: AppTheme.dividerColor),
+        border: Border.all(color: context.hairline),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -244,7 +226,7 @@ class _NotifGroup extends StatelessWidget {
                   height: 1,
                   thickness: 0.5,
                   indent: 16,
-                  color: AppTheme.dividerColor,
+                  color: context.pageGround,
                 ),
             ],
           ],
@@ -275,7 +257,7 @@ class _ToggleTile extends StatelessWidget {
       title: Text(title, style: AppTheme.headingSmall.copyWith(fontWeight: FontWeight.w500)),
       subtitle: subtitle != null
           ? Text(subtitle!,
-              style: AppTheme.caption.copyWith(color: AppTheme.unselectedColor))
+              style: AppTheme.caption.copyWith(color: context.mutedText))
           : null,
       value: pref.enabled,
       onChanged: onChanged,
@@ -330,23 +312,26 @@ class _HabitTile extends StatelessWidget {
             ),
           ),
           if (pref.enabled)
-            GestureDetector(
+            Semantics(
+              button: true,
+              child: GestureDetector(
               onTap: () => _pickTime(context),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: AppTheme.scaffoldGray,
+                  color: context.pageGround,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.dividerColor),
+                  border: Border.all(color: context.hairline),
                 ),
                 child: Text(
                   reminderDisplayTime(pref.reminderTime),
                   style: AppTheme.caption.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.textDark,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ),
+            ),
             ),
         ],
       ),

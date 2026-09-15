@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_colors.dart';
 
 /// Displays a timeline item with a bullet point, text, and timestamp
 class TimelineItem extends StatelessWidget {
@@ -72,7 +73,7 @@ class TimelineItem extends StatelessWidget {
               Container(
                 width: 2,
                 height: 40,
-                color: Colors.grey.shade300,
+                color: context.subtleFill,
               ),
             ],
           ),
@@ -89,21 +90,23 @@ class TimelineItem extends StatelessWidget {
                       Text(
                         author!,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.brandPurple,
+                          color: AppTheme.accentOnTintFor(
+                              AppTheme.brandPurple,
+                              Theme.of(context).brightness),
                         ),
                       ),
                       Text(
                         ' · ',
                         style: TextStyle(
-                            fontSize: 12, color: Colors.grey.shade400),
+                            fontSize: 13, color: context.hintText),
                       ),
                     ],
                     Text(
                       time,
                       style: TextStyle(
-                          fontSize: 12, color: Colors.grey.shade600),
+                          fontSize: 13, color: context.subtleFill),
                     ),
                   ],
                 ),

@@ -10,6 +10,8 @@ import '../../../../core/navigation/routes.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../widgets/aurora_background.dart';
 import '../widgets/firefly_particles.dart';
+import '../../../../core/providers/motion_preferences.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Premium animated onboarding screen shown on first launch.
 ///
@@ -59,40 +61,51 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     return pages.isEmpty ? _defaultPages : pages;
   }
 
-  static const _defaultPages = [
-    _OnboardingPageData(
-      icon: Icons.auto_awesome_rounded, // unused — useAppIcon renders the PNG instead
-      title: 'Welcome to Selah',
-      subtitle: 'Pause. Reflect. Grow.',
-      color: AppTheme.brandPurple,
-      orbitIcons: [Icons.spa_outlined, Icons.light_mode_outlined],
-      useAppIcon: true,
-    ),
-    _OnboardingPageData(
-      icon: Icons.menu_book_rounded,
-      title: 'Capture what God\nteaches you',
-      subtitle:
-          'Take sermon notes, highlight scripture, and organize your spiritual insights in one beautiful place.',
-      color: AppTheme.brandBlue,
-      orbitIcons: [Icons.edit_note_rounded, Icons.bookmark_add_outlined],
-    ),
-    _OnboardingPageData(
-      icon: Icons.favorite_rounded,
-      title: 'Keep track of\nyour prayers',
-      subtitle:
-          'Record prayer requests, track answers, and build a journal of God\'s faithfulness over time.',
-      color: AppTheme.onboardingBlue,
-      orbitIcons: [Icons.bookmark_rounded, Icons.star_outline_rounded],
-    ),
-    _OnboardingPageData(
-      icon: Icons.people_rounded,
-      title: 'Grow together',
-      subtitle:
-          'Share prayer requests with friends, join groups, and encourage one another in your faith journey.',
-      color: AppTheme.onboardingPurple,
-      orbitIcons: [Icons.church_rounded, Icons.handshake_outlined],
-    ),
-  ];
+  /// The bundled flow, used when no backend override is configured.
+  ///
+  /// A getter rather than a `static const` list: this is the first copy a new
+  /// user reads, so it has to come from the ARB, and a lookup needs a context.
+  List<_OnboardingPageData> get _defaultPages => [
+        _OnboardingPageData(
+          icon: Icons.auto_awesome_rounded, // unused — useAppIcon renders the PNG instead
+          title: l10n(context).welcomeToSelah,
+          subtitle: l10n(context).pauseReflectGrow,
+          color: AppTheme.brandPurple,
+          orbitIcons: const [Icons.spa_outlined, Icons.light_mode_outlined],
+          useAppIcon: true,
+        ),
+        _OnboardingPageData(
+          icon: Icons.menu_book_rounded,
+          title: l10n(context).onboardingCaptureTitle,
+          subtitle: l10n(context).takeSermonNotesHighlightScriptureAndOrganize,
+          color: AppTheme.brandBlue,
+          orbitIcons: const [
+            Icons.edit_note_rounded,
+            Icons.bookmark_add_outlined
+          ],
+        ),
+        _OnboardingPageData(
+          icon: Icons.favorite_rounded,
+          title: l10n(context).onboardingPrayersTitle,
+          subtitle: l10n(context).onboardingPrayersSubtitle,
+          color: AppTheme.onboardingBlue,
+          orbitIcons: const [
+            Icons.bookmark_rounded,
+            Icons.star_outline_rounded
+          ],
+        ),
+        _OnboardingPageData(
+          icon: Icons.people_rounded,
+          title: l10n(context).growTogether,
+          subtitle:
+              l10n(context).sharePrayerRequestsWithFriendsJoinGroupsAndE,
+          color: AppTheme.onboardingPurple,
+          orbitIcons: const [
+            Icons.church_rounded,
+            Icons.handshake_outlined
+          ],
+        ),
+      ];
 
   @override
   void initState() {
@@ -203,6 +216,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Read once: the page controller's listener calls setState on every
+    // scroll frame, so build runs per-frame during a swipe and each read of
+    // _pages rebuilds the list.
+    final pages = _pages;
     return Scaffold(
       backgroundColor: AppTheme.navyDark,
       body: Stack(
@@ -240,7 +257,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                             ),
                           ),
                           child: Text(
-                            'Skip',
+                            l10n(context).skip,
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.6),
                               fontSize: AppTheme.bodyBase.fontSize,
@@ -255,10 +272,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                     Expanded(
                       child: PageView.builder(
                         controller: _pageController,
-                        itemCount: _pages.length,
+                        itemCount: pages.length,
                         onPageChanged: _onPageChanged,
                         itemBuilder: (context, index) {
-                          final page = _pages[index];
+                          final page = pages[index];
                           // Parallax offset for this page
                           final parallax =
                               ((index - _pageOffset) * 40).clamp(-80.0, 80.0);
@@ -299,7 +316,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                             children: [
                               // Sliding indicator
                               _PageIndicator(
-                                pageCount: _pages.length,
+                                pageCount: pages.length,
                                 currentPage: _currentPage,
                                 pageOffset: _pageOffset,
                               ),
@@ -309,7 +326,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                               SizedBox(
                                 width: double.infinity,
                                 height: 56,
-                                child: _buildActionButton(),
+                                child: _buildActionButton(pages.length),
                               ),
                             ],
                           ),
@@ -326,11 +343,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     );
   }
 
-  Widget _buildActionButton() {
-    final isLastPage = _currentPage == _pages.length - 1;
+  Widget _buildActionButton(int pageCount) {
+    final isLastPage = _currentPage == pageCount - 1;
 
     return AnimatedContainer(
-      duration: AppTheme.durationSlow,
+      duration: context.motion(AppTheme.durationSlow),
       curve: Curves.easeInOut,
       decoration: BoxDecoration(
         borderRadius: AppTheme.borderRadius3XL,
@@ -362,7 +379,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
           },
           child: Center(
             child: AnimatedSwitcher(
-              duration: AppTheme.durationMedium,
+              duration: context.motion(AppTheme.durationMedium),
               child: Text(
                 isLastPage ? 'Get Started' : 'Continue',
                 key: ValueKey(isLastPage),
@@ -405,7 +422,7 @@ class _PageIndicator extends StatelessWidget {
           final opacity = 0.3 + (1.0 - distance) * 0.7;
 
           return AnimatedContainer(
-            duration: AppTheme.durationMedium,
+            duration: context.motion(AppTheme.durationMedium),
             curve: Curves.easeInOut,
             margin: const EdgeInsets.symmetric(horizontal: AppTheme.spacing3),
             width: width,

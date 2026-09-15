@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models/memory_verse.dart';
 import '../providers/memory_verse_providers.dart';
+import '../../../../core/providers/motion_preferences.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Card-flip review session. Loads the due cards once on entry; each
 /// rating advances to the next card and persists the updated schedule.
@@ -57,11 +59,11 @@ class _MemorizationReviewScreenState
     final queue = _queue;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Review')),
+      appBar: AppBar(title: Text(l10n(context).review)),
       body: queue == null
           ? const Center(child: CircularProgressIndicator())
           : queue.isEmpty
-              ? _AllDone(message: 'No cards are due right now.')
+              ? _AllDone(message: l10n(context).noCardsAreDueRightNow)
               : _index >= queue.length
                   ? _AllDone(
                       message:
@@ -101,7 +103,7 @@ class _MemorizationReviewScreenState
                               style: ElevatedButton.styleFrom(
                                 minimumSize: const Size.fromHeight(48),
                               ),
-                              child: const Text('Show verse'),
+                              child: Text(l10n(context).showVerse),
                             )
                           else
                             _RatingRow(onRate: _rate),
@@ -126,7 +128,9 @@ class _Card extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      child: GestureDetector(
       onTap: onTap,
       child: Card(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -154,7 +158,7 @@ class _Card extends StatelessWidget {
                 ),
               const SizedBox(height: 24),
               AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
+                duration: context.motion(const Duration(milliseconds: 220)),
                 child: revealed
                     ? Text(
                         verse.text,
@@ -176,6 +180,7 @@ class _Card extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }
@@ -191,28 +196,28 @@ class _RatingRow extends StatelessWidget {
         Expanded(
           child: OutlinedButton(
             onPressed: () => onRate(ReviewQuality.again),
-            child: const Text('Again'),
+            child: Text(l10n(context).again),
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
           child: OutlinedButton(
             onPressed: () => onRate(ReviewQuality.hard),
-            child: const Text('Hard'),
+            child: Text(l10n(context).hard),
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
           child: ElevatedButton(
             onPressed: () => onRate(ReviewQuality.good),
-            child: const Text('Good'),
+            child: Text(l10n(context).good),
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
           child: ElevatedButton(
             onPressed: () => onRate(ReviewQuality.easy),
-            child: const Text('Easy'),
+            child: Text(l10n(context).easy),
           ),
         ),
       ],

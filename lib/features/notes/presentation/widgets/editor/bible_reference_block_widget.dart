@@ -4,6 +4,9 @@ import 'package:flutter/services.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../bible/domain/models/bible_reference.dart';
 import '../../../../bible/domain/models/bible_version_info.dart';
+import '../../../../../core/providers/motion_preferences.dart';
+import '../../../../../core/theme/theme_colors.dart';
+import '../../../../../l10n/l10n.dart';
 
 /// Renders a Bible verse block in the note editor as a collapsible card.
 ///
@@ -71,11 +74,13 @@ class _BibleReferenceBlockWidgetState extends State<BibleReferenceBlockWidget>
     final ref = widget.reference;
     final hasText = !ref.pending && ref.text.isNotEmpty;
 
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      child: GestureDetector(
       onTap: widget.onTap ?? (hasText ? _toggle : null),
       onLongPress: () => _showOptions(context),
       child: AnimatedSize(
-        duration: const Duration(milliseconds: 200),
+        duration: context.motion(const Duration(milliseconds: 200)),
         curve: Curves.easeInOut,
         alignment: Alignment.topCenter,
         child: Container(
@@ -116,7 +121,7 @@ class _BibleReferenceBlockWidgetState extends State<BibleReferenceBlockWidget>
                     Text(
                       ref.displayReference,
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 16,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.brandPurple,
                         letterSpacing: 0.2,
@@ -127,11 +132,11 @@ class _BibleReferenceBlockWidgetState extends State<BibleReferenceBlockWidget>
                       const SizedBox(height: 6),
                       if (ref.pending || ref.text.isEmpty)
                         Text(
-                          'Verse text pending download...',
+                          l10n(context).verseTextPendingDownload,
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 16,
                             fontStyle: FontStyle.italic,
-                            color: Colors.grey.shade500,
+                            color: context.mutedText,
                             height: 1.5,
                           ),
                         )
@@ -148,15 +153,15 @@ class _BibleReferenceBlockWidgetState extends State<BibleReferenceBlockWidget>
                   if (widget.onEdit != null)
                     _ActionIcon(
                       icon: Icons.edit_outlined,
-                      tooltip: 'Edit Reference',
+                      tooltip: l10n(context).editReference,
                       onTap: widget.onEdit!,
                     ),
                   if (widget.onRemove != null)
                     _ActionIcon(
                       icon: Icons.close,
-                      tooltip: 'Remove Reference',
+                      tooltip: l10n(context).removeReference,
                       onTap: widget.onRemove!,
-                      color: Colors.red.shade400,
+                      color: context.dangerText,
                     ),
                   if (hasText)
                     RotationTransition(
@@ -178,6 +183,7 @@ class _BibleReferenceBlockWidgetState extends State<BibleReferenceBlockWidget>
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -193,7 +199,7 @@ class _BibleReferenceBlockWidgetState extends State<BibleReferenceBlockWidget>
       return Text(
         ref.fullText,
         style: TextStyle(
-          fontSize: 14,
+          fontSize: 16,
           fontStyle: FontStyle.italic,
           color: baseColor,
           height: 1.5,
@@ -204,7 +210,7 @@ class _BibleReferenceBlockWidgetState extends State<BibleReferenceBlockWidget>
     return Text.rich(
       TextSpan(
         style: TextStyle(
-          fontSize: 14,
+          fontSize: 16,
           fontStyle: FontStyle.italic,
           color: baseColor,
           height: 1.5,
@@ -215,7 +221,7 @@ class _BibleReferenceBlockWidgetState extends State<BibleReferenceBlockWidget>
               TextSpan(
                 text: '${vt.verse} ',
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                   fontStyle: FontStyle.normal,
                   color: AppTheme.brandPurple.withValues(alpha: 0.7),
@@ -231,6 +237,9 @@ class _BibleReferenceBlockWidgetState extends State<BibleReferenceBlockWidget>
 
   void _showOptions(BuildContext context) {
     showModalBottomSheet(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -247,20 +256,20 @@ class _BibleReferenceBlockWidgetState extends State<BibleReferenceBlockWidget>
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: context.subtleFill,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
               ListTile(
                 leading: const Icon(Icons.copy),
-                title: const Text('Copy Verse Text'),
+                title: Text(l10n(context).copyVerseText),
                 onTap: () {
                   Clipboard.setData(
                       ClipboardData(text: widget.reference.fullText));
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Verse text copied'),
+                    SnackBar(
+                      content: Text(l10n(context).verseTextCopied),
                       behavior: SnackBarBehavior.floating,
                     ),
                   );
@@ -268,14 +277,14 @@ class _BibleReferenceBlockWidgetState extends State<BibleReferenceBlockWidget>
               ),
               ListTile(
                 leading: const Icon(Icons.content_copy),
-                title: const Text('Copy Reference'),
+                title: Text(l10n(context).copyReference),
                 onTap: () {
                   Clipboard.setData(
                       ClipboardData(text: widget.reference.displayReference));
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Reference copied'),
+                    SnackBar(
+                      content: Text(l10n(context).referenceCopied),
                       behavior: SnackBarBehavior.floating,
                     ),
                   );
@@ -284,7 +293,7 @@ class _BibleReferenceBlockWidgetState extends State<BibleReferenceBlockWidget>
               if (widget.onEdit != null)
                 ListTile(
                   leading: const Icon(Icons.edit_outlined),
-                  title: const Text('Edit Reference'),
+                  title: Text(l10n(context).editReference),
                   onTap: () {
                     Navigator.pop(context);
                     widget.onEdit?.call();
@@ -293,7 +302,7 @@ class _BibleReferenceBlockWidgetState extends State<BibleReferenceBlockWidget>
               if (widget.onChangeVersion != null)
                 ListTile(
                   leading: const Icon(Icons.translate),
-                  title: const Text('Change Version'),
+                  title: Text(l10n(context).changeVersion),
                   onTap: () {
                     Navigator.pop(context);
                     _showVersionPicker(context);
@@ -302,9 +311,9 @@ class _BibleReferenceBlockWidgetState extends State<BibleReferenceBlockWidget>
               if (widget.onRemove != null)
                 ListTile(
                   leading: Icon(Icons.delete_outline,
-                      color: Colors.red.shade400),
-                  title: Text('Remove Reference',
-                      style: TextStyle(color: Colors.red.shade400)),
+                      color: context.dangerText),
+                  title: Text(l10n(context).removeReference,
+                      style: TextStyle(color: context.dangerText)),
                   onTap: () {
                     Navigator.pop(context);
                     widget.onRemove?.call();
@@ -327,7 +336,7 @@ class _BibleReferenceBlockWidgetState extends State<BibleReferenceBlockWidget>
     showDialog(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('Select Version'),
+        title: Text(l10n(context).selectVersion),
         children: translations.map((code) {
           final isSelected = code == currentVersion;
           final displayName = bibleVersionDisplayName(code);
@@ -374,7 +383,9 @@ class _ActionIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      child: GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Tooltip(
@@ -388,6 +399,7 @@ class _ActionIcon extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

@@ -3,6 +3,9 @@ import '../../../../core/theme/app_theme.dart';
 
 import 'aurora_background.dart';
 import 'firefly_particles.dart';
+import '../../../../core/providers/motion_preferences.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../core/theme/theme_colors.dart';
 
 /// Shared scaffold for all auth screens. Provides:
 /// - Dark background (#0D1B3E)
@@ -83,6 +86,7 @@ class _AuthShellState extends State<AuthShell>
                       child: Padding(
                         padding: const EdgeInsets.only(left: 4, top: 4),
                         child: IconButton(
+                          tooltip: l10n(context).actionBack,
                           onPressed: () => Navigator.of(context).maybePop(),
                           icon: Icon(
                             Icons.arrow_back_ios_new_rounded,
@@ -135,6 +139,11 @@ class _AuthShellState extends State<AuthShell>
 ///
 /// Translucent white fill, subtle border, white text — matches the dark
 /// aurora theme. Use this instead of per-screen input decoration helpers.
+/// Error colour for the glass auth inputs. Amber previously read as a caution
+/// rather than a blocker, and shared a hue with the offline banner. This
+/// clears AA against the field fill on the dark aurora background.
+const Color authErrorColor = Color(0xFFFFB4AB);
+
 InputDecoration glassInputDecoration({
   required BuildContext context,
   required String label,
@@ -146,7 +155,7 @@ InputDecoration glassInputDecoration({
     labelText: label,
     hintText: hint,
     labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
-    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.62)),
     prefixIcon: Icon(prefixIcon, color: Colors.white.withValues(alpha: 0.7)),
     suffixIcon: suffixIcon,
     filled: true,
@@ -158,30 +167,31 @@ InputDecoration glassInputDecoration({
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(16),
       borderSide: BorderSide(
-        color: Colors.white.withValues(alpha: 0.15),
+        color: Colors.white.withValues(alpha: 0.45),
       ),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(16),
       borderSide: BorderSide(
-        color: Colors.white.withValues(alpha: 0.5),
-        width: 1.5,
+        color: Colors.white.withValues(alpha: 0.85),
+        width: 2,
       ),
     ),
     errorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(16),
-      borderSide: BorderSide(
-        color: Colors.amber.shade300.withValues(alpha: 0.7),
+      borderSide: const BorderSide(
+        color: authErrorColor,
+        width: 1.5,
       ),
     ),
     focusedErrorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(16),
-      borderSide: BorderSide(
-        color: Colors.amber.shade300.withValues(alpha: 0.9),
-        width: 1.5,
+      borderSide: const BorderSide(
+        color: authErrorColor,
+        width: 2,
       ),
     ),
-    errorStyle: TextStyle(color: Colors.amber.shade200),
+    errorStyle: TextStyle(color: context.warningText),
   );
 }
 
@@ -261,7 +271,7 @@ class _GlassButtonState extends State<GlassButton>
               elevation: 0,
             ),
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
+              duration: context.motion(const Duration(milliseconds: 200)),
               child: widget.isLoading
                   ? const SizedBox(
                       key: ValueKey('loading'),

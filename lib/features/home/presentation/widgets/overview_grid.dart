@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../core/domain/enums/prayer_enums.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/cards/overview_card.dart';
 import '../../../notes/presentation/providers/database_provider.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../core/navigation/tab_navigation.dart';
 
 /// Displays overview cards in a grid on the home dashboard
 class OverviewGrid extends ConsumerWidget {
@@ -14,7 +15,6 @@ class OverviewGrid extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final shell = StatefulNavigationShell.of(context);
 
     // Watch only counts via .select() to avoid rebuilding on every entity change
     final activePrayersCount = ref.watch(prayersStreamProvider.select(
@@ -49,49 +49,82 @@ class OverviewGrid extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Text('Overview', style: Theme.of(context).textTheme.titleMedium),
+            Text(l10n(context).overview, style: Theme.of(context).textTheme.titleMedium),
           ],
         ),
         const SizedBox(height: 16),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 1.3,
+        // Laid out as rows of IntrinsicHeight rather than a GridView with a
+        // fixed childAspectRatio: a fixed ratio cannot grow when its text
+        // does, so a longer title or a larger text scale overflows the card.
+        // IntrinsicHeight keeps the two cards in a row equal while letting
+        // the row take the height its content needs.
+        _OverviewRows(
           children: [
             OverviewCard(
-              title: 'Active Prayers',
+              title: l10n(context).activePrayers,
               count: activePrayersCount.toString(),
               icon: Icons.favorite,
               color: AppTheme.brandBlue,
-              onTap: () => shell.goBranch(2), // Prayers tab
+              onTap: () => goToTab(context, 2), // Prayers tab
             ),
             OverviewCard(
-              title: 'Recent Notes',
+              title: l10n(context).recentNotes,
               count: notesCount.toString(),
               icon: Icons.description,
               color: AppTheme.brandPurple,
-              onTap: () => shell.goBranch(1), // Notes tab
+              onTap: () => goToTab(context, 1), // Notes tab
             ),
             OverviewCard(
-              title: 'Promises',
+              title: l10n(context).navPromises,
               count: promisesCount.toString(),
               icon: Icons.bookmark,
               color: AppTheme.rosePink,
-              onTap: () => shell.goBranch(4), // Promises tab
+              onTap: () => goToTab(context, 4), // Promises tab
             ),
             OverviewCard(
-              title: 'People',
+              title: l10n(context).people,
               count: peopleCount.toString(),
               icon: Icons.people,
               color: AppTheme.teal,
-              onTap: () => shell.goBranch(6), // People tab
+              onTap: () => goToTab(context, 6), // People tab
             ),
           ],
         ),
       ],
     );
+  }
+}
+
+/// Two-column layout whose rows size to their content.
+///
+/// Replaces `GridView.count(childAspectRatio: ...)`, which clips as soon as a
+/// title wraps or the user raises their text size.
+class _OverviewRows extends StatelessWidget {
+  final List<Widget> children;
+  const _OverviewRows({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <Widget>[];
+    for (var i = 0; i < children.length; i += 2) {
+      final left = children[i];
+      final right = i + 1 < children.length ? children[i + 1] : null;
+      if (rows.isNotEmpty) rows.add(const SizedBox(height: 16));
+      rows.add(
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: left),
+              const SizedBox(width: 16),
+              // An odd count keeps the last card at one column width rather
+              // than stretching it across the row.
+              Expanded(child: right ?? const SizedBox.shrink()),
+            ],
+          ),
+        ),
+      );
+    }
+    return Column(children: rows);
   }
 }

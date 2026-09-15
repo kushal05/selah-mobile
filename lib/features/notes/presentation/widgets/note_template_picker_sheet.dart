@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../domain/models/note_template.dart';
 import '../providers/database_provider.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Bottom-sheet picker for selecting a [NoteTemplate]. On selection, creates
 /// a seeded note via the notes repository and navigates to its detail page.
@@ -34,7 +36,7 @@ class NoteTemplatePickerSheet extends ConsumerWidget {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Start with a template',
+                l10n(context).startWithATemplate,
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
@@ -79,7 +81,7 @@ class NoteTemplatePickerSheet extends ConsumerWidget {
       if (!context.mounted) return;
       navigator.pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to create note: $e')),
+        SnackBar(content: Text(UserFacingError.message(e, action: 'create note'))),
       );
       return;
     }
@@ -97,6 +99,9 @@ Future<void> showNoteTemplatePicker(
   String? folderId,
 }) {
   return showModalBottomSheet<void>(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
     context: context,
     isScrollControlled: true,
     showDragHandle: false,

@@ -7,6 +7,10 @@ import '../drag_handle.dart';
 import '../../../core/sync/models/folder_model.dart';
 import '../../../core/sync/providers/sync_providers.dart';
 import '../skeletons/skeletons.dart';
+import '../../../core/services/user_facing_error.dart';
+import '../../../core/providers/motion_preferences.dart';
+import '../../../core/theme/theme_colors.dart';
+import '../../../l10n/l10n.dart';
 
 /// Result returned by [MoveToFolderSheet] when the user confirms a move.
 class MoveToFolderResult {
@@ -84,88 +88,93 @@ class _MoveToFolderSheetState extends ConsumerState<MoveToFolderSheet> {
     final theme = Theme.of(context);
     final foldersAsync = ref.watch(foldersStreamProvider);
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.6,
-      minChildSize: 0.4,
-      maxChildSize: 0.9,
-      expand: false,
-      builder: (context, scrollController) {
-        return Column(
-          children: [
-            const DragHandle(),
-
-            // Header
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.drive_file_move_outlined,
-                    color: AppTheme.brandPurple,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      widget.headerTitle ??
-                          (widget.noteCount == 1
-                              ? 'Move Note'
-                              : 'Move ${widget.noteCount} Notes'),
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
+    return SafeArea(
+      // Keeps the sheet's last control clear of the gesture bar.
+      top: false,
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) {
+          return Column(
+            children: [
+              const DragHandle(),
+  
+              // Header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.drive_file_move_outlined,
+                      color: AppTheme.brandPurple,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        widget.headerTitle ??
+                            (widget.noteCount == 1
+                                ? 'Move Note'
+                                : 'Move ${widget.noteCount} Notes'),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.of(context).pop(),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ],
-              ),
-            ),
-
-            Divider(height: 1, color: Colors.grey.shade200),
-
-            // Folder list
-            Expanded(
-              child: foldersAsync.when(
-                loading: () => const ListTileSkeletonList(count: 4, hasLeading: false),
-                error: (e, _) => Center(child: Text('Error loading folders: $e')),
-                data: (folders) =>
-                    _buildFolderList(context, folders, scrollController),
-              ),
-            ),
-
-            // Confirm button
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: Colors.grey.shade200)),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
+                    IconButton(
+                      tooltip: l10n(context).close,
+                      icon: const Icon(Icons.close),
                       onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Cancel'),
+                      visualDensity: VisualDensity.compact,
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: _hasSelection ? _confirmMove : null,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppTheme.brandPurple,
-                      ),
-                      child: const Text('Move Here'),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
-        );
-      },
+  
+              Divider(height: 1, color: context.hairline),
+  
+              // Folder list
+              Expanded(
+                child: foldersAsync.when(
+                  loading: () => const ListTileSkeletonList(count: 4, hasLeading: false),
+                  error: (e, _) => Center(child: Text(UserFacingError.forLoad(e))),
+                  data: (folders) =>
+                      _buildFolderList(context, folders, scrollController),
+                ),
+              ),
+  
+              // Confirm button
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: context.hairline)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text(l10n(context).actionCancel),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: _hasSelection ? _confirmMove : null,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppTheme.brandPurple,
+                        ),
+                        child: Text(l10n(context).moveHere),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -187,8 +196,8 @@ class _MoveToFolderSheetState extends ConsumerState<MoveToFolderSheet> {
         // "No Folder" / root option
         _MoveTargetTile(
           icon: Icons.notes_outlined,
-          title: 'No Folder',
-          subtitle: 'Root level',
+          title: l10n(context).noFolder,
+          subtitle: l10n(context).rootLevel,
           depth: 0,
           isSelected: _selectedFolderId == 'root',
           isDisabled: isCurrent,
@@ -201,9 +210,9 @@ class _MoveToFolderSheetState extends ConsumerState<MoveToFolderSheet> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
-              'FOLDERS',
+              l10n(context).folders,
               style: theme.textTheme.labelSmall?.copyWith(
-                color: Colors.grey,
+                color: context.mutedText,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.5,
               ),
@@ -219,8 +228,8 @@ class _MoveToFolderSheetState extends ConsumerState<MoveToFolderSheet> {
             padding: const EdgeInsets.all(24),
             child: Center(
               child: Text(
-                'No folders available',
-                style: TextStyle(color: Colors.grey.shade500),
+                l10n(context).noFoldersAvailable,
+                style: TextStyle(color: context.mutedText),
               ),
             ),
           ),
@@ -358,7 +367,7 @@ class _MoveTargetTile extends StatelessWidget {
                       padding: const EdgeInsets.only(right: 4),
                       child: AnimatedRotation(
                         turns: isExpanded ? 0.25 : 0,
-                        duration: const Duration(milliseconds: 200),
+                        duration: context.motion(const Duration(milliseconds: 200)),
                         child: Icon(
                           Icons.chevron_right_rounded,
                           size: 18,
@@ -391,13 +400,13 @@ class _MoveTargetTile extends StatelessWidget {
                         Text(
                           subtitle!,
                           style: theme.textTheme.bodySmall
-                              ?.copyWith(color: Colors.grey),
+                              ?.copyWith(color: context.mutedText),
                         ),
                       if (isDisabled)
                         Text(
-                          'Current folder',
+                          l10n(context).currentFolder,
                           style: theme.textTheme.bodySmall
-                              ?.copyWith(color: Colors.grey),
+                              ?.copyWith(color: context.mutedText),
                         ),
                     ],
                   ),

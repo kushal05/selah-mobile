@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/navigation/routes.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/dialogs/reading_text_size_sheet.dart';
 import '../../domain/models/bible_highlight_entity.dart';
 import '../../domain/models/bible_verse_entity.dart';
 import '../providers/bible_chapter_providers.dart';
@@ -12,6 +13,7 @@ import '../providers/bible_providers.dart';
 import '../widgets/chapter_verse_list.dart';
 import '../widgets/highlight_bottom_sheet.dart';
 import '../widgets/translation_selector.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Full chapter reading screen with highlight support and parallel view.
 ///
@@ -268,8 +270,8 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to save promise'),
+          SnackBar(
+            content: Text(l10n(context).failedToSavePromise),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -295,8 +297,8 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not update bookmark'),
+          SnackBar(
+            content: Text(l10n(context).couldNotUpdateBookmark),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -346,6 +348,13 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
             style: AppTheme.headingMedium,
           ),
           actions: [
+            // Reader text size — the app's core reading surface, so this sits
+            // in the app bar rather than being buried in Settings.
+            IconButton(
+              icon: const Icon(Icons.text_fields_rounded),
+              tooltip: l10n(context).textSize,
+              onPressed: () => showReadingTextSizeSheet(context),
+            ),
             // Translation selector (primary)
             if (!_isParallel)
               Padding(
@@ -388,6 +397,8 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
                     highlights: highlights,
                     scrollController: _primaryScrollController,
                     scrollToVerse: widget.scrollToVerse,
+                    onVerseTap: (verse) =>
+                        _showHighlightSheet(verse, highlights),
                     onVerseLongPress: (verse) =>
                         _showHighlightSheet(verse, highlights),
                   ),
@@ -449,6 +460,8 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
                   verses: primaryVerses,
                   highlights: highlights,
                   scrollController: _primaryScrollController,
+                  onVerseTap: (verse) =>
+                      _showHighlightSheet(verse, highlights),
                   onVerseLongPress: (verse) =>
                       _showHighlightSheet(verse, highlights),
                 ),
@@ -476,6 +489,8 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
                   verses: secondaryVerses,
                   highlights: highlights,
                   scrollController: _secondaryScrollController,
+                  onVerseTap: (verse) =>
+                      _showHighlightSheet(verse, highlights),
                   onVerseLongPress: (verse) =>
                       _showHighlightSheet(verse, highlights),
                 ),

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/sync/models/folder_model.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colors.dart';
+import '../../../l10n/l10n.dart';
 
 /// Options for what to do with notes when deleting a folder
 enum DeleteFolderOption {
@@ -63,9 +66,9 @@ class _DeleteFolderDialogState extends State<DeleteFolderDialog> {
     return AlertDialog(
       title: Row(
         children: [
-          Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700),
+          Icon(Icons.warning_amber_rounded, color: context.warningText),
           const SizedBox(width: 12),
-          const Expanded(child: Text('Delete Folder')),
+          Expanded(child: Text(l10n(context).deleteFolder)),
         ],
       ),
       content: Column(
@@ -99,7 +102,7 @@ class _DeleteFolderDialogState extends State<DeleteFolderDialog> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'This folder contains:',
+                        l10n(context).thisFolderContains,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
@@ -122,7 +125,7 @@ class _DeleteFolderDialogState extends State<DeleteFolderDialog> {
             ),
             const SizedBox(height: 16),
             Text(
-              'What would you like to do with the notes?',
+              l10n(context).whatWouldYouLikeToDoWithTheNotes,
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
@@ -143,16 +146,16 @@ class _DeleteFolderDialogState extends State<DeleteFolderDialog> {
                     context,
                     option: DeleteFolderOption.moveToRoot,
                     icon: Icons.drive_file_move_outline,
-                    title: 'Move notes to root',
-                    subtitle: 'Notes will be moved to the top level',
+                    title: l10n(context).moveNotesToRoot,
+                    subtitle: l10n(context).notesWillBeMovedToTheTopLevel,
                   ),
                   const SizedBox(height: 8),
                   _buildOptionTile(
                     context,
                     option: DeleteFolderOption.deleteAll,
                     icon: Icons.delete_forever_outlined,
-                    title: 'Delete everything',
-                    subtitle: 'Notes and subfolders will be permanently deleted',
+                    title: l10n(context).deleteEverything,
+                    subtitle: l10n(context).notesAndSubfoldersWillBePermanentlyDeleted,
                     isDestructive: true,
                   ),
                 ],
@@ -164,7 +167,7 @@ class _DeleteFolderDialogState extends State<DeleteFolderDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(l10n(context).actionCancel),
         ),
         FilledButton(
           onPressed: () {
@@ -176,7 +179,7 @@ class _DeleteFolderDialogState extends State<DeleteFolderDialog> {
             }
           },
           style: FilledButton.styleFrom(
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorSurface,
             foregroundColor: Colors.white,
           ),
           child: Text(_hasContent ? 'Delete' : 'Delete Folder'),
@@ -218,7 +221,7 @@ class _DeleteFolderDialogState extends State<DeleteFolderDialog> {
             border: Border.all(
               color: isSelected
                   ? (isDestructive ? Colors.red : colorScheme.primary)
-                  : Colors.grey.shade300,
+                  : context.hairline,
               width: isSelected ? 2 : 1,
             ),
           ),
@@ -249,7 +252,7 @@ class _DeleteFolderDialogState extends State<DeleteFolderDialog> {
                     Text(
                       subtitle,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: Colors.grey,
+                        color: context.mutedText,
                       ),
                     ),
                   ],

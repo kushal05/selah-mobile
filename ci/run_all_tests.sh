@@ -5,6 +5,7 @@ set -euo pipefail
 # CI Pipeline: Full test suite for the Notify Flutter app
 #
 # Stages:
+#   0. Static checks (analyze + accessibility lint)
 #   1. Unit tests (fast, no device needed)
 #   2. Integration tests (headless, in-memory DB)
 #   3. Build APK (debug, for Maestro)
@@ -12,6 +13,7 @@ set -euo pipefail
 #
 # Usage:
 #   ./ci/run_all_tests.sh              # Run all stages
+#   ./ci/run_all_tests.sh static       # Analyze + a11y lint only
 #   ./ci/run_all_tests.sh unit         # Unit tests only
 #   ./ci/run_all_tests.sh integration  # Integration tests only
 #   ./ci/run_all_tests.sh maestro      # Maestro smoke tests only
@@ -44,6 +46,34 @@ log_success() {
 log_failure() {
   echo -e "${RED}✗ $1${NC}"
   FAILURES=$((FAILURES + 1))
+}
+
+# ── Stage 0: Static Checks ─────────────────────────────────────────────────
+run_static_checks() {
+  log_header "Stage 0: Static Checks"
+
+  if flutter analyze; then
+    log_success "flutter analyze clean"
+  else
+    log_failure "flutter analyze reported issues"
+  fi
+
+  # Accessibility regressions the analyzer cannot see: unlabelled IconButtons
+  # and onTapUp-only GestureDetectors. See tool/a11y_lint.dart.
+  if dart run tool/a11y_lint.dart; then
+    log_success "Accessibility lint clean"
+  else
+    log_failure "Accessibility lint found issues"
+  fi
+
+  # WCAG contrast for both themes. Invisible in review and to the analyzer —
+  # a one-line palette tweak can push a label under threshold on one theme
+  # while looking fine on the other. See tool/contrast_audit.py.
+  if python3 tool/contrast_audit.py; then
+    log_success "Contrast audit clean (light + dark)"
+  else
+    log_failure "Contrast audit found failing colour pairings"
+  fi
 }
 
 # ── Stage 1: Unit Tests ────────────────────────────────────────────────────
@@ -157,18 +187,20 @@ run_maestro_tests() {
 
 # ── Main ───────────────────────────────────────────────────────────────────
 case "$STAGE" in
+  static)       run_static_checks ;;
   unit)         run_unit_tests ;;
   integration)  run_integration_tests ;;
   build)        run_build ;;
   maestro)      run_maestro_tests ;;
   all)
+    run_static_checks
     run_unit_tests
     run_integration_tests
     run_build
     run_maestro_tests
     ;;
   *)
-    echo "Usage: $0 {all|unit|integration|build|maestro}"
+    echo "Usage: $0 {all|static|unit|integration|build|maestro}"
     exit 1
     ;;
 esac

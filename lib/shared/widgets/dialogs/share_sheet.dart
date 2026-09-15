@@ -7,6 +7,8 @@ import '../../../core/sync/models/entity_access_model.dart';
 import '../../../core/sync/models/friendship_model.dart';
 import '../../../core/sync/providers/sync_providers.dart';
 import '../../../core/sync/services/public_share_api_service.dart';
+import '../../../core/theme/theme_colors.dart';
+import '../../../l10n/l10n.dart';
 
 /// Universal share dialog for any content entity.
 ///
@@ -48,6 +50,9 @@ class ShareSheet extends ConsumerStatefulWidget {
     required String userId,
   }) {
     return showModalBottomSheet(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
       context: context,
       isScrollControlled: true,
       builder: (_) => ShareSheet(
@@ -314,61 +319,67 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 16,
-        right: 16,
-        top: 16,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Share', style: theme.textTheme.titleLarge),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Close'),
+    return SafeArea(
+      // The sheet's last control otherwise sits in the gesture-bar
+      // strip, where a swipe is as likely to reach the OS as the
+      // button. top:false — useSafeArea already covers the notch.
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 16,
+          right: 16,
+          top: 16,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(l10n(context).share, style: theme.textTheme.titleLarge),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(l10n(context).close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (_loading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else ...[
+                _buildModePicker(theme),
+                const SizedBox(height: 12),
+                if (_modeSupportsRole(_selectedMode)) _buildRoleToggle(theme),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _saving ? null : _save,
+                    child: _saving
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(l10n(context).actionSave),
+                  ),
                 ),
               ],
-            ),
-            const SizedBox(height: 8),
-            if (_loading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else ...[
-              _buildModePicker(theme),
-              const SizedBox(height: 12),
-              if (_modeSupportsRole(_selectedMode)) _buildRoleToggle(theme),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _saving ? null : _save,
-                  child: _saving
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Save'),
-                ),
-              ),
+              if (widget.entityType == 'note') ...[
+                const SizedBox(height: 24),
+                Divider(color: theme.dividerColor),
+                const SizedBox(height: 12),
+                _buildPublicLinkSection(theme),
+              ],
+              const SizedBox(height: 16),
             ],
-            if (widget.entityType == 'note') ...[
-              const SizedBox(height: 24),
-              Divider(color: theme.dividerColor),
-              const SizedBox(height: 12),
-              _buildPublicLinkSection(theme),
-            ],
-            const SizedBox(height: 16),
-          ],
+          ),
         ),
       ),
     );
@@ -387,15 +398,15 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
       children: [
         _PrivacyOption(
           icon: Icons.lock_outline,
-          title: 'Private',
-          subtitle: 'Only you can see this',
+          title: l10n(context).private,
+          subtitle: l10n(context).onlyYouCanSeeThis,
           selected: _selectedMode == _ShareMode.private,
           onTap: () => _pickMode(_ShareMode.private),
         ),
         _PrivacyOption(
           icon: Icons.person_add_alt_1_outlined,
-          title: 'Specific people',
-          subtitle: 'Share with chosen friends',
+          title: l10n(context).specificPeople,
+          subtitle: l10n(context).shareWithChosenFriends,
           selected: _selectedMode == _ShareMode.specificPeople,
           onTap: () => _pickMode(_ShareMode.specificPeople),
         ),
@@ -407,21 +418,21 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
                 padding: EdgeInsets.symmetric(vertical: 8),
                 child: LinearProgressIndicator(),
               ),
-              error: (_, _) => const Text('Failed to load friends'),
+              error: (_, _) => Text(l10n(context).failedToLoadFriends),
               data: _buildFriendChips,
             ),
           ),
         _PrivacyOption(
           icon: Icons.people_outline,
-          title: 'All friends',
-          subtitle: 'Visible to all your friends',
+          title: l10n(context).allFriends,
+          subtitle: l10n(context).visibleToAllYourFriends,
           selected: _selectedMode == _ShareMode.friends,
           onTap: () => _pickMode(_ShareMode.friends),
         ),
         _PrivacyOption(
           icon: Icons.group_outlined,
-          title: 'Group',
-          subtitle: 'Share with a group',
+          title: l10n(context).group,
+          subtitle: l10n(context).shareWithAGroup,
           selected: _selectedMode == _ShareMode.group,
           onTap: () => _pickMode(_ShareMode.group),
         ),
@@ -430,15 +441,15 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
             padding: const EdgeInsets.only(left: 56, top: 8, bottom: 8),
             child: groupsAsync.when(
               loading: () => const CircularProgressIndicator(),
-              error: (_, _) => const Text('Failed to load groups'),
+              error: (_, _) => Text(l10n(context).failedToLoadGroups),
               data: (groups) {
                 if (groups.isEmpty) {
-                  return const Text('No groups available. Create one first.');
+                  return Text(l10n(context).noGroupsAvailableCreateOneFirst);
                 }
                 return DropdownButtonFormField<String>(
                   initialValue: _selectedGroupId,
-                  decoration: const InputDecoration(
-                    labelText: 'Select group',
+                  decoration: InputDecoration(
+                    labelText: l10n(context).selectGroup,
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
@@ -456,8 +467,8 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
           ),
         _PrivacyOption(
           icon: Icons.public_outlined,
-          title: 'Public',
-          subtitle: 'Anyone in the app can see this',
+          title: l10n(context).public,
+          subtitle: l10n(context).anyoneInTheAppCanSeeThis,
           selected: _selectedMode == _ShareMode.public,
           onTap: () => _pickMode(_ShareMode.public),
         ),
@@ -467,7 +478,7 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
 
   Widget _buildFriendChips(List<FriendshipModel> friends) {
     if (friends.isEmpty) {
-      return const Text('No friends yet. Add some to share with them.');
+      return Text(l10n(context).noFriendsYetAddSomeToShareWithThem);
     }
     return Wrap(
       spacing: 8,
@@ -496,18 +507,18 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
   Widget _buildRoleToggle(ThemeData theme) {
     return Row(
       children: [
-        Text('Permission', style: theme.textTheme.labelLarge),
-        const Spacer(),
+        Text(l10n(context).permission, style: theme.textTheme.labelLarge),
+        Spacer(),
         SegmentedButton<AccessRole>(
-          segments: const [
+          segments: [
             ButtonSegment(
               value: AccessRole.viewer,
-              label: Text('View'),
+              label: Text(l10n(context).view),
               icon: Icon(Icons.visibility_outlined),
             ),
             ButtonSegment(
               value: AccessRole.editor,
-              label: Text('Edit'),
+              label: Text(l10n(context).edit),
               icon: Icon(Icons.edit_outlined),
             ),
           ],
@@ -533,12 +544,12 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
           children: [
             const Icon(Icons.link),
             const SizedBox(width: 8),
-            Text('Public link', style: theme.textTheme.titleMedium),
+            Text(l10n(context).publicLink, style: theme.textTheme.titleMedium),
           ],
         ),
         const SizedBox(height: 4),
         Text(
-          'Anyone with the link can view — read-only, no account needed.',
+          l10n(context).anyoneWithTheLinkCanViewReadOnlyNoAccountNee,
           style: theme.textTheme.bodySmall,
         ),
         const SizedBox(height: 8),
@@ -607,10 +618,10 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
       contentPadding: EdgeInsets.zero,
       leading: const Icon(Icons.link),
       title: Text('Link created ${_relativeTime(t.createdAt)}'),
-      subtitle: const Text('View-only • cannot be re-copied'),
+      subtitle: Text(l10n(context).viewOnlyCannotBeReCopied),
       trailing: IconButton(
         icon: const Icon(Icons.delete_outline),
-        tooltip: 'Revoke',
+        tooltip: l10n(context).revoke,
         onPressed: () => _revokePublicToken(t.id),
       ),
     );
@@ -675,7 +686,7 @@ class _PrivacyOption extends StatelessWidget {
       subtitle: Text(subtitle),
       trailing: selected
           ? Icon(Icons.check_circle, color: theme.colorScheme.primary)
-          : const Icon(Icons.circle_outlined, color: Colors.grey),
+          : Icon(Icons.circle_outlined, color: context.mutedText),
       onTap: onTap,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
     );

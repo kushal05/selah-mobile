@@ -5,6 +5,10 @@ import '../../core/sync/engine/sync_state_machine.dart';
 import '../../core/sync/providers/sync_providers.dart';
 import '../../core/theme/app_theme.dart';
 import 'connectivity_banner.dart';
+import '../../core/services/user_facing_error.dart';
+import '../../core/providers/motion_preferences.dart';
+import '../../l10n/l10n.dart';
+import '../../core/theme/theme_colors.dart';
 
 /// Animated banner shown at the top of the app shell when the sync engine
 /// has entered the `degraded` state (too many consecutive failures —
@@ -34,10 +38,10 @@ class SyncDegradedBanner extends ConsumerWidget {
     final show = isDegraded && !isOffline;
 
     return AnimatedSize(
-      duration: const Duration(milliseconds: 300),
+      duration: context.motion(const Duration(milliseconds: 300)),
       curve: Curves.easeInOut,
       child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
+        duration: context.motion(const Duration(milliseconds: 300)),
         transitionBuilder: (child, animation) {
           final slide = Tween<Offset>(
             begin: const Offset(0, -1),
@@ -88,9 +92,9 @@ class _DegradedBannerState extends ConsumerState<_DegradedBanner> {
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Sync failed: $e'),
+          content: Text(UserFacingError.message(e, action: 'sync your data')),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.red.shade600,
+          backgroundColor: AppTheme.errorSurface,
         ),
       );
     } finally {
@@ -125,14 +129,14 @@ class _DegradedBannerState extends ConsumerState<_DegradedBanner> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.warning_amber_rounded,
-                  color: Colors.deepOrange.shade800,
+                  color: context.warningText,
                   size: AppTheme.iconSM + 1),
               const SizedBox(width: AppTheme.spacing8),
               Flexible(
                 child: Text(
-                  'Sync is degraded — tap to retry.',
+                  l10n(context).syncIsDegradedTapToRetry,
                   style: AppTheme.caption.copyWith(
-                    color: Colors.deepOrange.shade800,
+                    color: context.warningText,
                   ),
                 ),
               ),

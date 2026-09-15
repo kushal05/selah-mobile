@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/sync/models/friend_request_model.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Displays a friend request with accept/reject actions
 class FriendRequestCard extends StatelessWidget {
@@ -72,8 +74,8 @@ class FriendRequestCard extends StatelessWidget {
                     Text(
                       '@$name',
                       style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade600,
+                        fontSize: 14,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -81,10 +83,10 @@ class FriendRequestCard extends StatelessWidget {
               ),
               if (!isIncoming)
                 Text(
-                  'Pending',
+                  l10n(context).pending,
                   style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.orange.shade700,
+                    fontSize: 13,
+                    color: context.warningText,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -99,12 +101,12 @@ class FriendRequestCard extends StatelessWidget {
                     onPressed: onReject,
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.grey.shade700,
-                      side: BorderSide(color: Colors.grey.shade300),
+                      side: BorderSide(color: context.mutedText),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    child: const Text('Decline'),
+                    child: Text(l10n(context).decline),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -113,13 +115,13 @@ class FriendRequestCard extends StatelessWidget {
                     onPressed: onAccept,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.teal,
-                      foregroundColor: Colors.white,
+                      foregroundColor: AppTheme.onAccent(AppTheme.teal),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    child: const Text('Accept'),
+                    child: Text(l10n(context).accept),
                   ),
                 ),
               ],
@@ -132,12 +134,12 @@ class FriendRequestCard extends StatelessWidget {
                 onPressed: onCancel,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.red.shade600,
-                  side: BorderSide(color: Colors.red.shade300),
+                  side: BorderSide(color: context.dangerText),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: const Text('Cancel Request'),
+                child: Text(l10n(context).cancelRequest),
               ),
             ),
           ],

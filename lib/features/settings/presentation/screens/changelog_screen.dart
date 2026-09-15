@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/models/changelog_entry.dart';
 import '../providers/changelog_provider.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 class ChangelogScreen extends ConsumerWidget {
   const ChangelogScreen({super.key});
@@ -13,10 +15,10 @@ class ChangelogScreen extends ConsumerWidget {
     final entriesAsync = ref.watch(changelogProvider);
 
     return Scaffold(
-      backgroundColor: AppTheme.scaffoldGray,
+      backgroundColor: context.pageGround,
       appBar: AppBar(
         title: const Text("What's New"),
-        backgroundColor: AppTheme.scaffoldGray,
+        backgroundColor: context.pageGround,
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
@@ -27,13 +29,13 @@ class ChangelogScreen extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Failed to load changelog',
-                style: AppTheme.bodyBase.copyWith(color: AppTheme.gray600),
+                l10n(context).failedToLoadChangelog,
+                style: AppTheme.bodyBase.copyWith(color: context.subtleFill),
               ),
               const SizedBox(height: 12),
               TextButton(
                 onPressed: () => ref.invalidate(changelogProvider),
-                child: const Text('Retry'),
+                child: Text(l10n(context).retry),
               ),
             ],
           ),
@@ -41,8 +43,8 @@ class ChangelogScreen extends ConsumerWidget {
         data: (entries) => entries.isEmpty
             ? Center(
                 child: Text(
-                  'No entries yet.',
-                  style: AppTheme.bodyBase.copyWith(color: AppTheme.unselectedColor),
+                  l10n(context).noEntriesYet,
+                  style: AppTheme.bodyBase.copyWith(color: context.mutedText),
                 ),
               )
             : ListView.builder(
@@ -70,9 +72,9 @@ class _VersionCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: AppTheme.spacing12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.cardSurface,
         borderRadius: AppTheme.borderRadius3XL,
-        border: Border.all(color: AppTheme.dividerColor),
+        border: Border.all(color: context.hairline),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -98,7 +100,7 @@ class _VersionCard extends StatelessWidget {
                   child: Text(
                     'v${entry.version}',
                     style: AppTheme.caption.copyWith(
-                      color: Colors.white,
+                      color: context.cardSurface,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.3,
                     ),
@@ -108,7 +110,7 @@ class _VersionCard extends StatelessWidget {
                 Text(
                   entry.releaseDate,
                   style: AppTheme.caption
-                      .copyWith(color: AppTheme.unselectedColor),
+                      .copyWith(color: context.mutedText),
                 ),
               ],
             ),
@@ -143,7 +145,7 @@ class _ChangeRow extends StatelessWidget {
           Expanded(
             child: Text(
               item.description,
-              style: AppTheme.bodyBase.copyWith(color: AppTheme.textDark),
+              style: AppTheme.bodyBase.copyWith(color: Theme.of(context).colorScheme.onSurface),
             ),
           ),
         ],

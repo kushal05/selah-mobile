@@ -8,6 +8,10 @@ import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../widgets/friend_card.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../shared/widgets/swipe_action.dart';
 
 /// Friends list screen accessible from Settings
 class FriendsListScreen extends ConsumerWidget {
@@ -20,19 +24,19 @@ class FriendsListScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Friends'),
+        title: Text(l10n(context).friends),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         actions: [
           pendingCountAsync.when(
             loading: () => IconButton(
               icon: const Icon(Icons.mail_outline),
-              tooltip: 'Friend Requests',
+              tooltip: l10n(context).friendRequests,
               onPressed: () => context.push(Routes.friendRequests),
             ),
             error: (_, _) => IconButton(
               icon: const Icon(Icons.mail_outline),
-              tooltip: 'Friend Requests',
+              tooltip: l10n(context).friendRequests,
               onPressed: () => context.push(Routes.friendRequests),
             ),
             data: (count) => IconButton(
@@ -41,20 +45,20 @@ class FriendsListScreen extends ConsumerWidget {
                 label: Text('$count'),
                 child: const Icon(Icons.mail_outline),
               ),
-              tooltip: 'Friend Requests',
+              tooltip: l10n(context).friendRequests,
               onPressed: () => context.push(Routes.friendRequests),
             ),
           ),
           IconButton(
             icon: const Icon(Icons.person_search),
-            tooltip: 'Find Friends',
+            tooltip: l10n(context).findFriends,
             onPressed: () => context.push(Routes.friendsSearch),
           ),
         ],
       ),
       body: friendsAsync.when(
         loading: () => const ListTileSkeletonList(count: 6),
-        error: (error, stack) => Center(child: Text('Error: $error')),
+        error: (error, stack) => Center(child: Text(UserFacingError.forLoad(error))),
         data: (friends) {
           return RefreshIndicator(
             onRefresh: () async {
@@ -80,8 +84,8 @@ class FriendsListScreen extends ConsumerWidget {
                 padding: const EdgeInsets.only(bottom: 16),
                 child: Row(
                   children: [
-                    const Text(
-                      'Friends',
+                    Text(
+                      l10n(context).friends,
                       style:
                           TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                     ),
@@ -91,7 +95,7 @@ class FriendsListScreen extends ConsumerWidget {
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w500,
-                        color: Colors.grey.shade500,
+                        color: context.mutedText,
                       ),
                     ),
                   ],
@@ -107,8 +111,11 @@ class FriendsListScreen extends ConsumerWidget {
                         motion: const DrawerMotion(),
                         extentRatio: 0.2,
                         children: [
-                          SlidableAction(
-                            onPressed: (ctx) async {
+                          buildSwipeAction(
+            icon: Icons.person_remove,
+            label: l10n(context).moveToTrash,
+            accent: AppTheme.error,
+            onPressed: (ctx) async {
                               final shouldRemove =
                                   await _showRemoveConfirmation(context);
                               if (!context.mounted) return;
@@ -116,11 +123,7 @@ class FriendsListScreen extends ConsumerWidget {
                                 _removeFriend(context, ref, friend.id);
                               }
                             },
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
-                            icon: Icons.person_remove,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+          )
                         ],
                       ),
                       child: FriendCard(
@@ -170,7 +173,7 @@ class FriendsListScreen extends ConsumerWidget {
                 child: Text(
                   '$count',
                   style: const TextStyle(
-                    fontSize: 10,
+                    fontSize: 12,
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),
@@ -202,32 +205,32 @@ class FriendsListScreen extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.people_outline, size: 64, color: Colors.grey.shade400),
+            Icon(Icons.people_outline, size: 64, color: context.hintText),
             const SizedBox(height: 16),
             Text(
-              'No friends yet',
+              l10n(context).noFriendsYet,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w500,
-                color: Colors.grey.shade600,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Search for friends by username to connect',
+              l10n(context).searchForFriendsByUsernameToConnect,
               style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade500,
+                fontSize: 16,
+                color: context.mutedText,
               ),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: () => context.push(Routes.friendsSearch),
               icon: const Icon(Icons.person_search),
-              label: const Text('Find Friends'),
+              label: Text(l10n(context).findFriends),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.teal,
-                foregroundColor: Colors.white,
+                foregroundColor: AppTheme.onAccent(AppTheme.teal),
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -244,18 +247,18 @@ class FriendsListScreen extends ConsumerWidget {
     return await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Remove Friend'),
-            content: const Text(
-                'Are you sure you want to remove this friend?'),
+            title: Text(l10n(context).removeFriend),
+            content: Text(
+                l10n(context).areYouSureYouWantToRemoveThisFriend),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
+                child: Text(l10n(context).actionCancel),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Remove'),
+                child: Text(l10n(context).remove),
               ),
             ],
           ),
@@ -271,8 +274,8 @@ class FriendsListScreen extends ConsumerWidget {
       ref.invalidate(friendCountProvider);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Friend removed'),
+          SnackBar(
+            content: Text(l10n(context).friendRemoved),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -281,7 +284,7 @@ class FriendsListScreen extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to remove friend: $e'),
+            content: Text(UserFacingError.message(e, action: 'remove friend')),
             behavior: SnackBarBehavior.floating,
           ),
         );

@@ -5,6 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/domain/enums/group_enums.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Screen for creating a new group
 class CreateGroupScreen extends ConsumerStatefulWidget {
@@ -32,7 +35,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Group'),
+        title: Text(l10n(context).createGroup),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
       ),
@@ -42,12 +45,12 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Group name
-            const Text(
-              'Group Name',
+            Text(
+              l10n(context).groupName,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Colors.black87,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 8),
@@ -55,7 +58,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
               controller: _nameController,
               textCapitalization: TextCapitalization.words,
               decoration: InputDecoration(
-                hintText: 'Enter group name',
+                hintText: l10n(context).enterGroupName,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -70,12 +73,12 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
             const SizedBox(height: 24),
 
             // Group type
-            const Text(
-              'Group Type',
+            Text(
+              l10n(context).groupType,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Colors.black87,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 8),
@@ -97,7 +100,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                   labelStyle: TextStyle(
                     color: isSelected
                         ? AppTheme.teal
-                        : Colors.grey.shade700,
+                        : context.primaryText,
                     fontWeight:
                         isSelected ? FontWeight.w600 : FontWeight.normal,
                   ),
@@ -111,12 +114,12 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
             const SizedBox(height: 24),
 
             // Join policy
-            const Text(
-              'Join Policy',
+            Text(
+              l10n(context).joinPolicy,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Colors.black87,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 8),
@@ -138,7 +141,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                   labelStyle: TextStyle(
                     color: isSelected
                         ? AppTheme.teal
-                        : Colors.grey.shade700,
+                        : context.primaryText,
                     fontWeight:
                         isSelected ? FontWeight.w600 : FontWeight.normal,
                   ),
@@ -152,28 +155,28 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
             Text(
               _selectedJoinPolicy.description,
               style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade500,
+                fontSize: 13,
+                color: context.mutedText,
               ),
             ),
 
             const SizedBox(height: 24),
 
             // Description
-            const Text(
-              'Description',
+            Text(
+              l10n(context).description,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Colors.black87,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 4),
             Text(
-              'Optional',
+              l10n(context).optional,
               style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade500,
+                fontSize: 13,
+                color: context.mutedText,
               ),
             ),
             const SizedBox(height: 8),
@@ -182,7 +185,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
               maxLines: 3,
               maxLength: 250,
               decoration: InputDecoration(
-                hintText: 'What is this group about?',
+                hintText: l10n(context).whatIsThisGroupAbout,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -200,7 +203,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                 onPressed: _isCreating ? null : _createGroup,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.teal,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppTheme.onAccent(AppTheme.teal),
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
@@ -216,8 +219,8 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                           color: Colors.white,
                         ),
                       )
-                    : const Text(
-                        'Create Group',
+                    : Text(
+                        l10n(context).createGroup,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -235,8 +238,8 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a group name'),
+        SnackBar(
+          content: Text(l10n(context).pleaseEnterAGroupName),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -270,7 +273,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to create group: $e'),
+            content: Text(UserFacingError.message(e, action: 'create group')),
             behavior: SnackBarBehavior.floating,
           ),
         );

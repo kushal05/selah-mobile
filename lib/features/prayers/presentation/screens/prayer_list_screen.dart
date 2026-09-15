@@ -11,6 +11,14 @@ import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../shared/widgets/cards/prayer_card.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
 import '../../domain/models/prayer_metadata_codec.dart';
+import '../../../../shared/widgets/undo_snackbar.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../shared/widgets/empty_state.dart';
+import '../../../../shared/widgets/row_actions.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
+import '../widgets/quick_prayer_sheet.dart';
+import '../../../../shared/widgets/swipe_action.dart';
 
 /// Screen that shows prayers filtered by status (Active, Answered, Archived)
 /// or all prayers when no status filter is provided.
@@ -61,13 +69,13 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
           : FloatingActionButton(
               heroTag: null,
               backgroundColor: AppTheme.brandBlue,
-              foregroundColor: Colors.white,
-              onPressed: () => context.push('/prayers/new'),
+              foregroundColor: AppTheme.onAccent(AppTheme.brandBlue),
+              onPressed: () => showQuickPrayerSheet(context),
               child: const Icon(Icons.add),
             ),
       body: prayersAsync.when(
         loading: () => const ListTileSkeletonList(count: 8, hasLeading: false),
-        error: (error, _) => Center(child: Text('Error: $error')),
+        error: (error, _) => Center(child: Text(UserFacingError.forLoad(error))),
         data: (prayers) {
           if (prayers.isEmpty) {
             return _buildEmptyState(context);
@@ -96,50 +104,26 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
 
   Widget _buildEmptyState(BuildContext context) {
     if (_showingTrash) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.delete_outline, size: 48, color: Colors.grey.shade400),
-            const SizedBox(height: 12),
-            Text(
-              'Trash is empty',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey.shade600,
-              ),
-            ),
-          ],
-        ),
+      return EmptyTrashState(itemsLabel: l10n(context).trashLabelPrayers);
+    }
+    // A filtered view that is empty is a different situation from having no
+    // prayers at all, and needs different words — nothing is wrong here.
+    if (widget.status != null) {
+      final status = widget.status!.displayName.toLowerCase();
+      return EmptyState(
+        icon: Icons.favorite_border_rounded,
+        title: l10n(context).noStatusPrayers(status),
+        message: l10n(context).prayersYouMarkAsStatusWillShowUpHere(status),
+        accent: AppTheme.brandBlue,
       );
     }
-
-    final message = widget.status != null
-        ? 'No ${widget.status!.displayName.toLowerCase()} prayers'
-        : 'No prayers yet';
-
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.favorite_border, size: 48, color: Colors.grey.shade400),
-          const SizedBox(height: 12),
-          Text(
-            message,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey.shade600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Tap + to add a prayer request',
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-          ),
-        ],
-      ),
+    return EmptyState(
+      icon: Icons.favorite_border_rounded,
+      title: l10n(context).noPrayersYet,
+      message: l10n(context).writeDownWhatYouWantToPrayForYouCanMarkPraye,
+      actionLabel: l10n(context).addYourFirstPrayer,
+      onAction: () => showQuickPrayerSheet(context),
+      accent: AppTheme.brandBlue,
     );
   }
 }
@@ -173,23 +157,36 @@ class _PrayerListTile extends ConsumerWidget {
         motion: const DrawerMotion(),
         extentRatio: 0.2,
         children: [
-          SlidableAction(
+          buildSwipeAction(
+            icon: Icons.delete,
+            label: l10n(context).moveToTrash,
+            accent: AppTheme.error,
             onPressed: (_) async {
               final confirmed = await _showDeleteConfirmation(context);
               if (confirmed && context.mounted) {
-                ref.read(prayerRepositoryProvider).trashPrayer(prayer.id);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Moved to trash'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
+                final repo = ref.read(prayerRepositoryProvider);
+                try {
+                  await repo.trashPrayer(prayer.id);
+                } catch (e) {
+                  // Otherwise the delete fails with no feedback at all.
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(UserFacingError.message(e,
+                          action: 'move this prayer to Trash')),
+                      backgroundColor: AppTheme.errorSurface,
+                    ),
+                  );
+                  return;
+                }
+                if (!context.mounted) return;
+                showUndoSnackBar(
+                  context,
+                  itemLabel: l10n(context).prayer,
+                  onUndo: () => repo.restorePrayer(prayer.id),
                 );
               }
             },
-            backgroundColor: Colors.red,
-            foregroundColor: Colors.white,
-            icon: Icons.delete,
-            borderRadius: BorderRadius.circular(12),
           ),
         ],
       ),
@@ -202,6 +199,38 @@ class _PrayerListTile extends ConsumerWidget {
         linkedPeopleNames: linkedNames,
         showStatusBadge: showStatusBadge,
         onTap: () => context.push('/prayers/${prayer.id}'),
+        actions: [
+          RowAction(
+            icon: Icons.delete_outline_rounded,
+            label: l10n(context).moveToTrash,
+            isDestructive: true,
+            onSelected: () async {
+              final confirmed = await _showDeleteConfirmation(context);
+              if (!confirmed || !context.mounted) return;
+              final repo = ref.read(prayerRepositoryProvider);
+              try {
+                await repo.trashPrayer(prayer.id);
+              } catch (e) {
+                // Otherwise the delete fails with no feedback at all.
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(UserFacingError.message(e,
+                        action: 'move this prayer to Trash')),
+                    backgroundColor: AppTheme.errorSurface,
+                  ),
+                );
+                return;
+              }
+              if (!context.mounted) return;
+              showUndoSnackBar(
+                context,
+                itemLabel: 'Prayer',
+                onUndo: () => repo.restorePrayer(prayer.id),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -221,18 +250,18 @@ class _PrayerListTile extends ConsumerWidget {
     return await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Move to Trash'),
+            title: Text(l10n(context).moveToTrash),
             content:
-                const Text('Are you sure you want to move this prayer to trash?'),
+                Text(l10n(context).areYouSureYouWantToMoveThisPrayerToTrash),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
+                child: Text(l10n(context).actionCancel),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Move to Trash'),
+                child: Text(l10n(context).moveToTrash),
               ),
             ],
           ),
@@ -251,27 +280,27 @@ class _TrashedPrayerListTile extends ConsumerWidget {
     return ListTile(
       title: Text(
         prayer.title,
-        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(
         prayer.frequency.displayName,
-        style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+        style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
             icon: const Icon(Icons.restore),
-            tooltip: 'Restore',
+            tooltip: l10n(context).restore,
             onPressed: () async {
               try {
                 await ref.read(prayerRepositoryProvider).restorePrayer(prayer.id);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Prayer restored'),
+                    SnackBar(
+                      content: Text(l10n(context).prayerRestored),
                       behavior: SnackBarBehavior.floating,
                     ),
                   );
@@ -280,9 +309,9 @@ class _TrashedPrayerListTile extends ConsumerWidget {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Failed to restore: $e'),
+                      content: Text(UserFacingError.message(e, action: 'restore')),
                       behavior: SnackBarBehavior.floating,
-                      backgroundColor: Colors.red,
+                      backgroundColor: AppTheme.errorSurface,
                     ),
                   );
                 }
@@ -291,25 +320,25 @@ class _TrashedPrayerListTile extends ConsumerWidget {
           ),
           IconButton(
             icon: const Icon(Icons.delete_forever),
-            tooltip: 'Delete permanently',
-            color: Colors.red,
+            tooltip: l10n(context).deletePermanently,
+            color: context.dangerText,
             onPressed: () async {
               final confirmed = await showDialog<bool>(
                     context: context,
                     builder: (context) => AlertDialog(
-                      title: const Text('Delete Permanently'),
-                      content: const Text(
-                          'This prayer will be permanently deleted. This cannot be undone.'),
+                      title: Text(l10n(context).deletePermanently),
+                      content: Text(
+                          l10n(context).thisPrayerWillBePermanentlyDeletedThisCannot),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.of(context).pop(false),
-                          child: const Text('Cancel'),
+                          child: Text(l10n(context).actionCancel),
                         ),
                         TextButton(
                           onPressed: () => Navigator.of(context).pop(true),
                           style:
                               TextButton.styleFrom(foregroundColor: Colors.red),
-                          child: const Text('Delete'),
+                          child: Text(l10n(context).actionDelete),
                         ),
                       ],
                     ),
@@ -322,8 +351,8 @@ class _TrashedPrayerListTile extends ConsumerWidget {
                       .deletePrayer(prayer.id);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Prayer permanently deleted'),
+                      SnackBar(
+                        content: Text(l10n(context).prayerPermanentlyDeleted),
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
@@ -332,9 +361,9 @@ class _TrashedPrayerListTile extends ConsumerWidget {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Failed to delete: $e'),
+                        content: Text(UserFacingError.message(e, action: 'delete')),
                         behavior: SnackBarBehavior.floating,
-                        backgroundColor: Colors.red,
+                        backgroundColor: AppTheme.errorSurface,
                       ),
                     );
                   }

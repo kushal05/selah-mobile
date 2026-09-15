@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/providers/motion_preferences.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../prayers/presentation/widgets/quick_prayer_sheet.dart';
 
 /// Displays the daily focus prayer card on the home dashboard.
 /// Uses a branded blue gradient with glass-style action button.
@@ -19,8 +22,11 @@ class DailyFocusCard extends ConsumerWidget {
       error: (_, _) => _buildCard(context, null, null),
       data: (prayers) {
         if (prayers.isEmpty) return _buildCard(context, null, null);
-        final dayOfYear =
-            DateTime.now().difference(DateTime(DateTime.now().year)).inDays;
+        // One clock read, not three. The old expression called DateTime.now()
+        // twice and could straddle midnight or a new year between them, which
+        // would pick a different prayer than the one it computed the day for.
+        final now = DateTime.now();
+        final dayOfYear = now.difference(DateTime(now.year)).inDays;
         final prayer = prayers[dayOfYear % prayers.length];
         return _buildCard(context, prayer.title, prayer.id);
       },
@@ -72,7 +78,7 @@ class DailyFocusCard extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'DAILY FOCUS',
+                  l10n(context).dailyFocus,
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.7),
                     fontSize: AppTheme.tiny.fontSize,
@@ -106,9 +112,12 @@ class DailyFocusCard extends ConsumerWidget {
                 const SizedBox(height: 18),
                 _GlassActionButton(
                   label: prayerId != null ? 'Open Prayer' : 'Add Prayer',
+                  // push keeps Home underneath, so Back returns here; and
+                  // the empty case opens the quick sheet rather than the long
+                  // form, matching every other 'add prayer' entry point.
                   onPressed: prayerId != null
-                      ? () => context.go('/prayers/$prayerId')
-                      : () => context.go('/prayers/new'),
+                      ? () => context.push('/prayers/$prayerId')
+                      : () => showQuickPrayerSheet(context),
                 ),
               ],
             ),
@@ -155,16 +164,19 @@ class _GlassActionButtonState extends State<_GlassActionButton> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+      // The action lives on onTap, not onTapUp: only onTap contributes a tap
+      // action to the semantics tree, so an onTapUp-only control is inert to
+      // TalkBack and VoiceOver. onTapUp still resets the press animation.
+      onTap: widget.onPressed,
       onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onPressed();
-      },
+      onTapUp: (_) => setState(() => _pressed = false),
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedScale(
-        scale: _pressed ? 0.96 : 1.0,
-        duration: AppTheme.durationFast,
+        scale: _pressed ? context.pressScale(0.96) : 1.0,
+        duration: context.motion(AppTheme.durationFast),
         child: Container(
           padding:
               const EdgeInsets.symmetric(horizontal: AppTheme.spacing20, vertical: AppTheme.spacing10),
@@ -187,6 +199,7 @@ class _GlassActionButtonState extends State<_GlassActionButton> {
           ),
         ),
       ),
+    ),
     );
   }
 }

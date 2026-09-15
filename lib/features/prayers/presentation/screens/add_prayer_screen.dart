@@ -7,6 +7,10 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../domain/models/prayer_metadata_codec.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../shared/widgets/selectable_chip.dart';
 
 /// Screen for adding a new prayer
 /// Provides form fields for title, description, status, reminder, and tags
@@ -118,7 +122,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
     return Container(
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Colors.grey.shade200),
+          bottom: BorderSide(color: context.hairline),
         ),
       ),
       padding: const EdgeInsets.only(bottom: 6),
@@ -127,17 +131,17 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
         children: [
           _FormatButton(
             icon: Icons.format_list_bulleted,
-            tooltip: 'Bullet list',
+            tooltip: l10n(context).bulletList,
             onTap: () => _toggleLineFormat(_bulletPrefix),
           ),
           _FormatButton(
             icon: Icons.format_list_numbered,
-            tooltip: 'Numbered list',
+            tooltip: l10n(context).numberedList,
             onTap: _applyNumberedList,
           ),
           _FormatButton(
             icon: Icons.check_box_outline_blank,
-            tooltip: 'Checkbox',
+            tooltip: l10n(context).checkbox,
             onTap: () => _toggleLineFormat(_checkboxUnchecked),
           ),
         ],
@@ -161,14 +165,15 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         leading: IconButton(
+          tooltip: l10n(context).close,
           icon: const Icon(Icons.close),
           onPressed: () => _handleClose(context),
         ),
-        title: const Text('New Prayer'),
+        title: Text(l10n(context).newPrayer),
         actions: [
           TextButton(
             onPressed: _handleSave,
-            child: const Text('Save'),
+            child: Text(l10n(context).actionSave),
           ),
         ],
       ),
@@ -218,10 +223,10 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
     return TextFormField(
       controller: _titleController,
       decoration: InputDecoration(
-        labelText: 'Title',
-        hintText: 'What would you like to pray for?',
+        labelText: l10n(context).title,
+        hintText: l10n(context).whatWouldYouLikeToPrayFor,
         floatingLabelBehavior: FloatingLabelBehavior.always,
-        prefixIcon: Icon(Icons.edit_outlined, color: Colors.grey.shade400),
+        prefixIcon: Icon(Icons.edit_outlined, color: context.hintText),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
@@ -245,11 +250,11 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
         labelStyle: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
-          color: Colors.grey.shade700,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
         hintStyle: TextStyle(
-          fontSize: 15,
-          color: Colors.grey.shade400,
+          fontSize: 16,
+          color: context.hintText,
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
@@ -271,7 +276,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
   Widget _buildDescriptionField() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: context.subtleFill,
         borderRadius: BorderRadius.circular(16),
       ),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -279,33 +284,24 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Description',
+            l10n(context).description,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 8),
           _buildFormattingToolbar(),
           TextField(
             controller: _descriptionController,
-            decoration: InputDecoration(
-              hintText: 'Share the details of your prayer request...',
-              border: InputBorder.none,
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
-              hintStyle: TextStyle(
-                fontSize: 15,
-                color: Colors.grey.shade400,
-              ),
-            ),
+            decoration: AppTheme.inlineInput(hint: l10n(context).shareTheDetailsOfYourPrayerRequest),
             maxLines: null,
             minLines: 3,
             textCapitalization: TextCapitalization.sentences,
             textInputAction: TextInputAction.newline,
             style: const TextStyle(
-              fontSize: 15,
+              fontSize: 16,
               height: 1.5,
             ),
           ),
@@ -319,11 +315,11 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Status',
+          l10n(context).status,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Colors.grey.shade700,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 8),
@@ -380,11 +376,11 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Reminder',
+          l10n(context).reminder,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Colors.grey.shade700,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 8),
@@ -423,7 +419,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
                 });
               },
               icon: const Icon(Icons.clear, size: 16),
-              label: const Text('Clear reminder'),
+              label: Text(l10n(context).clearReminder),
               style: TextButton.styleFrom(
                 foregroundColor: Colors.grey.shade600,
               ),
@@ -438,11 +434,11 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Recurring',
+          l10n(context).recurring,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Colors.grey.shade700,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 8),
@@ -450,7 +446,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
           spacing: 8,
           children: [
             ChoiceChip(
-              label: const Text('None'),
+              label: Text(l10n(context).none),
               selected: _recurrence == null,
               onSelected: (selected) {
                 if (selected) {
@@ -475,7 +471,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
               ),
             ),
             ChoiceChip(
-              label: const Text('Daily'),
+              label: Text(l10n(context).daily),
               selected: _recurrence == 'Daily',
               onSelected: (selected) {
                 if (selected) {
@@ -500,7 +496,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
               ),
             ),
             ChoiceChip(
-              label: const Text('Weekly'),
+              label: Text(l10n(context).weekly),
               selected: _recurrence == 'Weekly',
               onSelected: (selected) {
                 if (selected) {
@@ -537,7 +533,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
   }) {
     final bool hasValue = !label.startsWith('Set');
     return Material(
-      color: Colors.grey.shade50,
+      color: context.subtleFill,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -551,7 +547,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
                 decoration: BoxDecoration(
                   color: hasValue
                       ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
-                      : Colors.grey.shade200,
+                      : context.subtleFill,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
@@ -559,7 +555,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
                   size: 18,
                   color: hasValue
                       ? Theme.of(context).primaryColor
-                      : Colors.grey.shade500,
+                      : context.mutedText,
                 ),
               ),
               const SizedBox(width: 12),
@@ -567,7 +563,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
                 child: Text(
                   label,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 16,
                     fontWeight: hasValue ? FontWeight.w500 : FontWeight.normal,
                     color: hasValue ? Colors.grey.shade800 : Colors.grey.shade500,
                   ),
@@ -588,11 +584,11 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Tags',
+          l10n(context).tags,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Colors.grey.shade700,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 8),
@@ -600,7 +596,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            ..._tags.map((tag) => _SelectableChip(
+            ..._tags.map((tag) => SelectableChip(
                   label: tag,
                   isSelected: true,
                   onTap: () {
@@ -615,7 +611,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
         if (_isAddingTag)
           Container(
             decoration: BoxDecoration(
-              color: Colors.grey.shade50,
+              color: context.subtleFill,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -625,8 +621,8 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
                     controller: _tagController,
                     focusNode: _tagInputFocusNode,
                     decoration: InputDecoration(
-                      hintText: 'Enter tag name...',
-                      prefixIcon: Icon(Icons.label_outline, size: 20, color: Colors.grey.shade400),
+                      hintText: l10n(context).enterTagName,
+                      prefixIcon: Icon(Icons.label_outline, size: 20, color: context.hintText),
                       filled: true,
                       fillColor: Colors.transparent,
                       isDense: true,
@@ -635,17 +631,18 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
                       enabledBorder: InputBorder.none,
                       focusedBorder: InputBorder.none,
                       hintStyle: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade400,
+                        fontSize: 16,
+                        color: context.hintText,
                       ),
                     ),
-                    style: const TextStyle(fontSize: 14),
+                    style: const TextStyle(fontSize: 16),
                     textCapitalization: TextCapitalization.words,
                     onSubmitted: _submitTag,
                   ),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
+                  tooltip: l10n(context).addTag,
                   icon: Icon(
                     Icons.check,
                     color: Theme.of(context).primaryColor,
@@ -653,9 +650,10 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
                   onPressed: () => _submitTag(_tagController.text),
                 ),
                 IconButton(
+                  tooltip: l10n(context).actionCancel,
                   icon: Icon(
                     Icons.close,
-                    color: Colors.grey.shade500,
+                    color: context.mutedText,
                   ),
                   onPressed: () {
                     FocusScope.of(context).unfocus();
@@ -677,7 +675,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
               });
             },
             icon: const Icon(Icons.add, size: 18),
-            label: const Text('Add tag'),
+            label: Text(l10n(context).addTag),
           ),
       ],
     );
@@ -690,17 +688,17 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Linked People',
+          l10n(context).linkedPeople,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Colors.grey.shade700,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 8),
         peopleAsync.when(
           loading: () => const Column(children: [ListTileSkeleton(), ListTileSkeleton()]),
-          error: (error, _) => Text('Error loading people: $error'),
+          error: (error, _) => Text(UserFacingError.forLoad(error)),
           data: (people) {
             if (people.isEmpty && _linkedPeopleIds.isEmpty) {
               return _buildEmptyPeoplePrompt();
@@ -717,7 +715,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
                     children: _linkedPeopleIds.map((id) {
                       final person = people.where((p) => p.id == id).firstOrNull;
                       final name = person?.name ?? 'Unknown';
-                      return _SelectableChip(
+                      return SelectableChip(
                         label: name,
                         isSelected: true,
                         onTap: () {
@@ -737,7 +735,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
                   runSpacing: 8,
                   children: people
                       .where((p) => !_linkedPeopleIds.contains(p.id))
-                      .map((person) => _SelectableChip(
+                      .map((person) => SelectableChip(
                             label: person.name,
                             isSelected: false,
                             onTap: () {
@@ -769,22 +767,22 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
       ),
       child: Column(
         children: [
-          Icon(Icons.people_outline, size: 32, color: Colors.grey.shade400),
+          Icon(Icons.people_outline, size: 32, color: context.hintText),
           const SizedBox(height: 8),
           Text(
-            'No people added yet',
+            l10n(context).noPeopleAddedYet,
             style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade600,
+              fontSize: 16,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 4),
           Text(
-            'Add a person to link to this prayer',
+            l10n(context).addAPersonToLinkToThisPrayer,
             style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey.shade500,
+              fontSize: 14,
+              color: context.mutedText,
             ),
           ),
           const SizedBox(height: 12),
@@ -798,7 +796,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
     return TextButton.icon(
       onPressed: _showAddPersonDialog,
       icon: const Icon(Icons.person_add, size: 18),
-      label: const Text('Add person'),
+      label: Text(l10n(context).addPerson),
     );
   }
 
@@ -808,13 +806,13 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Add Person'),
+          title: Text(l10n(context).addPerson),
           content: TextField(
             controller: nameController,
             autofocus: true,
             textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(
-              labelText: 'Name',
+            decoration: InputDecoration(
+              labelText: l10n(context).name,
               hintText: 'Enter person\'s name',
             ),
             onSubmitted: (value) {
@@ -826,7 +824,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+              child: Text(l10n(context).actionCancel),
             ),
             TextButton(
               onPressed: () {
@@ -835,7 +833,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
                   Navigator.of(context).pop(name);
                 }
               },
-              child: const Text('Add'),
+              child: Text(l10n(context).add),
             ),
           ],
         );
@@ -916,19 +914,19 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Discard changes?'),
-          content: const Text('You have unsaved changes. Are you sure you want to discard them?'),
+          title: Text(l10n(context).discardChanges),
+          content: Text(l10n(context).youHaveUnsavedChangesAreYouSureYouWantToDisc),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text(l10n(context).actionCancel),
             ),
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
                 context.pop();
               },
-              child: const Text('Discard'),
+              child: Text(l10n(context).discard),
             ),
           ],
         ),
@@ -984,8 +982,8 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Prayer saved successfully'),
+            SnackBar(
+              content: Text(l10n(context).prayerSavedSuccessfully),
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -995,9 +993,9 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error saving prayer: $e'),
+              content: Text(UserFacingError.message(e, action: 'save this prayer')),
               behavior: SnackBarBehavior.floating,
-              backgroundColor: Colors.red,
+              backgroundColor: AppTheme.errorSurface,
             ),
           );
         }
@@ -1074,71 +1072,10 @@ class _FormatButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          child: Icon(icon, size: 20, color: Colors.grey.shade700),
+          child: Icon(icon, size: 20, color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
       ),
     );
   }
 }
 
-/// A selectable chip widget for tags and people
-class _SelectableChip extends StatelessWidget {
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final bool showDelete;
-  final IconData? icon;
-
-  const _SelectableChip({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-    this.showDelete = false,
-    this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? theme.colorScheme.primary : Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(
-                icon,
-                size: 16,
-                color: isSelected ? Colors.white : Colors.grey.shade700,
-              ),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                color: isSelected ? Colors.white : Colors.grey.shade700,
-              ),
-            ),
-            if (showDelete && isSelected) ...[
-              const SizedBox(width: 4),
-              Icon(
-                Icons.close,
-                size: 16,
-                color: Colors.white.withValues(alpha: 0.8),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}

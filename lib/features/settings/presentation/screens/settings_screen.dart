@@ -14,10 +14,16 @@ import '../../../../core/services/app_update_service.dart';
 import '../../../../core/sync/engine/sync_state_machine.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/dialogs/reading_text_size_sheet.dart';
+import '../../../../shared/widgets/dialogs/theme_mode_sheet.dart';
 import '../../../../core/tutorial/tutorial_providers.dart';
 import '../../../../shared/widgets/dialogs/build_selection_dialog.dart';
 import '../../../../shared/widgets/dialogs/update_dialog.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../shared/widgets/section_label.dart';
 
 /// Settings screen with account, sync, data, and about sections
 class SettingsScreen extends ConsumerWidget {
@@ -26,38 +32,31 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      backgroundColor: AppTheme.scaffoldGray,
+      backgroundColor: context.pageGround,
       appBar: AppBar(
-        title: const Text('Settings'),
-        backgroundColor: AppTheme.scaffoldGray,
+        title: Text(l10n(context).settings),
+        backgroundColor: context.pageGround,
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 40),
         children: [
-          // ── Social ────────────────────────────────────────────────
+          // ── Account ───────────────────────────────────────────────
+          // Friends and Groups used to be listed here as well as in the Social
+          // tab — via the deprecated pre-v21 routes, so the same screens were
+          // reachable by two paths with two different back stacks. The Social
+          // tab owns them now; only the profile, which is genuinely a setting,
+          // stays.
           _SettingsSection(
-            id: 'social',
-            title: 'SOCIAL',
+            id: 'account',
+            title: l10n(context).account,
             tiles: [
               _SettingsTile(
                 icon: Icons.badge_outlined,
-                title: 'My Profile',
-                subtitle: 'Set your username and display name',
+                title: l10n(context).myProfile,
+                subtitle: l10n(context).setYourUsernameAndDisplayName,
                 onTap: () => context.push(Routes.socialProfileSettings),
-              ),
-              _SettingsTile(
-                icon: Icons.people_outline,
-                title: 'Friends',
-                subtitle: 'Manage your friends list',
-                onTap: () => context.push(Routes.friends),
-              ),
-              _SettingsTile(
-                icon: Icons.groups_outlined,
-                title: 'Groups',
-                subtitle: 'Your prayer and community groups',
-                onTap: () => context.push(Routes.groups),
               ),
             ],
           ),
@@ -65,13 +64,35 @@ class SettingsScreen extends ConsumerWidget {
           // ── Notifications ─────────────────────────────────────────
           _SettingsSection(
             id: 'notifications',
-            title: 'NOTIFICATIONS',
+            title: l10n(context).notifications2,
             tiles: [
               _SettingsTile(
                 icon: Icons.notifications_outlined,
-                title: 'Notification Settings',
-                subtitle: 'Reminders, social alerts, and habits',
+                title: l10n(context).notificationSettings,
+                subtitle: l10n(context).remindersSocialAlertsAndHabits,
                 onTap: () => context.push(Routes.notificationSettings),
+              ),
+            ],
+          ),
+
+          // ── Display ──────────────────────────────────────────────
+          _SettingsSection(
+            id: 'display',
+            title: l10n(context).display,
+            tiles: [
+              _SettingsTile(
+                icon: Icons.format_size_rounded,
+                title: l10n(context).textSize2,
+                subtitle: l10n(context).makeBiblePassagesNotesAndLyricsBigger,
+                onTap: () => showReadingTextSizeSheet(context),
+                showChevron: false,
+              ),
+              _SettingsTile(
+                icon: Icons.brightness_6_outlined,
+                title: l10n(context).settingsAppearance,
+                subtitle: l10n(context).lightDarkOrMatchYourPhone,
+                onTap: () => showThemeModeSheet(context),
+                showChevron: false,
               ),
             ],
           ),
@@ -79,12 +100,12 @@ class SettingsScreen extends ConsumerWidget {
           // ── Bible ────────────────────────────────────────────────
           _SettingsSection(
             id: 'bible',
-            title: 'BIBLE',
+            title: l10n(context).bible,
             tiles: [
               _SettingsTile(
                 icon: Icons.menu_book_outlined,
-                title: 'Bible Versions',
-                subtitle: 'Download or remove Bible translations',
+                title: l10n(context).bibleVersions,
+                subtitle: l10n(context).downloadOrRemoveBibleTranslations,
                 onTap: () => context.push(Routes.bibleVersions),
               ),
             ],
@@ -93,12 +114,12 @@ class SettingsScreen extends ConsumerWidget {
           // ── Support ───────────────────────────────────────────────
           _SettingsSection(
             id: 'support',
-            title: 'SUPPORT',
+            title: l10n(context).support2,
             tiles: [
               _SettingsTile(
                 icon: Icons.feedback_outlined,
-                title: 'Send Feedback',
-                subtitle: 'Report bugs, request features',
+                title: l10n(context).sendFeedback,
+                subtitle: l10n(context).reportBugsRequestFeatures,
                 onTap: () => context.push(Routes.feedback),
               ),
             ],
@@ -107,12 +128,12 @@ class SettingsScreen extends ConsumerWidget {
           // ── Sync ──────────────────────────────────────────────────
           _SettingsSection(
             id: 'sync',
-            title: 'SYNC',
+            title: l10n(context).sync,
             tiles: [
               _SettingsTile(
                 icon: Icons.cloud_sync_outlined,
-                title: 'Sync Status',
-                subtitle: 'View sync details',
+                title: l10n(context).checkSync,
+                subtitle: l10n(context).seeWhetherYourDataIsUpToDate,
                 onTap: () => context.push(Routes.syncStatus),
               ),
             ],
@@ -121,38 +142,38 @@ class SettingsScreen extends ConsumerWidget {
           // ── Data ──────────────────────────────────────────────────
           _SettingsSection(
             id: 'data',
-            title: 'DATA',
+            title: l10n(context).data2,
             tiles: [
               _SettingsTile(
                 icon: Icons.label_outline,
-                title: 'Tags',
-                subtitle: 'Rename, merge, or delete tags',
+                title: l10n(context).tags,
+                subtitle: l10n(context).renameMergeOrDeleteTags,
                 onTap: () => context.push(Routes.tagManagement),
               ),
               _SettingsTile(
                 icon: Icons.delete_outline,
-                title: 'Trash',
-                subtitle: 'View and restore deleted items',
+                title: l10n(context).trash,
+                subtitle: l10n(context).viewAndRestoreDeletedItems,
                 onTap: () => context.push(Routes.trash),
               ),
               _SettingsTile(
                 icon: Icons.file_download_outlined,
-                title: 'Export All Data (JSON)',
-                subtitle: 'Download a backup of all your data',
+                title: l10n(context).backUpMyData,
+                subtitle: l10n(context).saveACopyOfEverythingToYourDevice,
                 onTap: () => _handleJsonExport(context, ref),
                 showChevron: false,
               ),
               _SettingsTile(
                 icon: Icons.picture_as_pdf_outlined,
-                title: 'Export Prayers (PDF)',
-                subtitle: 'Export active prayers as a PDF',
+                title: l10n(context).savePrayersAsAPdf,
+                subtitle: l10n(context).aPrintableCopyOfYourActivePrayers,
                 onTap: () => _handlePrayersPdfExport(context, ref),
                 showChevron: false,
               ),
               _SettingsTile(
                 icon: Icons.cloud_upload_outlined,
-                title: 'Force Push Data to DB',
-                subtitle: 'Push all local data to the remote database',
+                title: l10n(context).reUploadEverything,
+                subtitle: l10n(context).advancedOnlyNeededIfSupportAsksYouTo,
                 onTap: () => _handleForcePush(context, ref),
                 showChevron: false,
               ),
@@ -160,25 +181,25 @@ class SettingsScreen extends ConsumerWidget {
           ),
 
           // ── Usage ─────────────────────────────────────────────────
-          const _SectionLabel(title: 'USAGE'),
+          const SectionLabel('USAGE'),
           Consumer(
             builder: (context, ref, _) {
               final statsAsync = ref.watch(userStatsProvider);
               return _SettingsGroup(
                 tiles: statsAsync.when(
                   loading: () => [
-                    const _SettingsTile(
+                    _SettingsTile(
                       icon: Icons.hourglass_empty,
-                      title: 'Loading stats...',
+                      title: l10n(context).loadingStats,
                       showChevron: false,
                     ),
                   ],
                   error: (_, _) => [
                     _SettingsTile(
                       icon: Icons.error_outline,
-                      iconColor: AppTheme.gray400,
-                      title: 'Unable to load stats',
-                      subtitle: 'Tap to retry',
+                      iconColor: context.hintText,
+                      title: l10n(context).unableToLoadStats,
+                      subtitle: l10n(context).tapToRetry,
                       onTap: () => ref.invalidate(userStatsProvider),
                       showChevron: false,
                     ),
@@ -186,40 +207,40 @@ class SettingsScreen extends ConsumerWidget {
                   data: (stats) => [
                     _SettingsTile(
                       icon: Icons.storage_outlined,
-                      title: 'Storage used',
+                      title: l10n(context).storageUsed,
                       showChevron: false,
                       trailing: Text(
                         stats.formattedStorage,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          color: AppTheme.textDark,
+                          fontSize: 16,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     ),
                     _SettingsTile(
                       icon: Icons.note_outlined,
-                      title: 'Total notes',
+                      title: l10n(context).totalNotes,
                       showChevron: false,
                       trailing: Text(
                         '${stats.noteCount}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          color: AppTheme.textDark,
+                          fontSize: 16,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     ),
                     _SettingsTile(
                       icon: Icons.favorite_outline,
-                      title: 'Total prayers',
+                      title: l10n(context).totalPrayers2,
                       showChevron: false,
                       trailing: Text(
                         '${stats.prayerCount}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          color: AppTheme.textDark,
+                          fontSize: 16,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     ),
@@ -230,7 +251,7 @@ class SettingsScreen extends ConsumerWidget {
           ),
 
           // ── About ─────────────────────────────────────────────────
-          const _SectionLabel(title: 'ABOUT'),
+          const SectionLabel('ABOUT'),
           Consumer(
             builder: (context, ref, _) {
               final pkgAsync = ref.watch(packageInfoProvider);
@@ -240,13 +261,13 @@ class SettingsScreen extends ConsumerWidget {
                   _SettingsTile(
                     icon: Icons.history_outlined,
                     title: "What's New",
-                    subtitle: 'View recent changes and updates',
+                    subtitle: l10n(context).viewRecentChangesAndUpdates,
                     onTap: () => context.push(Routes.changelog),
                   ),
                   _SettingsTile(
                     icon: Icons.map_outlined,
-                    title: 'Replay App Tour',
-                    subtitle: 'Re-run the feature walkthrough',
+                    title: l10n(context).replayAppTour,
+                    subtitle: l10n(context).reRunTheFeatureWalkthrough,
                     showChevron: false,
                     onTap: () async {
                       await ref.read(tutorialServiceProvider).resetForReplay();
@@ -258,14 +279,14 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                   _SettingsTile(
                     icon: Icons.system_update_alt_outlined,
-                    title: 'Check for Updates',
+                    title: l10n(context).checkForUpdates,
                     subtitle: 'Version $version',
                     showChevron: false,
                     onTap: () => _handleCheckForUpdates(context, ref),
                   ),
                   _SettingsTile(
                     icon: Icons.info_outline,
-                    title: 'About Selah',
+                    title: l10n(context).aboutSelah,
                     subtitle: 'Version $version',
                     showChevron: false,
                     onTap: () {
@@ -304,7 +325,7 @@ class SettingsScreen extends ConsumerWidget {
             tiles: [
               _SettingsTile(
                 icon: Icons.logout_rounded,
-                title: 'Sign Out',
+                title: l10n(context).signOut,
                 iconColor: Colors.red.shade600,
                 titleColor: Colors.red.shade600,
                 onTap: () => _handleSignOut(context, ref),
@@ -319,8 +340,8 @@ class SettingsScreen extends ConsumerWidget {
 
   Future<void> _handleJsonExport(BuildContext context, WidgetRef ref) async {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Preparing export...'),
+      SnackBar(
+        content: Text(l10n(context).preparingExport),
         behavior: SnackBarBehavior.floating,
         duration: Duration(seconds: 1),
       ),
@@ -331,7 +352,7 @@ class SettingsScreen extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Export failed: $e'),
+            content: Text(UserFacingError.message(e, action: 'export your data')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -343,19 +364,18 @@ class SettingsScreen extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Force Push Data'),
-        content: const Text(
-          'This will push all local data to the remote database. '
-          'This may take a while depending on the amount of data. Continue?',
+        title: Text(l10n(context).forcePushData),
+        content: Text(
+          l10n(context).thisWillPushAllLocalDataToTheRemoteDatabaseT,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(l10n(context).actionCancel),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Push'),
+            child: Text(l10n(context).push),
           ),
         ],
       ),
@@ -375,8 +395,8 @@ class SettingsScreen extends ConsumerWidget {
     WidgetRef ref,
   ) async {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Generating PDF...'),
+      SnackBar(
+        content: Text(l10n(context).generatingPdf),
         behavior: SnackBarBehavior.floating,
         duration: Duration(seconds: 1),
       ),
@@ -387,7 +407,7 @@ class SettingsScreen extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('PDF export failed: $e'),
+            content: Text(UserFacingError.message(e, action: 'create the PDF')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -414,8 +434,8 @@ class SettingsScreen extends ConsumerWidget {
     WidgetRef ref,
   ) async {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Loading available builds…'),
+      SnackBar(
+        content: Text(l10n(context).loadingAvailableBuilds),
         behavior: SnackBarBehavior.floating,
         duration: Duration(seconds: 2),
       ),
@@ -431,8 +451,8 @@ class SettingsScreen extends ConsumerWidget {
 
     if (builds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No builds available right now.'),
+        SnackBar(
+          content: Text(l10n(context).noBuildsAvailableRightNow),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -526,18 +546,18 @@ class SettingsScreen extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Sign Out'),
-        content: const Text('Are you sure you want to sign out?'),
+        title: Text(l10n(context).signOut),
+        content: Text(l10n(context).areYouSureYouWantToSignOut),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(l10n(context).actionCancel),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             child: Text(
-              'Sign Out',
-              style: TextStyle(color: Colors.red.shade600),
+              l10n(context).signOut,
+              style: TextStyle(color: context.dangerText),
             ),
           ),
         ],
@@ -552,30 +572,6 @@ class SettingsScreen extends ConsumerWidget {
 
 // ─── Section Label ────────────────────────────────────────────────────────────
 
-class _SectionLabel extends StatelessWidget {
-  final String title;
-  const _SectionLabel({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppTheme.spacing20,
-        AppTheme.spacing20,
-        AppTheme.spacing20,
-        AppTheme.spacing6,
-      ),
-      child: Text(
-        title,
-        style: AppTheme.tiny.copyWith(
-          fontWeight: FontWeight.w600,
-          color: AppTheme.unselectedColor,
-          letterSpacing: 0.8,
-        ),
-      ),
-    );
-  }
-}
 
 // ─── Settings Group (Card) ────────────────────────────────────────────────────
 
@@ -596,7 +592,7 @@ class _SettingsGroup extends StatelessWidget {
         color: dangerTint ? Colors.red.shade50 : Colors.white,
         borderRadius: AppTheme.borderRadius3XL,
         border: Border.all(
-          color: dangerTint ? Colors.red.shade100 : AppTheme.dividerColor,
+          color: dangerTint ? Colors.red.shade100 : context.hairline,
         ),
         boxShadow: [
           BoxShadow(
@@ -617,7 +613,7 @@ class _SettingsGroup extends StatelessWidget {
                   height: 1,
                   thickness: 0.5,
                   indent: 56,
-                  color: AppTheme.dividerColor,
+                  color: context.pageGround,
                 ),
             ],
           ],
@@ -653,7 +649,7 @@ class _SettingsSection extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionLabel(title: title),
+        SectionLabel(title),
         _SettingsGroup(tiles: tiles),
       ],
     );
@@ -685,8 +681,8 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconFg = iconColor ?? AppTheme.gray600;
-    final titleFg = titleColor ?? AppTheme.textDark;
+    final iconFg = iconColor ?? context.mutedText;
+    final titleFg = titleColor ?? context.primaryText;
 
     return ListTile(
       onTap: onTap,
@@ -701,7 +697,7 @@ class _SettingsTile extends StatelessWidget {
       subtitle: subtitle != null
           ? Text(
               subtitle!,
-              style: AppTheme.caption.copyWith(color: AppTheme.unselectedColor),
+              style: AppTheme.caption.copyWith(color: context.mutedText),
             )
           : null,
       trailing:
@@ -709,7 +705,7 @@ class _SettingsTile extends StatelessWidget {
           (showChevron
               ? Icon(
                   Icons.chevron_right_rounded,
-                  color: AppTheme.chevronColor,
+                  color: context.decorativeInk,
                   size: AppTheme.iconBase,
                 )
               : null),
@@ -839,7 +835,7 @@ class _ForcePushProgressDialogState extends State<_ForcePushProgressDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Force Push Data'),
+      title: Text(l10n(context).forcePushData),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -857,7 +853,7 @@ class _ForcePushProgressDialogState extends State<_ForcePushProgressDialog> {
         if (_done)
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            child: Text(l10n(context).close),
           ),
       ],
     );
@@ -996,8 +992,8 @@ class _SilentUpdateDialogState extends State<_SilentUpdateDialog> {
       canPop: !_downloading,
       child: AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Updating Selah',
+        title: Text(
+          l10n(context).updatingSelah,
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         content: Column(
@@ -1011,9 +1007,9 @@ class _SilentUpdateDialogState extends State<_SilentUpdateDialog> {
             Text(
               statusText,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 14,
                 color: _error != null
-                    ? Colors.red.shade600
+                    ? context.dangerText
                     : const Color(0xFF6B7280),
               ),
             ),
@@ -1023,34 +1019,34 @@ class _SilentUpdateDialogState extends State<_SilentUpdateDialog> {
           if (_error != null) ...[
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
+              child: Text(l10n(context).close),
             ),
             FilledButton.icon(
               onPressed: _startDownload,
               icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('Retry'),
+              label: Text(l10n(context).retry),
               style: FilledButton.styleFrom(backgroundColor: Colors.orange),
             ),
           ] else if (_needsPermission) ...[
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
+              child: Text(l10n(context).close),
             ),
             FilledButton.icon(
               onPressed: _retryInstall,
               icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('Retry Install'),
+              label: Text(l10n(context).retryInstall),
               style: FilledButton.styleFrom(backgroundColor: Colors.orange),
             ),
           ] else if (p?.isDone == true)
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
+              child: Text(l10n(context).close),
             )
           else
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+              child: Text(l10n(context).actionCancel),
             ),
         ],
       ),

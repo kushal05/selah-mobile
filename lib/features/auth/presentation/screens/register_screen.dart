@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show TextInput;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/navigation/routes.dart';
@@ -8,6 +9,9 @@ import '../widgets/auth_shell.dart';
 import '../widgets/glass_login_card.dart';
 import '../widgets/google_sign_in_button.dart';
 import '../widgets/selah_logo.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../core/theme/theme_colors.dart';
 
 /// Premium registration screen — dark aurora theme with glass inputs,
 /// staggered entrance animation, and branded logo.
@@ -122,7 +126,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           SnackBar(
             content: Text(message),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.red.shade700,
+            backgroundColor: AppTheme.errorSurface,
           ),
         );
       }
@@ -160,6 +164,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     setState(() => _isLoading = false);
 
     if (success) {
+      // Tells the platform the credential was accepted, which is what
+      // prompts the keychain / password manager to offer to save it.
+      TextInput.finishAutofillContext();
       if (mounted) context.go(Routes.home);
     } else {
       final error = ref.read(authNotifierProvider);
@@ -168,7 +175,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         SnackBar(
           content: Text(message),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.red.shade700,
+          backgroundColor: AppTheme.errorSurface,
         ),
       );
     }
@@ -206,7 +213,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           },
           child: Icon(
             Icons.check_circle_rounded,
-            color: Colors.green.shade300,
+            color: context.successText,
             size: 22,
           ),
         ),
@@ -218,7 +225,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         padding: const EdgeInsets.all(12),
         child: Icon(
           Icons.cancel_rounded,
-          color: Colors.amber.shade300,
+          color: context.warningText,
           size: 22,
         ),
       );
@@ -246,8 +253,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               // Title + subtitle
               Column(
                 children: [
-                  const Text(
-                    'Create Account',
+                  Text(
+                    l10n(context).createAccount,
                     style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.w700,
@@ -258,9 +265,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Sign up to get started',
+                    l10n(context).signUpToGetStarted,
                     style: TextStyle(
-                      fontSize: 15,
+                      fontSize: 16,
                       color: Colors.white.withValues(alpha: 0.6),
                     ),
                     textAlign: TextAlign.center,
@@ -274,7 +281,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                 padding: const EdgeInsets.all(24),
                 child: Form(
                   key: _formKey,
-                  child: Column(
+                  // AutofillGroup lets the OS keychain and password managers
+                  // see these fields as one new-credential set.
+                  child: AutofillGroup(
+                    child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // Google sign-up button (primary option)
@@ -290,13 +300,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                       // Name
                       TextFormField(
                         controller: _nameController,
+                        autofillHints: const [AutofillHints.name],
                         textInputAction: TextInputAction.next,
                         textCapitalization: TextCapitalization.words,
                         style: const TextStyle(color: Colors.white),
                         cursorColor: Colors.white,
                         decoration: glassInputDecoration(
                           context: context,
-                          label: 'Full Name',
+                          label: l10n(context).fullName,
                           hint: 'Enter your name',
                           prefixIcon: Icons.person_outlined,
                         ),
@@ -314,12 +325,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                         controller: _emailController,
                         focusNode: _emailFocusNode,
                         keyboardType: TextInputType.emailAddress,
+                        autofillHints: const [
+                          AutofillHints.username,
+                          AutofillHints.email,
+                        ],
                         textInputAction: TextInputAction.next,
                         style: const TextStyle(color: Colors.white),
                         cursorColor: Colors.white,
                         decoration: glassInputDecoration(
                           context: context,
-                          label: 'Email',
+                          label: l10n(context).email,
                           hint: 'Enter your email',
                           prefixIcon: Icons.email_outlined,
                           suffixIcon: _buildEmailSuffix(),
@@ -353,15 +368,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                       TextFormField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
+                        autofillHints: const [AutofillHints.newPassword],
                         textInputAction: TextInputAction.next,
                         style: const TextStyle(color: Colors.white),
                         cursorColor: Colors.white,
                         decoration: glassInputDecoration(
                           context: context,
-                          label: 'Password',
+                          label: l10n(context).password,
                           hint: 'Create a password',
                           prefixIcon: Icons.lock_outlined,
                           suffixIcon: IconButton(
+                            tooltip: _obscurePassword ? 'Show password' : 'Hide password',
                             icon: Icon(
                               _obscurePassword
                                   ? Icons.visibility_off_outlined
@@ -389,16 +406,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                       TextFormField(
                         controller: _confirmPasswordController,
                         obscureText: _obscureConfirmPassword,
+                        autofillHints: const [AutofillHints.newPassword],
                         textInputAction: TextInputAction.done,
                         onFieldSubmitted: (_) => _handleRegister(),
                         style: const TextStyle(color: Colors.white),
                         cursorColor: Colors.white,
                         decoration: glassInputDecoration(
                           context: context,
-                          label: 'Confirm Password',
+                          label: l10n(context).confirmPassword,
                           hint: 'Re-enter your password',
                           prefixIcon: Icons.lock_outlined,
                           suffixIcon: IconButton(
+                            tooltip: _obscureConfirmPassword ? 'Show password' : 'Hide password',
                             icon: Icon(
                               _obscureConfirmPassword
                                   ? Icons.visibility_off_outlined
@@ -425,11 +444,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
 
                       // Register button
                       GlassButton(
-                        label: 'Create Account',
+                        label: l10n(context).createAccount,
                         isLoading: _isLoading,
                         onPressed: _isGoogleLoading ? null : _handleRegister,
                       ),
                     ],
+                    ),
                   ),
                 ),
               ),
@@ -440,7 +460,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Already have an account? ',
+                    l10n(context).alreadyHaveAnAccount,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.6),
                     ),
@@ -452,8 +472,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: const Text(
-                      'Sign In',
+                    child: Text(
+                      l10n(context).signIn,
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,

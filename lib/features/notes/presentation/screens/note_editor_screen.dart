@@ -11,6 +11,9 @@ import '../widgets/editor/formatting_toolbar.dart';
 import '../widgets/editor/metadata_panel.dart';
 import '../widgets/editor/note_sub_section_editor.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Note editor screen for creating and editing notes
 /// Implements a block-based rich text editor with auto-save
@@ -26,6 +29,12 @@ class NoteEditorScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<NoteEditorScreen> createState() => _NoteEditorScreenState();
 }
+
+/// Every control in the editor's app bar uses one glyph size and one square
+/// slot, so the row reads as a single set rather than as controls of three
+/// different weights.
+const double _kBarIcon = AppTheme.iconBase;
+const double _kBarSlot = 44;
 
 class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
     with WidgetsBindingObserver {
@@ -207,14 +216,21 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
                     noteId: widget.noteId,
                   ),
 
-                  // Spacer to allow scrolling past content
-                  // Tapping here refocuses the editor at the last cursor position
-                  GestureDetector(
-                    onTap: () => _handleEmptyAreaTap(context),
-                    child: Container(
-                      height: MediaQuery.of(context).size.height * 0.5,
-                      width: double.infinity,
-                      color: Colors.transparent,
+                  // Spacer to allow scrolling past content.
+                  // Tapping here refocuses the editor at the last cursor
+                  // position — a convenience for a pointer. Hidden from the
+                  // semantics tree: to a screen reader it would be a
+                  // half-screen unlabelled target sitting between the note
+                  // and everything after it, and focusing the block directly
+                  // already does the same thing.
+                  ExcludeSemantics(
+                    child: GestureDetector(
+                      onTap: () => _handleEmptyAreaTap(context),
+                      child: Container(
+                        height: MediaQuery.of(context).size.height * 0.5,
+                        width: double.infinity,
+                        color: Colors.transparent,
+                      ),
                     ),
                   ),
                 ],
@@ -250,73 +266,107 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context, NoteEditorState editorState) {
+    final cs = Theme.of(context).colorScheme;
+    final notifier = ref.read(noteEditorProvider(widget.noteId).notifier);
+
+    // Every control in this bar is one square of [_kBarSlot] with one glyph
+    // size. Setting AppBar.actionsIconTheme is not enough on its own: in
+    // Material 3 an IconButton takes its size from its own ButtonStyle
+    // default (24) and ignores the ambient IconTheme, so the row rendered at
+    // three different sizes — 24 for the buttons, 20 for Help, 16 for the
+    // save indicator — with three different footprints beside them.
+    Widget barButton({
+      required IconData icon,
+      required String tooltip,
+      required VoidCallback? onPressed,
+    }) {
+      return IconButton(
+        icon: Icon(icon),
+        iconSize: _kBarIcon,
+        tooltip: tooltip,
+        onPressed: onPressed,
+        constraints: const BoxConstraints.tightFor(
+            width: _kBarSlot, height: _kBarSlot),
+        padding: EdgeInsets.zero,
+      );
+    }
+
+    // The save state is status, not a control, but it sits in the same row —
+    // so it takes the same slot and glyph size and is told apart by colour.
+    Widget statusSlot(Widget child) => SizedBox(
+          width: _kBarSlot,
+          height: _kBarSlot,
+          child: Center(child: child),
+        );
+
     return AppBar(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       elevation: 0,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
+      titleSpacing: 0,
+      iconTheme: IconThemeData(color: cs.onSurface, size: _kBarIcon),
+      actionsIconTheme:
+          IconThemeData(color: cs.onSurfaceVariant, size: _kBarIcon),
+      leading: barButton(
+        icon: Icons.arrow_back,
+        tooltip: l10n(context).actionBack,
         onPressed: _handleBack,
       ),
-      title: editorState.isLoading
-          ? const Text('Loading...')
-          : null,
+      title: editorState.isLoading ? Text(l10n(context).loading) : null,
       actions: [
-        // Undo/Redo buttons
-        IconButton(
-          icon: const Icon(Icons.undo),
-          onPressed: ref.read(noteEditorProvider(widget.noteId).notifier).canUndo
-              ? () => ref.read(noteEditorProvider(widget.noteId).notifier).undo()
-              : null,
-          tooltip: 'Undo',
+        barButton(
+          icon: Icons.undo,
+          tooltip: l10n(context).actionUndo,
+          onPressed: notifier.canUndo ? notifier.undo : null,
         ),
-        IconButton(
-          icon: const Icon(Icons.redo),
-          onPressed: ref.read(noteEditorProvider(widget.noteId).notifier).canRedo
-              ? () => ref.read(noteEditorProvider(widget.noteId).notifier).redo()
-              : null,
-          tooltip: 'Redo',
+        barButton(
+          icon: Icons.redo,
+          tooltip: l10n(context).redo,
+          onPressed: notifier.canRedo ? notifier.redo : null,
         ),
-
-        // Metadata button
-        IconButton(
-          icon: const Icon(Icons.info_outline),
+        barButton(
+          icon: Icons.info_outline,
+          tooltip: l10n(context).noteDetails,
           onPressed: () => showMetadataPanel(context, widget.noteId),
-          tooltip: 'Note details',
         ),
 
-        // Editor guide
-        IconButton(
-          icon: const Icon(Icons.help_outline_rounded),
+        // Editor guide. Labelled rather than a bare glyph: the guide is
+        // genuinely good, and the people who need it are exactly the ones who
+        // will not recognise a "?" icon or think to long-press it for a
+        // tooltip. Its glyph and height still match the buttons beside it.
+        TextButton.icon(
+          icon: const Icon(Icons.help_outline_rounded, size: _kBarIcon),
+          label: Text(l10n(context).help),
           onPressed: () => showEditorGuide(context),
-          tooltip: 'Editor Guide',
+          style: TextButton.styleFrom(
+            foregroundColor: cs.primary,
+            textStyle: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing8),
+            minimumSize: const Size(0, _kBarSlot),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
         ),
 
         // Saving indicator - three states: saving, pending changes, saved
         if (editorState.isSaving)
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8),
-            child: Center(
-              child: SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
-          )
+          statusSlot(const SizedBox(
+            width: _kBarIcon,
+            height: _kBarIcon,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ))
         else if (editorState.isDirty)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Center(
-              child: Icon(Icons.cloud_upload, size: 20, color: Colors.orange.shade400),
-            ),
-          )
+          statusSlot(Icon(Icons.cloud_upload_outlined,
+              size: _kBarIcon,
+              color: AppTheme.semanticFor(
+                  AppTheme.warning, Theme.of(context).brightness)))
         else
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8),
-            child: Center(
-              child: Icon(Icons.cloud_done, size: 20, color: Colors.green),
-            ),
-          ),
+          statusSlot(Icon(Icons.cloud_done_outlined,
+              size: _kBarIcon,
+              color: AppTheme.semanticFor(
+                  AppTheme.success, Theme.of(context).brightness))),
+        const SizedBox(width: AppTheme.spacing4),
       ],
     );
   }
@@ -330,18 +380,20 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
     final resolvedName = preacherName?.valueOrNull?.name;
     final hasPreacher = resolvedName != null;
 
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      child: GestureDetector(
       onTap: () => showMetadataPanel(context, widget.noteId),
       child: !hasDate && !hasPreacher
           ? Row(
               children: [
-                Icon(Icons.add, size: 16, color: Colors.grey.shade400),
+                Icon(Icons.add, size: 16, color: context.hintText),
                 const SizedBox(width: 4),
                 Text(
-                  'Add date, preacher...',
+                  l10n(context).addDatePreacher,
                   style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade400,
+                    fontSize: 16,
+                    color: context.hintText,
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -363,6 +415,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
                   ),
               ],
             ),
+    ),
     );
   }
 
@@ -379,23 +432,22 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
       controller: _titleController,
       focusNode: _titleFocusNode,
       decoration: InputDecoration(
-        hintText: 'Note title',
+        hintText: l10n(context).noteTitle,
         border: InputBorder.none,
         enabledBorder: InputBorder.none,
         focusedBorder: InputBorder.none,
         filled: false,
-        hintStyle: TextStyle(
-          fontSize: 18,
+        // Same size as the saved title so the field does not visibly resize
+        // the moment the user types, and a hint that actually meets contrast
+        // — grey.shade400 was 1.94:1.
+        hintStyle: AppTheme.noteTitle.copyWith(
           fontWeight: FontWeight.w500,
-          color: Colors.grey.shade400,
+          color: context.hintText,
         ),
         contentPadding: EdgeInsets.zero,
         isDense: true,
       ),
-      style: const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-      ),
+      style: AppTheme.noteTitle,
       maxLines: 1,
       textCapitalization: TextCapitalization.sentences,
       textInputAction: TextInputAction.next,
@@ -426,17 +478,17 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
+          Icon(Icons.error_outline, size: 48, color: context.dangerText),
           const SizedBox(height: 16),
           Text(
             editorState.error!,
-            style: TextStyle(color: Colors.red.shade700),
+            style: TextStyle(color: context.dangerText),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _handleBack,
-            child: const Text('Go Back'),
+            child: Text(l10n(context).goBack),
           ),
         ],
       );
@@ -499,28 +551,36 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
                 Text(
                   '$count selected',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 16,
                     fontWeight: FontWeight.w500,
                     color: theme.colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(width: 16),
-                GestureDetector(
+                Semantics(
+                  button: true,
+                  label: l10n(context).deleteSelectedBlocks,
+                  child: GestureDetector(
                   onTap: () => notifier.deleteSelectedBlocks(),
                   child: Icon(
                     Icons.delete_outline,
                     size: 22,
-                    color: Colors.red.shade400,
+                    color: context.dangerText,
                   ),
                 ),
+                ),
                 const SizedBox(width: 16),
-                GestureDetector(
+                Semantics(
+                  button: true,
+                  label: l10n(context).clearSelection,
+                  child: GestureDetector(
                   onTap: () => notifier.clearBlockSelection(),
                   child: Icon(
                     Icons.close,
                     size: 22,
                     color: theme.colorScheme.onSurface,
                   ),
+                ),
                 ),
               ],
             ),
@@ -656,13 +716,13 @@ class _MetadataItem extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: Colors.grey.shade600),
+        Icon(icon, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
         const SizedBox(width: 4),
         Text(
           text,
           style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey.shade600,
+            fontSize: 16,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
       ],

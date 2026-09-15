@@ -5,10 +5,17 @@ import '../../../../../shared/widgets/drag_handle.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../providers/note_editor_provider.dart';
 import '../../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../../core/services/user_facing_error.dart';
+import '../../../../../l10n/l10n.dart';
+import '../../../../../core/theme/theme_colors.dart';
+import '../../../../../shared/widgets/selectable_chip.dart';
 
 /// Shows the metadata panel as a bottom sheet
 Future<void> showMetadataPanel(BuildContext context, String? noteId) {
   return showModalBottomSheet(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
@@ -40,87 +47,94 @@ class _MetadataPanelState extends ConsumerState<MetadataPanel> {
     final editorState = ref.watch(noteEditorProvider(widget.noteId));
     final theme = Theme.of(context);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      child: DraggableScrollableSheet(
-        initialChildSize: 0.5,
-        minChildSize: 0.3,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (context, scrollController) {
-          return Column(
-            children: [
-              const DragHandle(),
-
-              // Header
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    Text(
-                      'Note Details',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
+    return SafeArea(
+      // The sheet's last control otherwise sits in the gesture-bar
+      // strip, where a swipe is as likely to reach the OS as the
+      // button. top:false — useSafeArea already covers the notch.
+      top: false,
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: DraggableScrollableSheet(
+          initialChildSize: 0.5,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                const DragHandle(),
+  
+                // Header
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Text(
+                        l10n(context).noteDetails,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ],
+                      const Spacer(),
+                      IconButton(
+                        tooltip: l10n(context).close,
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-
-              const Divider(),
-
-              // Content
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    // Date picker
-                    _MetadataSection(
-                      title: 'Date',
-                      child: _DatePickerField(
-                        value: editorState.noteDate,
-                        onChanged: (date) {
-                          ref.read(noteEditorProvider(widget.noteId).notifier).setNoteDate(date);
-                        },
+  
+                const Divider(),
+  
+                // Content
+                Expanded(
+                  child: ListView(
+                    controller: scrollController,
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      // Date picker
+                      _MetadataSection(
+                        title: l10n(context).date,
+                        child: _DatePickerField(
+                          value: editorState.noteDate,
+                          onChanged: (date) {
+                            ref.read(noteEditorProvider(widget.noteId).notifier).setNoteDate(date);
+                          },
+                        ),
                       ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Preacher selector
-                    _MetadataSection(
-                      title: 'Preacher',
-                      child: _PreacherSelector(
-                        noteId: widget.noteId,
-                        selectedPreacherId: editorState.preacherId,
+  
+                      const SizedBox(height: 24),
+  
+                      // Preacher selector
+                      _MetadataSection(
+                        title: l10n(context).preacher,
+                        child: _PreacherSelector(
+                          noteId: widget.noteId,
+                          selectedPreacherId: editorState.preacherId,
+                        ),
                       ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Tags
-                    _MetadataSection(
-                      title: 'Tags',
-                      child: _TagSelector(
-                        noteId: widget.noteId,
-                        selectedTagIds: editorState.tagIds,
+  
+                      const SizedBox(height: 24),
+  
+                      // Tags
+                      _MetadataSection(
+                        title: l10n(context).tags,
+                        child: _TagSelector(
+                          noteId: widget.noteId,
+                          selectedTagIds: editorState.tagIds,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -143,9 +157,9 @@ class _MetadataSection extends StatelessWidget {
         Text(
           title,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Colors.grey.shade600,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 8),
@@ -172,7 +186,7 @@ class _DatePickerField extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
+          border: Border.all(color: AppTheme.inputBorderColor),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
@@ -187,12 +201,13 @@ class _DatePickerField extends StatelessWidget {
               child: Text(
                 value != null ? _formatDate(value!) : 'Select date...',
                 style: TextStyle(
-                  color: value != null ? null : Colors.grey.shade500,
+                  color: value != null ? null : context.hintText,
                 ),
               ),
             ),
             if (value != null)
               IconButton(
+                tooltip: l10n(context).clear,
                 icon: const Icon(Icons.clear, size: 20),
                 onPressed: () => onChanged(null),
                 padding: EdgeInsets.zero,
@@ -242,7 +257,7 @@ class _PreacherSelector extends ConsumerWidget {
 
     return peopleAsync.when(
       loading: () => const Column(children: [ListTileSkeleton(), ListTileSkeleton()]),
-      error: (error, _) => Text('Error loading people: $error'),
+      error: (error, _) => Text(UserFacingError.forLoad(error)),
       data: (people) {
         if (people.isEmpty) {
           return _EmptyPeoplePrompt(
@@ -260,7 +275,7 @@ class _PreacherSelector extends ConsumerWidget {
               runSpacing: 8,
               children: [
                 for (final person in people)
-                  _SelectableChip(
+                  SelectableChip(
                     label: person.name,
                     isSelected: selectedPreacherId == person.id,
                     onTap: () {
@@ -294,6 +309,10 @@ class _EmptyPeoplePrompt extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Container(
+      // Without this the container shrink-wraps to its widest line, so the
+      // whole block — icon, both lines and the button — centred inside a box
+      // that sat against the left edge of the sheet rather than in it.
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
@@ -301,22 +320,25 @@ class _EmptyPeoplePrompt extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(Icons.people_outline, size: 32, color: Colors.grey.shade400),
+          Icon(Icons.people_outline,
+              size: 32, color: theme.colorScheme.onSurfaceVariant),
           const SizedBox(height: 8),
           Text(
-            'No people added yet',
+            l10n(context).noPeopleAddedYet,
+            textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade600,
+              fontSize: 16,
+              color: theme.colorScheme.onSurface,
               fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 4),
           Text(
-            'Add a person to select as preacher',
+            l10n(context).addAPersonToSelectAsPreacher,
+            textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey.shade500,
+              fontSize: 14,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 12),
@@ -339,7 +361,7 @@ class _AddPersonButton extends ConsumerWidget {
       onPressed: () => _showAddPersonDialog(context, ref),
       style: TextButton.styleFrom(foregroundColor: AppTheme.brandPurple),
       icon: const Icon(Icons.person_add, size: 18),
-      label: const Text('Add person'),
+      label: Text(l10n(context).addPerson),
     );
   }
 
@@ -349,13 +371,13 @@ class _AddPersonButton extends ConsumerWidget {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Add Person'),
+          title: Text(l10n(context).addPerson),
           content: TextField(
             controller: nameController,
             autofocus: true,
             textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(
-              labelText: 'Name',
+            decoration: InputDecoration(
+              labelText: l10n(context).name,
               hintText: 'Enter person\'s name',
             ),
             onSubmitted: (value) {
@@ -368,7 +390,7 @@ class _AddPersonButton extends ConsumerWidget {
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               style: TextButton.styleFrom(foregroundColor: Colors.grey.shade700),
-              child: const Text('Cancel'),
+              child: Text(l10n(context).actionCancel),
             ),
             TextButton(
               onPressed: () {
@@ -378,7 +400,7 @@ class _AddPersonButton extends ConsumerWidget {
                 }
               },
               style: TextButton.styleFrom(foregroundColor: AppTheme.brandPurple),
-              child: const Text('Add'),
+              child: Text(l10n(context).add),
             ),
           ],
         );
@@ -409,7 +431,7 @@ class _TagSelector extends ConsumerWidget {
 
     return tagsAsync.when(
       loading: () => const Column(children: [ListTileSkeleton(hasLeading: false), ListTileSkeleton(hasLeading: false)]),
-      error: (error, _) => Text('Error loading tags: $error'),
+      error: (error, _) => Text(UserFacingError.forLoad(error)),
       data: (tags) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -420,7 +442,7 @@ class _TagSelector extends ConsumerWidget {
               runSpacing: 8,
               children: [
                 for (final tag in tags)
-                  _SelectableChip(
+                  SelectableChip(
                     label: tag.name,
                     isSelected: selectedTagIds.contains(tag.id),
                     onTap: () {
@@ -440,7 +462,7 @@ class _TagSelector extends ConsumerWidget {
 
             // Add new tag
             _AddNewButton(
-              label: 'Add tag',
+              label: l10n(context).addTag,
               onAdd: (name) async {
                 final tagRepo = ref.read(tagRepositoryProvider);
                 final userId = ref.read(currentUserIdProvider);
@@ -458,39 +480,6 @@ class _TagSelector extends ConsumerWidget {
   }
 }
 
-class _SelectableChip extends StatelessWidget {
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _SelectableChip({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.brandPurple : Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            color: isSelected ? Colors.white : Colors.grey.shade700,
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _AddNewButton extends StatefulWidget {
   final String label;
@@ -527,7 +516,7 @@ class _AddNewButtonState extends State<_AddNewButton> {
               controller: _controller,
               focusNode: _focusNode,
               decoration: InputDecoration(
-                hintText: 'Enter name...',
+                hintText: l10n(context).enterName,
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 border: OutlineInputBorder(
@@ -548,10 +537,12 @@ class _AddNewButtonState extends State<_AddNewButton> {
           ),
           const SizedBox(width: 8),
           IconButton(
+            tooltip: l10n(context).actionSave,
             icon: const Icon(Icons.check),
             onPressed: () => _submit(_controller.text),
           ),
           IconButton(
+            tooltip: l10n(context).actionCancel,
             icon: const Icon(Icons.close),
             onPressed: () {
               setState(() {

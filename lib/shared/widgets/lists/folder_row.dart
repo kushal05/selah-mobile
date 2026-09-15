@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 
 import '../../../core/sync/models/folder_model.dart';
+import '../../../core/theme/theme_colors.dart';
 
 /// Displays a folder item in the notes list with hierarchical support
 class FolderRow extends StatelessWidget {
@@ -89,7 +90,7 @@ class FolderRow extends StatelessWidget {
                           Icon(
                             visibility!.icon,
                             size: 14,
-                            color: Colors.grey.shade500,
+                            color: context.mutedText,
                           ),
                         ],
                       ],
@@ -98,7 +99,7 @@ class FolderRow extends StatelessWidget {
                     Text(
                       _buildMetaText(),
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: Colors.grey,
+                        color: context.mutedText,
                       ),
                     ),
                   ],

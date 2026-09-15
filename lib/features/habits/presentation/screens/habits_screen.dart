@@ -8,6 +8,9 @@ import '../../../../core/theme/app_theme.dart';
 import '../../data/habit_log_repository.dart';
 import '../widgets/habit_reminder_tile.dart';
 import '../widgets/habit_stats_card.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../shared/widgets/section_label.dart';
 
 /// Full-screen habit tracker — reachable from the "View All" button on the
 /// Home screen's DailyHabitsWidget.
@@ -34,10 +37,10 @@ class HabitsScreen extends ConsumerWidget {
     final prayerStreak = prayerStreakAsync.valueOrNull ?? 0;
 
     return Scaffold(
-      backgroundColor: AppTheme.scaffoldGray,
+      backgroundColor: context.pageGround,
       appBar: AppBar(
-        title: const Text('Habits'),
-        backgroundColor: AppTheme.scaffoldGray,
+        title: Text(l10n(context).habits),
+        backgroundColor: context.pageGround,
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
@@ -53,13 +56,13 @@ class HabitsScreen extends ConsumerWidget {
               color: _habitColors[habit]!,
             ),
 
-          const _SectionLabel(label: 'PRAYER'),
+          SectionLabel(l10n(context).prayer),
           _PrayerActivityBanner(
             streak: prayerStreak,
             onTap: () => context.push(Routes.prayerAnalytics),
           ),
 
-          const _SectionLabel(label: 'REMINDERS'),
+          SectionLabel(l10n(context).reminders),
           const HabitReminderSection(),
         ],
       ),
@@ -67,27 +70,6 @@ class HabitsScreen extends ConsumerWidget {
   }
 }
 
-class _SectionLabel extends StatelessWidget {
-  final String label;
-  const _SectionLabel({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          AppTheme.spacing20, AppTheme.spacing16,
-          AppTheme.spacing20, AppTheme.spacing6),
-      child: Text(
-        label,
-        style: AppTheme.tiny.copyWith(
-          fontWeight: FontWeight.w600,
-          color: AppTheme.unselectedColor,
-          letterSpacing: 0.8,
-        ),
-      ),
-    );
-  }
-}
 
 class _PrayerActivityBanner extends StatelessWidget {
   final int streak;
@@ -125,19 +107,19 @@ class _PrayerActivityBanner extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Prayer Activity',
+                        Text(
+                          l10n(context).prayerActivity,
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: _color,
-                            fontSize: 14,
+                            fontSize: 16,
                           ),
                         ),
                         if (streak > 0)
                           Text(
                             '$streak day streak',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 13,
                               color: _color.withValues(alpha: 0.7),
                             ),
                           ),

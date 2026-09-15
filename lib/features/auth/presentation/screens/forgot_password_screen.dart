@@ -5,6 +5,8 @@ import '../providers/auth_providers.dart';
 import '../widgets/auth_shell.dart';
 import '../widgets/glass_login_card.dart';
 import '../widgets/selah_logo.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../core/theme/theme_colors.dart';
 
 /// Premium forgot-password screen — dark aurora theme with glass inputs,
 /// entrance animation, and animated crossfade to success state.
@@ -150,8 +152,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
           opacity: _titleFade,
           child: Column(
             children: [
-              const Text(
-                'Reset Password',
+              Text(
+                l10n(context).resetPassword,
                 style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w700,
@@ -164,7 +166,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
               Text(
                 'Enter your email and we\'ll send you\na link to reset your password.',
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: 16,
                   color: Colors.white.withValues(alpha: 0.6),
                   height: 1.5,
                 ),
@@ -196,7 +198,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
                       cursorColor: Colors.white,
                       decoration: glassInputDecoration(
                         context: context,
-                        label: 'Email',
+                        label: l10n(context).email,
                         hint: 'Enter your email',
                         prefixIcon: Icons.email_outlined,
                       ),
@@ -213,7 +215,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
                     const SizedBox(height: 20),
 
                     GlassButton(
-                      label: 'Send Reset Link',
+                      label: l10n(context).sendResetLink,
                       isLoading: _isLoading,
                       onPressed: _handleSendReset,
                     ),
@@ -250,13 +252,13 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
               child: Icon(
                 Icons.mark_email_read_rounded,
                 size: 40,
-                color: Colors.green.shade300,
+                color: context.successText,
               ),
             ),
             const SizedBox(height: 24),
 
-            const Text(
-              'Check Your Email',
+            Text(
+              l10n(context).checkYourEmail,
               style: TextStyle(
                 fontSize: 26,
                 fontWeight: FontWeight.w700,
@@ -270,7 +272,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
             Text(
               'If an account exists with\n${_emailController.text.trim()},\nwe\'ve sent a password reset link.',
               style: TextStyle(
-                fontSize: 15,
+                fontSize: 16,
                 color: Colors.white.withValues(alpha: 0.6),
                 height: 1.5,
               ),
@@ -290,12 +292,12 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
                   vertical: 12,
                 ),
               ),
-              child: const Text(
-                'Back to Sign In',
+              child: Text(
+                l10n(context).backToSignIn,
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
-                  fontSize: 15,
+                  fontSize: 16,
                 ),
               ),
             ),

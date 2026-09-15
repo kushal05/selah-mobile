@@ -15,7 +15,7 @@ class TagRow extends StatelessWidget {
           .map((tag) => Chip(
                 label: Text(
                   tag,
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: 13),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),

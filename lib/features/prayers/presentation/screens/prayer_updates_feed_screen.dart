@@ -5,6 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Global prayer updates feed screen.
 ///
@@ -19,13 +22,13 @@ class PrayerUpdatesFeedScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Prayer Updates'),
+        title: Text(l10n(context).prayerUpdates),
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
       ),
       body: updatesAsync.when(
         loading: () => const Column(children: [FeedItemSkeleton(), FeedItemSkeleton(), FeedItemSkeleton(), FeedItemSkeleton()]),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => Center(child: Text(UserFacingError.forLoad(e))),
         data: (updates) {
           if (updates.isEmpty) {
             return Center(
@@ -33,15 +36,15 @@ class PrayerUpdatesFeedScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.chat_bubble_outline,
-                      size: 48, color: Colors.grey.shade400),
+                      size: 48, color: context.hintText),
                   const SizedBox(height: 12),
-                  Text('No updates yet',
+                  Text(l10n(context).noUpdatesYet,
                       style: TextStyle(
-                          fontSize: 16, color: Colors.grey.shade600)),
+                          fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant)),
                   const SizedBox(height: 8),
-                  Text('Add updates to your prayers to see them here',
+                  Text(l10n(context).addUpdatesToYourPrayersToSeeThemHere,
                       style: TextStyle(
-                          fontSize: 13, color: Colors.grey.shade500)),
+                          fontSize: 14, color: context.mutedText)),
                 ],
               ),
             );
@@ -55,7 +58,7 @@ class PrayerUpdatesFeedScreen extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(vertical: 8),
             itemCount: updates.length,
             separatorBuilder: (_, _) =>
-                Divider(height: 1, indent: 16, color: Colors.grey.shade200),
+                Divider(height: 1, indent: 16, color: context.hairline),
             itemBuilder: (context, index) {
               final update = updates[index];
               final prayerTitle =
@@ -69,7 +72,7 @@ class PrayerUpdatesFeedScreen extends ConsumerWidget {
                   update.content,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 14),
+                  style: const TextStyle(fontSize: 16),
                 ),
                 subtitle: Padding(
                   padding: const EdgeInsets.only(top: 4),
@@ -82,7 +85,7 @@ class PrayerUpdatesFeedScreen extends ConsumerWidget {
                         child: Text(
                           prayerTitle,
                           style: const TextStyle(
-                            fontSize: 12,
+                            fontSize: 13,
                             color: AppTheme.brandPurple,
                             fontWeight: FontWeight.w500,
                           ),
@@ -93,7 +96,7 @@ class PrayerUpdatesFeedScreen extends ConsumerWidget {
                       Text(
                         _formatDate(date),
                         style: TextStyle(
-                            fontSize: 11, color: Colors.grey.shade500),
+                            fontSize: 12, color: context.mutedText),
                       ),
                     ],
                   ),

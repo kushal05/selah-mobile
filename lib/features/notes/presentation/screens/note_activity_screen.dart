@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/sync/services/public_share_api_service.dart';
 import '../providers/note_attribution_providers.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../shared/widgets/error_state.dart';
 
 /// Owner-facing activity feed for a note: who touched the note (or any of
 /// its blocks) and when. Fetched on-demand from the server's
@@ -24,18 +26,18 @@ class NoteActivityScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Activity'),
+        title: Text(l10n(context).activity),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
+            tooltip: l10n(context).refresh,
             onPressed: refresh,
           ),
         ],
       ),
       body: activityAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => _ErrorState(error: error, onRetry: refresh),
+        error: (error, _) => ErrorState(error: error, onRetry: refresh),
         data: (items) {
           if (items.isEmpty) {
             return const _EmptyState();
@@ -79,43 +81,6 @@ class _ActivityTile extends StatelessWidget {
   }
 }
 
-class _ErrorState extends StatelessWidget {
-  final Object error;
-  final Future<void> Function() onRetry;
-  const _ErrorState({required this.error, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.history_toggle_off,
-                size: 48, color: theme.colorScheme.error),
-            const SizedBox(height: 12),
-            Text('Couldn\'t load activity',
-                style: theme.textTheme.titleMedium),
-            const SizedBox(height: 6),
-            Text(
-              '$error',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall,
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-              onPressed: onRetry,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
@@ -132,10 +97,10 @@ class _EmptyState extends StatelessWidget {
             Icon(Icons.history_outlined,
                 size: 48, color: theme.disabledColor),
             const SizedBox(height: 12),
-            Text('No activity yet', style: theme.textTheme.titleMedium),
+            Text(l10n(context).noActivityYet, style: theme.textTheme.titleMedium),
             const SizedBox(height: 6),
             Text(
-              'Edits and views will appear here.',
+              l10n(context).editsAndViewsWillAppearHere,
               style: theme.textTheme.bodySmall,
             ),
           ],

@@ -7,6 +7,7 @@ import '../../../core/sync/models/folder_model.dart';
 import '../../../core/sync/providers/sync_providers.dart';
 import '../../../core/sync/repositories/folder_repository.dart';
 import 'folder_dialog_helpers.dart';
+import '../../../l10n/l10n.dart';
 
 /// Dialog for editing a folder's name, visibility, and group.
 /// Subfolders inherit visibility from their parent — visibility controls are
@@ -109,6 +110,7 @@ class _EditFolderDialogState extends ConsumerState<EditFolderDialog> {
               controller: _nameController,
               focusNode: _nameFocusNode,
               decoration: folderNameFieldDecoration(
+                theme: theme,
                 accentColor: _accentColor,
                 errorColor: colorScheme.error,
                 entityLabel: _entityLabel,
@@ -128,6 +130,7 @@ class _EditFolderDialogState extends ConsumerState<EditFolderDialog> {
             ),
             const SizedBox(height: AppTheme.spacing20),
             buildFolderVisibilitySelector(
+              context: context,
               theme: theme,
               isSubfolder: _isSubfolder,
               selected: _selectedVisibility,
@@ -146,6 +149,7 @@ class _EditFolderDialogState extends ConsumerState<EditFolderDialog> {
                 !_isSubfolder) ...[
               const SizedBox(height: AppTheme.spacing12),
               buildFolderGroupPicker(
+              context: context,
                 ref: ref,
                 theme: theme,
                 selectedGroupId: _selectedGroupId,
@@ -166,7 +170,7 @@ class _EditFolderDialogState extends ConsumerState<EditFolderDialog> {
           onPressed:
               _isSaving ? null : () => Navigator.of(context).pop(false),
           style: TextButton.styleFrom(foregroundColor: Colors.grey.shade700),
-          child: const Text('Cancel'),
+          child: Text(l10n(context).actionCancel),
         ),
         ListenableBuilder(
           listenable: _nameController,
@@ -179,7 +183,7 @@ class _EditFolderDialogState extends ConsumerState<EditFolderDialog> {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Save'),
+                : Text(l10n(context).actionSave),
           ),
         ),
       ],

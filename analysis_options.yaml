@@ -9,3 +9,9 @@ analyzer:
     # where the SDK package is available; the analyzer doesn't need to see
     # them during app builds.
     - integration_test/**
+    # An iOS build materialises third-party Swift Package Manager checkouts
+    # under build/ios/SourcePackages/, including full Dart example apps that
+    # don't compile against this package's dependencies. They are vendored
+    # sources, not ours, and their ~13k analyzer errors would otherwise break
+    # the static-checks CI stage for anyone who has built for iOS locally.
+    - build/**

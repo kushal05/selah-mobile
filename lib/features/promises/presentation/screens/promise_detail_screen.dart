@@ -11,6 +11,10 @@ import '../../../../shared/widgets/tag_row.dart';
 import '../../../../shared/widgets/dialogs/link_picker_dialog.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
 import '../../../prayers/presentation/screens/prayer_detail_screen.dart';
+import '../../../../shared/widgets/undo_snackbar.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Promise detail screen showing verse, conditions, and notes
 class PromiseDetailScreen extends ConsumerStatefulWidget {
@@ -29,15 +33,17 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
       final repository = ref.read(promiseRepositoryProvider);
       await repository.trashPromise(widget.promiseId);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Moved to trash')),
+        showUndoSnackBar(
+          context,
+          itemLabel: 'Promise',
+          onUndo: () => repository.restorePromise(widget.promiseId),
         );
         context.pop();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text(UserFacingError.forLoad(e))),
         );
       }
     }
@@ -53,7 +59,7 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text(UserFacingError.forLoad(e))),
         );
       }
     }
@@ -69,18 +75,17 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
 
     if (!mounted) return;
 
-    final selected = await showDialog<List<String>>(
-      context: context,
-      builder: (context) => LinkPickerDialog<PrayerModel>(
-        title: 'Link Prayers',
-        items: allPrayers,
-        alreadyLinkedIds: linkedIds.toSet(),
-        getId: (p) => p.id,
-        getLabel: (p) => p.title,
-        getSubtitle: (p) => p.content.length > 80
-            ? '${p.content.substring(0, 80)}...'
-            : p.content,
-      ),
+    final selected = await LinkPicker.show<PrayerModel>(
+      context,
+      title: l10n(context).linkPrayers,
+      items: allPrayers,
+      alreadyLinkedIds: linkedIds.toSet(),
+      getId: (p) => p.id,
+      getLabel: (p) => p.title,
+      getSubtitle: (p) => p.content.length > 120
+          ? '${p.content.substring(0, 120)}…'
+          : p.content,
+      icon: Icons.favorite_outline_rounded,
     );
 
     if (selected != null && selected.isNotEmpty) {
@@ -104,7 +109,7 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error linking: $e')),
+            SnackBar(content: Text(UserFacingError.message(e, action: 'link that'))),
           );
         }
       }
@@ -117,13 +122,13 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
       await linkRepo.unlinkPromiseFromPrayer(widget.promiseId, prayerId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Prayer unlinked')),
+          SnackBar(content: Text(l10n(context).prayerUnlinked)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error unlinking: $e')),
+          SnackBar(content: Text(UserFacingError.message(e, action: 'unlink that'))),
         );
       }
     }
@@ -164,7 +169,7 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
     if (notes.isEmpty) return [];
     return [
       const SizedBox(height: AppTheme.spacing24),
-      Text('Notes', style: Theme.of(context).textTheme.titleMedium),
+      Text(l10n(context).navNotes, style: Theme.of(context).textTheme.titleMedium),
       const SizedBox(height: AppTheme.spacing8),
       Text(notes, style: Theme.of(context).textTheme.bodyLarge),
     ];
@@ -183,7 +188,7 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: AppTheme.spacing24),
-            Text('Conditions',
+            Text(l10n(context).conditions,
                 style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: AppTheme.spacing8),
             ...conditions.map((c) => _buildConditionCard(context, c)),
@@ -207,9 +212,9 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
       margin: const EdgeInsets.only(bottom: AppTheme.spacing8),
       padding: AppTheme.paddingAllMD,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.cardSurface,
         borderRadius: AppTheme.borderRadiusXL,
-        border: Border.all(color: AppTheme.gray200),
+        border: Border.all(color: context.subtleFill),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -224,7 +229,7 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
               const SizedBox(width: AppTheme.spacing8),
               Expanded(
                 child: Text(condition.description,
-                    style: const TextStyle(fontSize: 15)),
+                    style: const TextStyle(fontSize: 16)),
               ),
               Container(
                 padding: AppTheme.chipPadding,
@@ -247,7 +252,7 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
             const SizedBox(height: AppTheme.spacing6),
             Text(
               condition.notes,
-              style: TextStyle(fontSize: 13, color: AppTheme.gray600),
+              style: TextStyle(fontSize: 14, color: context.mutedText),
             ),
           ],
         ],
@@ -259,19 +264,19 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Move to Trash?'),
-        content: const Text('Are you sure you want to move this promise to trash?'),
+        title: Text(l10n(context).moveToTrash2),
+        content: Text(l10n(context).areYouSureYouWantToMoveThisPromiseToTrash),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(l10n(context).actionCancel),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               _deletePromise();
             },
-            child: const Text('Move to Trash', style: TextStyle(color: Colors.red)),
+            child: Text(l10n(context).moveToTrash, style: TextStyle(color: context.dangerText)),
           ),
         ],
       ),
@@ -291,15 +296,15 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
             const SizedBox(height: AppTheme.spacing24),
             Row(
               children: [
-                Icon(Icons.link, size: AppTheme.iconBase, color: AppTheme.gray600),
+                Icon(Icons.link, size: AppTheme.iconBase, color: context.mutedText),
                 const SizedBox(width: AppTheme.spacing8),
-                Text('Linked Prayers',
+                Text(l10n(context).linkedPrayers,
                     style: Theme.of(context).textTheme.titleMedium),
                 const Spacer(),
                 TextButton.icon(
                   onPressed: _showLinkPrayerDialog,
                   icon: Icon(Icons.add, size: AppTheme.headingMedium.fontSize),
-                  label: const Text('Add'),
+                  label: Text(l10n(context).add),
                   style: TextButton.styleFrom(
                     foregroundColor: AppTheme.rosePink,
                     visualDensity: VisualDensity.compact,
@@ -311,10 +316,10 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: AppTheme.spacing8),
                 child: Text(
-                  'No linked prayers yet',
+                  l10n(context).noLinkedPrayersYet,
                   style: TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.gray500,
+                    fontSize: 14,
+                    color: context.mutedText,
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -361,11 +366,11 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
               Icon(Icons.error_outline,
                   size: 48, color: Theme.of(context).colorScheme.error),
               const SizedBox(height: AppTheme.spacing16),
-              Text('Error loading promise: $error'),
+              Text(UserFacingError.forLoad(error)),
               const SizedBox(height: AppTheme.spacing16),
               ElevatedButton(
                 onPressed: () => ref.invalidate(promiseByIdProvider(widget.promiseId)),
-                child: const Text('Retry'),
+                child: Text(l10n(context).retry),
               ),
             ],
           ),
@@ -378,7 +383,7 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               elevation: 0,
             ),
-            body: const Center(child: Text('Promise not found')),
+            body: Center(child: Text(l10n(context).promiseNotFound)),
           );
         }
 
@@ -393,11 +398,13 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         leading: IconButton(
+          tooltip: l10n(context).actionBack,
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
           IconButton(
+            tooltip: l10n(context).editPromise,
             icon: const Icon(Icons.edit_outlined),
             onPressed: () async {
               await context.push('/promises/${widget.promiseId}/edit');
@@ -405,6 +412,7 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
             },
           ),
           IconButton(
+            tooltip: promise.isFavorite ? 'Remove from favourites' : 'Add to favourites',
             icon: Icon(
               promise.isFavorite ? Icons.favorite : Icons.favorite_border,
               color: promise.isFavorite ? Colors.red : null,
@@ -412,6 +420,7 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
             onPressed: _toggleFavorite,
           ),
           IconButton(
+            tooltip: l10n(context).deletePromise,
             icon: const Icon(Icons.delete_outline),
             onPressed: _showDeleteConfirmation,
           ),
@@ -485,7 +494,8 @@ class _LinkedPrayerTile extends ConsumerWidget {
             overflow: TextOverflow.ellipsis,
           ),
           trailing: IconButton(
-            icon: Icon(Icons.close, size: 18, color: AppTheme.gray400),
+            tooltip: l10n(context).remove,
+            icon: Icon(Icons.close, size: 18, color: context.hintText),
             onPressed: onRemove,
             visualDensity: VisualDensity.compact,
           ),

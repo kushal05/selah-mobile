@@ -52,7 +52,7 @@ class DailyScriptureWidgetState extends State<DailyScriptureWidget>
             Text(
               '"${scripture.text}"',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 16,
                 fontStyle: FontStyle.italic,
                 color: Colors.white.withValues(alpha: 0.7),
                 height: 1.5,
@@ -64,7 +64,7 @@ class DailyScriptureWidgetState extends State<DailyScriptureWidget>
             Text(
               scripture.reference,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: Colors.white.withValues(alpha: 0.5),
               ),

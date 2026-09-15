@@ -14,6 +14,14 @@ import '../../../../shared/widgets/dialogs/edit_folder_dialog.dart';
 import '../../../../shared/widgets/dialogs/folder_selection_dialog.dart';
 import '../../../../shared/widgets/lists/folder_row.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../shared/widgets/undo_snackbar.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../shared/widgets/empty_state.dart';
+import '../../../../shared/widgets/feature_intro.dart';
+import '../../../../shared/widgets/swipe_action.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../core/navigation/tab_navigation.dart';
 
 /// Songs home screen with list view and multi-select support
 /// Displays songs organized by folders with search and filter options
@@ -66,7 +74,6 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final shell = StatefulNavigationShell.of(context);
     final songsAsync = _showingTrash
         ? ref.watch(trashedSongsStreamProvider)
         : ref.watch(songsStreamProvider);
@@ -81,7 +88,7 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
           } else if (_isSelecting) {
             _exitSelectMode();
           } else {
-            shell.goBranch(0);
+            goToTab(context, 0);
           }
         }
       },
@@ -97,14 +104,14 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
                 heroTag: null,
                 onPressed: () => context.push('/songs/new'),
                 backgroundColor: AppTheme.orange,
-                foregroundColor: Colors.white,
+                foregroundColor: AppTheme.onAccent(AppTheme.orange),
                 child: const Icon(Icons.add),
               ),
         body: _showingTrash
             ? _buildTrashBody(songsAsync)
             : songsAsync.when(
           loading: () => const ListTileSkeletonList(count: 8, hasLeading: false),
-          error: (error, stack) => Center(child: Text('Error: $error')),
+          error: (error, stack) => Center(child: Text(UserFacingError.forLoad(error))),
           data: (songs) {
             // Filter songs by selected folder
             final filteredSongs = _selectedFolderId == null
@@ -140,7 +147,7 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                         child: Text(
-                          'Favorites',
+                          l10n(context).favorites,
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                       ),
@@ -210,20 +217,22 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
                                     key: Key(song.id),
                                     endActionPane: ActionPane(
                                       motion: const DrawerMotion(),
-                                      extentRatio: 0.4,
+                                      extentRatio: swipePaneExtent(2),
                                       children: [
-                                        SlidableAction(
-                                          onPressed: (ctx) =>
-                                              _moveSong(ctx, song.id),
-                                          backgroundColor:
-                                              AppTheme.orange,
-                                          foregroundColor: Colors.white,
+                                        buildSwipeAction(
                                           icon: Icons
                                               .drive_file_move_outlined,
-                                          borderRadius:
-                                              BorderRadius.circular(12),
+                                          label: l10n(context).move,
+                                          accent: AppTheme.brandPurple,
+                                          isLast: false,
+                                          onPressed: (ctx) =>
+                                              _moveSong(ctx, song.id),
                                         ),
-                                        SlidableAction(
+                                        buildSwipeAction(
+                                          icon: Icons.delete_outline_rounded,
+                                          label: l10n(context).trash,
+                                          accent: AppTheme.error,
+                                          isFirst: false,
                                           onPressed: (ctx) async {
                                             final shouldDelete =
                                                 await _showDeleteConfirmation(
@@ -234,11 +243,6 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
                                                   ctx, song.id);
                                             }
                                           },
-                                          backgroundColor: Colors.red,
-                                          foregroundColor: Colors.white,
-                                          icon: Icons.delete,
-                                          borderRadius:
-                                              BorderRadius.circular(12),
                                         ),
                                       ],
                                     ),
@@ -283,19 +287,20 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
       elevation: 0,
       automaticallyImplyLeading: false,
       title: Text(
-        'Songs',
+        l10n(context).navSongs,
         style: Theme.of(context).textTheme.titleLarge?.copyWith(
           color: Theme.of(context).colorScheme.onSurface,
         ),
       ),
       actions: [
         IconButton(
-          icon: Icon(Icons.search, color: Colors.grey.shade600),
+          tooltip: l10n(context).searchSongs,
+          icon: Icon(Icons.search, color: Theme.of(context).colorScheme.onSurfaceVariant),
           onPressed: () => context.push('/songs/search'),
         ),
         IconButton(
-          icon: Icon(Icons.delete_outline, color: Colors.grey.shade600),
-          tooltip: 'Show trash',
+          icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          tooltip: l10n(context).showTrash,
           onPressed: () {
             setState(() => _showingTrash = true);
           },
@@ -309,13 +314,14 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       elevation: 0,
       leading: IconButton(
+        tooltip: l10n(context).actionBack,
         icon: const Icon(Icons.arrow_back),
         onPressed: () {
           setState(() => _showingTrash = false);
         },
       ),
       title: Text(
-        'Trash',
+        l10n(context).trash,
         style: Theme.of(context).textTheme.titleLarge?.copyWith(
               color: Theme.of(context).colorScheme.onSurface,
             ),
@@ -326,21 +332,21 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
   Widget _buildTrashBody(AsyncValue<List<SongModel>> songsAsync) {
     return songsAsync.when(
       loading: () => const ListTileSkeletonList(count: 8, hasLeading: false),
-      error: (error, stack) => Center(child: Text('Error: $error')),
+      error: (error, stack) => Center(child: Text(UserFacingError.forLoad(error))),
       data: (songs) {
         if (songs.isEmpty) {
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.delete_outline, size: 48, color: Colors.grey.shade400),
+                Icon(Icons.delete_outline, size: 48, color: context.hintText),
                 const SizedBox(height: 12),
                 Text(
-                  'Trash is empty',
+                  l10n(context).trashEmptyTitle,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
-                    color: Colors.grey.shade600,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -350,34 +356,40 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
 
         return ListView.separated(
           padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: songs.length,
+          itemCount: songs.length + 1,
           separatorBuilder: (_, i) => const SizedBox(height: 4),
           itemBuilder: (context, index) {
-            final song = songs[index];
+            if (index == 0) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: FeatureIntros.songs,
+              );
+            }
+            final song = songs[index - 1];
             return ListTile(
               title: Text(
                 song.title,
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
               subtitle: Text(
                 song.language,
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
                     icon: const Icon(Icons.restore),
-                    tooltip: 'Restore',
+                    tooltip: l10n(context).restore,
                     onPressed: () async {
                       try {
                         await ref.read(songRepositoryProvider).restoreSong(song.id);
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Song restored'),
+                            SnackBar(
+                              content: Text(l10n(context).songRestored),
                               behavior: SnackBarBehavior.floating,
                             ),
                           );
@@ -386,9 +398,9 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('Failed to restore: $e'),
+                              content: Text(UserFacingError.message(e, action: 'restore')),
                               behavior: SnackBarBehavior.floating,
-                              backgroundColor: Colors.red,
+                              backgroundColor: AppTheme.errorSurface,
                             ),
                           );
                         }
@@ -397,25 +409,25 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.delete_forever),
-                    tooltip: 'Delete permanently',
-                    color: Colors.red,
+                    tooltip: l10n(context).deletePermanently,
+                    color: context.dangerText,
                     onPressed: () async {
                       final confirmed = await showDialog<bool>(
                             context: context,
                             builder: (context) => AlertDialog(
-                              title: const Text('Delete Permanently'),
-                              content: const Text(
-                                  'This song will be permanently deleted. This cannot be undone.'),
+                              title: Text(l10n(context).deletePermanently),
+                              content: Text(
+                                  l10n(context).thisSongWillBePermanentlyDeletedThisCannotBe),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.of(context).pop(false),
-                                  child: const Text('Cancel'),
+                                  child: Text(l10n(context).actionCancel),
                                 ),
                                 TextButton(
                                   onPressed: () => Navigator.of(context).pop(true),
                                   style: TextButton.styleFrom(
                                       foregroundColor: Colors.red),
-                                  child: const Text('Delete'),
+                                  child: Text(l10n(context).actionDelete),
                                 ),
                               ],
                             ),
@@ -428,8 +440,8 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
                               .deleteSong(song.id);
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Song permanently deleted'),
+                              SnackBar(
+                                content: Text(l10n(context).songPermanentlyDeleted),
                                 behavior: SnackBarBehavior.floating,
                               ),
                             );
@@ -438,9 +450,9 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Failed to delete: $e'),
+                                content: Text(UserFacingError.message(e, action: 'delete')),
                                 behavior: SnackBarBehavior.floating,
-                                backgroundColor: Colors.red,
+                                backgroundColor: AppTheme.errorSurface,
                               ),
                             );
                           }
@@ -463,6 +475,7 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       elevation: 0,
       leading: IconButton(
+        tooltip: l10n(context).exitSelection,
         icon: const Icon(Icons.close),
         onPressed: _exitSelectMode,
       ),
@@ -475,12 +488,12 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
       actions: [
         IconButton(
           icon: const Icon(Icons.drive_file_move_outlined),
-          tooltip: 'Move',
+          tooltip: l10n(context).move,
           onPressed: count > 0 ? _moveSelectedSongs : null,
         ),
         IconButton(
           icon: const Icon(Icons.delete_outline),
-          tooltip: 'Move to Trash',
+          tooltip: l10n(context).moveToTrash,
           onPressed: count > 0 ? _deleteSelectedSongs : null,
         ),
       ],
@@ -538,7 +551,7 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Songbooks',
+                    l10n(context).songbooks,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
@@ -559,7 +572,7 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
                         ? Icons.expand_less_rounded
                         : Icons.expand_more_rounded,
                     size: 20,
-                    color: Colors.grey.shade600,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ],
               ),
@@ -570,7 +583,7 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
           if (_isFolderSectionExpanded) ...[
             // "All Songs" option
             FolderRow(
-              title: 'All Songs',
+              title: l10n(context).allSongs,
               noteCount: songs.length,
               accentColor: AppTheme.orange,
               depth: 0,
@@ -664,35 +677,11 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
   }
 
   Widget _buildEmptyState(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.music_note, size: 48, color: Colors.grey.shade400),
-          const SizedBox(height: 12),
-          Text(
-            'No songs yet',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey.shade600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Tap + to add your first song',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade500,
-            ),
-          ),
-        ],
-      ),
+    return EmptyState(
+      icon: Icons.music_note_outlined,
+      title: l10n(context).noSongsYet,
+      message: l10n(context).keepTheSongsYourChurchSingsWithLyricsAndChor,
+          accent: AppTheme.orange,
     );
   }
 
@@ -708,17 +697,17 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
     return await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Move to Trash'),
-            content: const Text('Are you sure you want to move this song to trash?'),
+            title: Text(l10n(context).moveToTrash),
+            content: Text(l10n(context).areYouSureYouWantToMoveThisSongToTrash),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
+                child: Text(l10n(context).actionCancel),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Move to Trash'),
+                child: Text(l10n(context).moveToTrash),
               ),
             ],
           ),
@@ -731,20 +720,19 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
     try {
       await repository.trashSong(songId);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Moved to trash'),
-            behavior: SnackBarBehavior.floating,
-          ),
+        showUndoSnackBar(
+          context,
+          itemLabel: 'Song',
+          onUndo: () => repository.restoreSong(songId),
         );
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to move song to trash: $e'),
+            content: Text(UserFacingError.message(e, action: 'move song to trash')),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorSurface,
           ),
         );
       }
@@ -759,9 +747,9 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to update favorite: $e'),
+            content: Text(UserFacingError.message(e, action: 'update favorite')),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorSurface,
           ),
         );
       }
@@ -775,13 +763,15 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
     );
     if (result == null || !mounted) return;
 
+    // Resolved before the await; the context may not survive the move.
+    final strings = l10n(this.context);
     final repository = ref.read(songRepositoryProvider);
     try {
       await repository.moveSong(songId, result.folderId);
       if (mounted) {
         ScaffoldMessenger.of(this.context).showSnackBar(
-          const SnackBar(
-            content: Text('Song moved'),
+          SnackBar(
+            content: Text(strings.songMoved),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -790,9 +780,9 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
       if (mounted) {
         ScaffoldMessenger.of(this.context).showSnackBar(
           SnackBar(
-            content: Text('Failed to move song: $e'),
+            content: Text(UserFacingError.message(e, action: 'move song')),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorSurface,
           ),
         );
       }
@@ -836,18 +826,18 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
     final shouldDelete = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Move to Trash'),
+            title: Text(l10n(context).moveToTrash),
             content: Text(
                 'Move $count song${count == 1 ? '' : 's'} to trash?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
+                child: Text(l10n(context).actionCancel),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Move to Trash'),
+                child: Text(l10n(context).moveToTrash),
               ),
             ],
           ),
@@ -914,7 +904,7 @@ class _FavoriteCard extends StatelessWidget {
                   Icon(
                     Icons.favorite,
                     size: 16,
-                    color: Colors.red.shade400,
+                    color: context.dangerText,
                   ),
                   const Spacer(),
                   if (hasChords)
@@ -925,10 +915,10 @@ class _FavoriteCard extends StatelessWidget {
                         color: AppTheme.orange.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Text(
-                        'Chords',
+                      child: Text(
+                        l10n(context).chords,
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 12,
                           color: AppTheme.orange,
                           fontWeight: FontWeight.w500,
                         ),
@@ -940,7 +930,7 @@ class _FavoriteCard extends StatelessWidget {
               Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
                 maxLines: 2,
@@ -950,8 +940,8 @@ class _FavoriteCard extends StatelessWidget {
               Text(
                 language,
                 style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ],

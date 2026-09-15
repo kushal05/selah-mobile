@@ -5,6 +5,7 @@ import '../../../bible/domain/models/bible_version_info.dart';
 import '../../../bible/domain/models/bible_books.dart';
 import '../../../notes/presentation/widgets/editor/bible_reference_picker.dart';
 import '../../domain/models/bible_search_result.dart';
+import '../../../../l10n/l10n.dart';
 
 /// A horizontal row of filter chips for Bible verse search with multi-select.
 ///
@@ -51,7 +52,7 @@ class BibleSearchFiltersBar extends StatelessWidget {
             children: [
               // Testament: OT
               FilterChip(
-                label: const Text('OT'),
+                label: Text(l10n(context).ot),
                 selected: filters.testaments.contains(0),
                 onSelected: (selected) {
                   final updated = Set<int>.from(filters.testaments);
@@ -69,7 +70,7 @@ class BibleSearchFiltersBar extends StatelessWidget {
 
               // Testament: NT
               FilterChip(
-                label: const Text('NT'),
+                label: Text(l10n(context).nt),
                 selected: filters.testaments.contains(1),
                 onSelected: (selected) {
                   final updated = Set<int>.from(filters.testaments);
@@ -167,7 +168,7 @@ class BibleSearchFiltersBar extends StatelessWidget {
     return InputChip(
       label: Text(
         label,
-        style: TextStyle(fontSize: 12, color: cs.onSurface),
+        style: TextStyle(fontSize: 13, color: cs.onSurface),
       ),
       deleteIcon: Icon(Icons.close,
           size: 14, color: cs.onSurface.withValues(alpha: 0.6)),
@@ -220,7 +221,7 @@ class BibleSearchFiltersBar extends StatelessWidget {
         builder: (ctx, setLocalState) {
           final cs = Theme.of(ctx).colorScheme;
           return SimpleDialog(
-            title: const Text('Select Translations'),
+            title: Text(l10n(context).selectTranslations),
             children: [
               ...availableTranslations.map((t) {
                 final isSelected = selected.contains(t);
@@ -250,7 +251,7 @@ class BibleSearchFiltersBar extends StatelessWidget {
                     onChanged(filters.copyWith(translations: selected));
                     Navigator.pop(ctx);
                   },
-                  child: const Text('Apply'),
+                  child: Text(l10n(context).apply),
                 ),
               ),
             ],

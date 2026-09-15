@@ -11,6 +11,11 @@ import '../../../../shared/widgets/dialogs/delete_folder_dialog.dart';
 import '../../../../shared/widgets/dialogs/move_to_folder_sheet.dart';
 import '../../../../shared/widgets/dialogs/rename_folder_dialog.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../shared/widgets/empty_state.dart';
+import '../../../../core/providers/motion_preferences.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Screen for managing folders - create, rename, delete, and organize
 class FolderManagementScreen extends ConsumerStatefulWidget {
@@ -34,13 +39,13 @@ class _FolderManagementScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Manage Folders'),
+        title: Text(l10n(context).manageFolders),
         backgroundColor: colorScheme.surface,
         elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.delete_outline_rounded),
-            tooltip: 'Trash',
+            tooltip: l10n(context).trash,
             onPressed: () => _showTrashSheet(context),
           ),
         ],
@@ -48,7 +53,7 @@ class _FolderManagementScreenState
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showCreateFolderDialog(context, null),
         backgroundColor: AppTheme.brandPurple,
-        foregroundColor: Colors.white,
+        foregroundColor: AppTheme.onAccent(AppTheme.brandPurple),
         child: const Icon(Icons.create_new_folder_rounded),
       ),
       body: foldersAsync.when(
@@ -59,11 +64,11 @@ class _FolderManagementScreenState
             children: [
               Icon(Icons.error_outline, size: 48, color: colorScheme.error),
               const SizedBox(height: 16),
-              Text('Error loading folders: $e'),
+              Text(UserFacingError.forLoad(e)),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => ref.invalidate(foldersStreamProvider),
-                child: const Text('Retry'),
+                child: Text(l10n(context).retry),
               ),
             ],
           ),
@@ -79,37 +84,11 @@ class _FolderManagementScreenState
   }
 
   Widget _buildEmptyState(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.folder_open_rounded,
-              size: 64,
-              color: colorScheme.onSurface.withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No folders yet',
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Tap + to create your first folder',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: Colors.grey,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return EmptyState(
+      icon: Icons.folder_open_rounded,
+      title: l10n(context).noFoldersYet,
+      message: l10n(context).foldersGroupRelatedNotesTogetherOnePerSeries,
+      accent: AppTheme.brandPurple,
     );
   }
 
@@ -191,9 +170,10 @@ class _FolderManagementScreenState
                     width: 24,
                     child: hasChildren
                         ? IconButton(
+                          tooltip: isExpanded ? 'Collapse folder' : 'Expand folder',
                             icon: AnimatedRotation(
                               turns: isExpanded ? 0.25 : 0,
-                              duration: const Duration(milliseconds: 200),
+                              duration: context.motion(const Duration(milliseconds: 200)),
                               child: Icon(
                                 Icons.chevron_right_rounded,
                                 size: 20,
@@ -237,7 +217,7 @@ class _FolderManagementScreenState
                         Text(
                           '$noteCount notes${hasChildren ? ' • ${children.length} subfolders' : ''}',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.grey,
+                            color: context.mutedText,
                           ),
                         ),
                       ],
@@ -252,33 +232,33 @@ class _FolderManagementScreenState
                     onSelected: (value) =>
                         _handleFolderAction(context, folder, value, allFolders),
                     itemBuilder: (context) => [
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'add_subfolder',
                         child: Row(
                           children: [
                             Icon(Icons.create_new_folder_outlined, size: 20),
                             SizedBox(width: 12),
-                            Text('Add subfolder'),
+                            Text(l10n(context).addSubfolder),
                           ],
                         ),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'rename',
                         child: Row(
                           children: [
                             Icon(Icons.edit_outlined, size: 20),
                             SizedBox(width: 12),
-                            Text('Rename'),
+                            Text(l10n(context).rename),
                           ],
                         ),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'move',
                         child: Row(
                           children: [
                             Icon(Icons.drive_file_move_outlined, size: 20),
                             SizedBox(width: 12),
-                            Text('Move'),
+                            Text(l10n(context).move),
                           ],
                         ),
                       ),
@@ -288,10 +268,10 @@ class _FolderManagementScreenState
                         child: Row(
                           children: [
                             Icon(Icons.delete_outline,
-                                size: 20, color: Colors.red),
+                                size: 20, color: context.dangerText),
                             const SizedBox(width: 12),
-                            const Text('Move to Trash',
-                                style: TextStyle(color: Colors.red)),
+                            Text(l10n(context).moveToTrash,
+                                style: TextStyle(color: context.dangerText)),
                           ],
                         ),
                       ),
@@ -397,9 +377,9 @@ class _FolderManagementScreenState
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error moving folder: $e'),
+            content: Text(UserFacingError.message(e, action: 'move that folder')),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorSurface,
           ),
         );
       }
@@ -462,8 +442,8 @@ class _FolderManagementScreenState
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Folder moved to trash, notes moved to root'),
+          SnackBar(
+            content: Text(l10n(context).folderMovedToTrashNotesMovedToRoot),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -472,9 +452,9 @@ class _FolderManagementScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error moving folder to trash: $e'),
+            content: Text(UserFacingError.message(e, action: 'move that folder to Trash')),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorSurface,
           ),
         );
       }
@@ -493,8 +473,8 @@ class _FolderManagementScreenState
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Folder and notes moved to trash'),
+          SnackBar(
+            content: Text(l10n(context).folderAndNotesMovedToTrash),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -503,9 +483,9 @@ class _FolderManagementScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error moving folder to trash: $e'),
+            content: Text(UserFacingError.message(e, action: 'move that folder to Trash')),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorSurface,
           ),
         );
       }
@@ -534,102 +514,107 @@ class _TrashFoldersSheet extends ConsumerWidget {
     final theme = Theme.of(context);
     final deletedAsync = ref.watch(deletedNoteFoldersProvider);
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.5,
-      minChildSize: 0.3,
-      maxChildSize: 0.85,
-      expand: false,
-      builder: (context, scrollController) {
-        return Column(
-          children: [
-            const DragHandle(),
-            // Header
-            Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  const Icon(Icons.delete_outline_rounded,
-                      color: AppTheme.brandPurple),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Deleted Folders',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w600),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.of(context).pop(),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ],
+    return SafeArea(
+      // Keeps the sheet's last control clear of the gesture bar.
+      top: false,
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.3,
+        maxChildSize: 0.85,
+        expand: false,
+        builder: (context, scrollController) {
+          return Column(
+            children: [
+              const DragHandle(),
+              // Header
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.delete_outline_rounded,
+                        color: AppTheme.brandPurple),
+                    const SizedBox(width: 12),
+                    Text(
+                      l10n(context).deletedFolders,
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      tooltip: l10n(context).close,
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Divider(height: 1, color: Colors.grey.shade200),
-            // List
-            Expanded(
-              child: deletedAsync.when(
-                loading: () =>
-                    const ListTileSkeletonList(count: 3, hasLeading: false),
-                error: (e, _) => Center(child: Text('Error: $e')),
-                data: (folders) {
-                  if (folders.isEmpty) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.check_circle_outline,
-                                size: 48,
-                                color: Colors.grey.shade400),
-                            const SizedBox(height: 12),
-                            Text('Trash is empty',
-                                style: theme.textTheme.bodyLarge
-                                    ?.copyWith(color: Colors.grey)),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-                  return ListView.separated(
-                    controller: scrollController,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: folders.length,
-                    separatorBuilder: (_, _) =>
-                        Divider(height: 1, indent: 16, color: Colors.grey.shade200),
-                    itemBuilder: (context, index) {
-                      final folder = folders[index];
-                      final deletedDate = DateTime.fromMillisecondsSinceEpoch(
-                          folder.updatedAt);
-                      return ListTile(
-                        leading: Icon(Icons.folder_outlined,
-                            color: Colors.grey.shade500),
-                        title: Text(folder.name),
-                        subtitle: Text(
-                          'Deleted ${_formatDate(deletedDate)}',
-                          style: theme.textTheme.bodySmall
-                              ?.copyWith(color: Colors.grey),
-                        ),
-                        trailing: TextButton.icon(
-                          icon: const Icon(Icons.restore, size: 18),
-                          label: const Text('Restore'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppTheme.brandPurple,
+              Divider(height: 1, color: context.hairline),
+              // List
+              Expanded(
+                child: deletedAsync.when(
+                  loading: () =>
+                      const ListTileSkeletonList(count: 3, hasLeading: false),
+                  error: (e, _) => Center(child: Text(UserFacingError.forLoad(e))),
+                  data: (folders) {
+                    if (folders.isEmpty) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.check_circle_outline,
+                                  size: 48,
+                                  color: context.hintText),
+                              const SizedBox(height: 12),
+                              Text(l10n(context).trashEmptyTitle,
+                                  style: theme.textTheme.bodyLarge
+                                      ?.copyWith(color: context.mutedText)),
+                            ],
                           ),
-                          onPressed: () =>
-                              _restoreFolder(context, ref, folder),
                         ),
                       );
-                    },
-                  );
-                },
+                    }
+                    return ListView.separated(
+                      controller: scrollController,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: folders.length,
+                      separatorBuilder: (_, _) =>
+                          Divider(height: 1, indent: 16, color: context.hairline),
+                      itemBuilder: (context, index) {
+                        final folder = folders[index];
+                        final deletedDate = DateTime.fromMillisecondsSinceEpoch(
+                            folder.updatedAt);
+                        return ListTile(
+                          leading: Icon(Icons.folder_outlined,
+                              color: context.mutedText),
+                          title: Text(folder.name),
+                          subtitle: Text(
+                            'Deleted ${_formatDate(deletedDate)}',
+                            style: theme.textTheme.bodySmall
+                                ?.copyWith(color: context.mutedText),
+                          ),
+                          trailing: TextButton.icon(
+                            icon: const Icon(Icons.restore, size: 18),
+                            label: Text(l10n(context).restore),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppTheme.brandPurple,
+                            ),
+                            onPressed: () =>
+                                _restoreFolder(context, ref, folder),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
-        );
-      },
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -651,9 +636,9 @@ class _TrashFoldersSheet extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error restoring folder: $e'),
+            content: Text(UserFacingError.message(e, action: 'restore that folder')),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorSurface,
           ),
         );
       }

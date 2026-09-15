@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show TextInput;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/navigation/routes.dart';
@@ -17,6 +18,8 @@ import '../widgets/google_sign_in_button.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../widgets/selah_logo.dart';
 import '../widgets/login_entrance_animation.dart';
+import '../../../../core/providers/motion_preferences.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Premium animated login screen with aurora background, glassmorphism card,
 /// firefly particles, parallax motion, and sequential entrance animations.
@@ -87,10 +90,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   Future<void> _handleSkip() async {
     final authService = ref.read(authServiceProvider);
     final testToken = AuthToken(
-      accessToken: 'test-token',
-      refreshToken: 'test-refresh',
+      accessToken: AuthService.kTestAccessToken,
+      refreshToken: AuthService.kTestRefreshToken,
       expiresAt: DateTime.now().add(const Duration(days: 365)),
-      userId: 'test-user',
+      userId: AuthService.kTestUserId,
     );
     await authService.saveToken(testToken);
     ref.read(currentUserIdProvider.notifier).state = testToken.userId;
@@ -113,6 +116,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     setState(() => _isLoading = false);
 
     if (success) {
+      // Tells the platform the credential was accepted, which is what
+      // prompts the keychain / password manager to offer to save it.
+      TextInput.finishAutofillContext();
       context.go(Routes.home);
     } else {
       final error = ref.read(authNotifierProvider);
@@ -121,7 +127,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         SnackBar(
           content: Text(message),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.red.shade700,
+          backgroundColor: AppTheme.errorSurface,
         ),
       );
     }
@@ -146,7 +152,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           SnackBar(
             content: Text(message),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.red.shade700,
+            backgroundColor: AppTheme.errorSurface,
           ),
         );
       }
@@ -189,7 +195,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   elevation: 0,
                 ),
                 child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
+                  duration: context.motion(const Duration(milliseconds: 200)),
                   child: _isLoading
                       ? const SizedBox(
                           height: 20,
@@ -199,8 +205,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             color: Colors.white,
                           ),
                         )
-                      : const Text(
-                          'Sign In',
+                      : Text(
+                          l10n(context).signIn,
                           key: ValueKey('signin'),
                           style: TextStyle(
                             fontSize: 16,
@@ -295,8 +301,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                         ),
                                       ),
                                       const SizedBox(height: 6),
-                                      const Text(
-                                        'Welcome to Selah',
+                                      Text(
+                                        l10n(context).welcomeToSelah,
                                         style: TextStyle(
                                           fontSize: 28,
                                           fontWeight: FontWeight.bold,
@@ -324,7 +330,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                       child: GlassLoginCard(
                                         child: Form(
                                           key: _formKey,
-                                          child: Column(
+                                          // AutofillGroup lets the OS keychain
+                                          // and password managers see these
+                                          // fields as one credential.
+                                          child: AutofillGroup(
+                                            child: Column(
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.stretch,
                                             children: [
@@ -343,6 +353,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                 controller: _emailController,
                                                 keyboardType:
                                                     TextInputType.emailAddress,
+                                                autofillHints: const [
+                                                  AutofillHints.username,
+                                                  AutofillHints.email,
+                                                ],
                                                 textInputAction:
                                                     TextInputAction.next,
                                                 style: const TextStyle(
@@ -351,7 +365,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                 decoration:
                                                     glassInputDecoration(
                                                   context: context,
-                                                  label: 'Email',
+                                                  label: l10n(context).email,
                                                   hint: 'Enter your email',
                                                   prefixIcon:
                                                       Icons.email_outlined,
@@ -375,6 +389,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                 controller:
                                                     _passwordController,
                                                 obscureText: _obscurePassword,
+                                                autofillHints: const [
+                                                  AutofillHints.password,
+                                                ],
                                                 textInputAction:
                                                     TextInputAction.done,
                                                 onFieldSubmitted: (_) =>
@@ -385,11 +402,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                 decoration:
                                                     glassInputDecoration(
                                                   context: context,
-                                                  label: 'Password',
+                                                  label: l10n(context).password,
                                                   hint: 'Enter your password',
                                                   prefixIcon:
                                                       Icons.lock_outlined,
                                                   suffixIcon: IconButton(
+                                                    tooltip: _obscurePassword ? 'Show password' : 'Hide password',
                                                     icon: Icon(
                                                       _obscurePassword
                                                           ? Icons
@@ -428,12 +446,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                   onPressed: () => context.push(
                                                       Routes.forgotPassword),
                                                   child: Text(
-                                                    'Forgot password?',
+                                                    l10n(context).forgotPassword,
                                                     style: TextStyle(
                                                       color: Colors.white
                                                           .withValues(
                                                               alpha: 0.7),
-                                                      fontSize: 13,
+                                                      fontSize: 14,
                                                     ),
                                                   ),
                                                 ),
@@ -443,6 +461,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                               // Sign in button with press animation
                                               _buildSignInButton(),
                                             ],
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -474,8 +493,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                               MaterialTapTargetSize
                                                   .shrinkWrap,
                                         ),
-                                        child: const Text(
-                                          'Register',
+                                        child: Text(
+                                          l10n(context).register,
                                           style: TextStyle(
                                             color: Colors.white,
                                             fontWeight: FontWeight.w600,
@@ -493,10 +512,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                     child: TextButton(
                                       onPressed: _handleSkip,
                                       child: Text(
-                                        'Skip (Testing)',
+                                        l10n(context).skipSignInTestMode,
                                         style: TextStyle(
+                                          // Was alpha 0.3, which is invisible
+                                          // against the aurora background —
+                                          // the control existed but could not
+                                          // be found. Debug builds only.
                                           color: Colors.white
-                                              .withValues(alpha: 0.3),
+                                              .withValues(alpha: 0.85),
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                     ),

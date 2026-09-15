@@ -1,7 +1,10 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../colored_badge.dart';
+import '../row_actions.dart';
+import '../../../core/theme/theme_colors.dart';
 
 /// Displays a note item as a premium white card in the notes list.
 class NoteRow extends StatelessWidget {
@@ -14,6 +17,11 @@ class NoteRow extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
 
+  /// Actions also available by swipe or long-press. Rendered as a visible
+  /// overflow menu so they are discoverable, and reachable by screen readers,
+  /// which cannot perform either gesture.
+  final List<RowAction> actions;
+
   const NoteRow({
     super.key,
     required this.title,
@@ -24,6 +32,7 @@ class NoteRow extends StatelessWidget {
     this.folderName,
     this.onTap,
     this.onLongPress,
+    this.actions = const [],
   });
 
   String _formatNoteDate(DateTime date) {
@@ -41,7 +50,7 @@ class NoteRow extends StatelessWidget {
     return Container(
       margin: AppTheme.cardMargin,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardTheme.color,
         borderRadius: AppTheme.borderRadius2XL,
         boxShadow: AppTheme.cardShadow,
       ),
@@ -78,32 +87,50 @@ class NoteRow extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Folder name + date row
+                      // Folder name + date. A Row with a Spacer overflows once
+                      // the text scale grows — the date has no give. Wrap lets
+                      // the date drop to its own line instead of clipping.
                       if (folderName != null || noteDate != null)
-                        Row(
+                        Wrap(
+                          spacing: AppTheme.spacing8,
+                          runSpacing: AppTheme.spacing3,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            if (folderName != null) ...[
-                              Icon(Icons.folder_outlined,
-                                  size: AppTheme.iconXS,
-                                  color: AppTheme.hintColor),
-                              const SizedBox(width: AppTheme.spacing3),
-                              Flexible(
-                                child: Text(
-                                  folderName!,
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: AppTheme.unselectedColor,
+                            if (folderName != null)
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.folder_outlined,
+                                      size: AppTheme.iconXS,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                  const SizedBox(width: AppTheme.spacing3),
+                                  ConstrainedBox(
+                                    // A flat 160 fits a 420pt screen and
+                                    // overflows a 320pt one; cap it against
+                                    // the actual width instead.
+                                    constraints: BoxConstraints(
+                                      maxWidth: math.min(
+                                        160,
+                                        MediaQuery.sizeOf(context).width * 0.4,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      folderName!,
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                                ],
                               ),
-                            ],
-                            const Spacer(),
                             if (noteDate != null)
                               Text(
                                 _formatNoteDate(noteDate!),
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  color: AppTheme.hintColor,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
                               ),
                           ],
@@ -116,13 +143,13 @@ class NoteRow extends StatelessWidget {
                           children: [
                             Icon(Icons.person_outline,
                                 size: AppTheme.iconXS,
-                                color: AppTheme.hintColor),
+                                color: Theme.of(context).colorScheme.onSurfaceVariant),
                             const SizedBox(width: AppTheme.spacing3),
                             Flexible(
                               child: Text(
                                 preacherName!,
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  color: AppTheme.unselectedColor,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -140,7 +167,7 @@ class NoteRow extends StatelessWidget {
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w600,
                           height: 1.2,
-                          color: AppTheme.textDark,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -152,7 +179,7 @@ class NoteRow extends StatelessWidget {
                         Text(
                           preview!,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: AppTheme.unselectedColor,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             height: 1.4,
                           ),
                           maxLines: 2,
@@ -175,15 +202,19 @@ class NoteRow extends StatelessWidget {
                   ),
                 ),
 
-                // Chevron
-                Padding(
-                  padding: const EdgeInsets.only(left: AppTheme.spacing8, top: AppTheme.spacing10),
-                  child: Icon(
-                    Icons.chevron_right_rounded,
-                    size: AppTheme.iconBase,
-                    color: AppTheme.chevronColor,
+                // Overflow menu when the row has actions, chevron otherwise.
+                if (actions.isNotEmpty)
+                  RowOverflowButton(actions: actions, semanticLabel: title)
+                else
+                  Padding(
+                    padding: EdgeInsets.only(
+                        left: AppTheme.spacing8, top: AppTheme.spacing10),
+                    child: Icon(
+                      Icons.chevron_right_rounded,
+                      size: AppTheme.iconBase,
+                      color: context.decorativeInk,
+                    ),
                   ),
-                ),
               ],
             ),
           ),

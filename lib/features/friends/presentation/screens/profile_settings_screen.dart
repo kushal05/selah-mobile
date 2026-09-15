@@ -5,6 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Profile settings screen for managing username, display name, bio, and privacy
 class ProfileSettingsScreen extends ConsumerStatefulWidget {
@@ -43,7 +46,7 @@ class _ProfileSettingsScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile & Privacy'),
+        title: Text(l10n(context).profilePrivacy),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         actions: [
@@ -55,8 +58,8 @@ class _ProfileSettingsScreenState
                     width: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text(
-                    'Save',
+                : Text(
+                    l10n(context).actionSave,
                     style: TextStyle(
                       color: AppTheme.teal,
                       fontWeight: FontWeight.w600,
@@ -106,12 +109,12 @@ class _ProfileSettingsScreenState
                         style: TextStyle(
                           color: _usernameController.text.isNotEmpty
                               ? null
-                              : Colors.grey.shade500,
+                              : context.mutedText,
                         ),
                       ),
                       trailing: Icon(
                         Icons.edit_outlined,
-                        color: Colors.grey.shade500,
+                        color: context.mutedText,
                         size: 20,
                       ),
                       onTap: () => _showUsernameEditDialog(context),
@@ -119,10 +122,10 @@ class _ProfileSettingsScreenState
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Your unique username for friends to find you',
+                    l10n(context).yourUniqueUsernameForFriendsToFindYou,
                     style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -133,7 +136,7 @@ class _ProfileSettingsScreenState
                   TextFormField(
                     controller: _displayNameController,
                     decoration: InputDecoration(
-                      hintText: 'Display Name',
+                      hintText: l10n(context).displayName,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -152,7 +155,7 @@ class _ProfileSettingsScreenState
                     maxLines: 3,
                     maxLength: 150,
                     decoration: InputDecoration(
-                      hintText: 'Tell others about yourself...',
+                      hintText: l10n(context).tellOthersAboutYourself,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -172,9 +175,9 @@ class _ProfileSettingsScreenState
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: SwitchListTile(
-                      title: const Text('Allow Friend Requests'),
-                      subtitle: const Text(
-                        'When off, no one can send you friend requests',
+                      title: Text(l10n(context).allowFriendRequests),
+                      subtitle: Text(
+                        l10n(context).whenOffNoOneCanSendYouFriendRequests,
                       ),
                       value: _friendRequestsEnabled,
                       onChanged: (value) {
@@ -194,11 +197,11 @@ class _ProfileSettingsScreenState
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: ListTile(
-                      leading: Icon(Icons.block, color: Colors.red.shade400),
-                      title: const Text('Blocked Users'),
+                      leading: Icon(Icons.block, color: context.dangerText),
+                      title: Text(l10n(context).blockedUsers),
                       trailing: Icon(
                         Icons.chevron_right,
-                        color: Colors.grey.shade400,
+                        color: context.hintText,
                       ),
                       onTap: () => _showBlockedUsers(context),
                     ),
@@ -227,9 +230,9 @@ class _ProfileSettingsScreenState
     return Text(
       title,
       style: TextStyle(
-        fontSize: 12,
+        fontSize: 13,
         fontWeight: FontWeight.w600,
-        color: Colors.grey.shade600,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
         letterSpacing: 0.5,
       ),
     );
@@ -242,7 +245,7 @@ class _ProfileSettingsScreenState
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Edit Username'),
+        title: Text(l10n(context).editUsername),
         content: Form(
           key: formKey,
           child: TextFormField(
@@ -250,7 +253,7 @@ class _ProfileSettingsScreenState
             autofocus: true,
             decoration: InputDecoration(
               prefixText: '@',
-              hintText: 'username',
+              hintText: l10n(context).username,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -272,7 +275,7 @@ class _ProfileSettingsScreenState
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
+            child: Text(l10n(context).actionCancel),
           ),
           TextButton(
             onPressed: () {
@@ -283,7 +286,7 @@ class _ProfileSettingsScreenState
                 Navigator.pop(dialogContext);
               }
             },
-            child: const Text('Save'),
+            child: Text(l10n(context).actionSave),
           ),
         ],
       ),
@@ -331,8 +334,8 @@ class _ProfileSettingsScreenState
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile saved'),
+          SnackBar(
+            content: Text(l10n(context).profileSaved),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -342,7 +345,7 @@ class _ProfileSettingsScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to save profile: $e'),
+            content: Text(UserFacingError.message(e, action: 'save profile')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -358,12 +361,18 @@ class _ProfileSettingsScreenState
     final blockedAsync = ref.watch(blockedUsersProvider);
 
     showModalBottomSheet(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (context) => DraggableScrollableSheet(
+      builder: (context) => SafeArea(
+        // Keeps the sheet's last control clear of the gesture bar.
+        top: false,
+        child: DraggableScrollableSheet(
         initialChildSize: 0.5,
         minChildSize: 0.3,
         maxChildSize: 0.8,
@@ -374,8 +383,8 @@ class _ProfileSettingsScreenState
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  const Text(
-                    'Blocked Users',
+                  Text(
+                    l10n(context).blockedUsers,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -383,6 +392,7 @@ class _ProfileSettingsScreenState
                   ),
                   const Spacer(),
                   IconButton(
+                    tooltip: l10n(context).close,
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(context),
                   ),
@@ -395,13 +405,13 @@ class _ProfileSettingsScreenState
                 loading: () =>
                     const ListTileSkeletonList(count: 3),
                 error: (error, stack) =>
-                    Center(child: Text('Error: $error')),
+                    Center(child: Text(UserFacingError.forLoad(error))),
                 data: (blocked) {
                   if (blocked.isEmpty) {
                     return Center(
                       child: Text(
-                        'No blocked users',
-                        style: TextStyle(color: Colors.grey.shade500),
+                        l10n(context).noBlockedUsers,
+                        style: TextStyle(color: context.mutedText),
                       ),
                     );
                   }
@@ -440,7 +450,7 @@ class _ProfileSettingsScreenState
                               );
                             }
                           },
-                          child: const Text('Unblock'),
+                          child: Text(l10n(context).unblock),
                         ),
                       );
                     },
@@ -450,7 +460,7 @@ class _ProfileSettingsScreenState
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 }

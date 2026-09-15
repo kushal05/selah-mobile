@@ -2,24 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/sync/providers/sync_providers.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Shows the "Join a Group" dialog.
 ///
 /// Accepts a group code from the user and calls the join API.
 /// Handles not-found, already-member, and error cases.
-/// Shared between [GroupsListScreen] and [SocialHomeScreen].
+/// Shared between [GroupsListScreen] and the people directory.
 Future<void> showJoinGroupDialog(BuildContext context, WidgetRef ref) async {
   final codeController = TextEditingController();
 
   final code = await showDialog<String>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Join a Group'),
+      title: Text(l10n(context).joinAGroup),
       content: TextField(
         controller: codeController,
         textCapitalization: TextCapitalization.characters,
         decoration: InputDecoration(
-          hintText: 'Enter group code',
+          hintText: l10n(context).enterGroupCode,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
@@ -31,12 +33,12 @@ Future<void> showJoinGroupDialog(BuildContext context, WidgetRef ref) async {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(l10n(context).actionCancel),
         ),
         TextButton(
           onPressed: () =>
               Navigator.pop(context, codeController.text.trim()),
-          child: const Text('Join'),
+          child: Text(l10n(context).join),
         ),
       ],
     ),
@@ -54,8 +56,8 @@ Future<void> showJoinGroupDialog(BuildContext context, WidgetRef ref) async {
 
     if (result.notFound) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Invalid group code'),
+        SnackBar(
+          content: Text(l10n(context).invalidGroupCode),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -64,8 +66,8 @@ Future<void> showJoinGroupDialog(BuildContext context, WidgetRef ref) async {
 
     if (result.alreadyMember) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You are already a member of this group'),
+        SnackBar(
+          content: Text(l10n(context).youAreAlreadyAMemberOfThisGroup),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -85,7 +87,7 @@ Future<void> showJoinGroupDialog(BuildContext context, WidgetRef ref) async {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to join group: $e'),
+          content: Text(UserFacingError.message(e, action: 'join group')),
           behavior: SnackBarBehavior.floating,
         ),
       );

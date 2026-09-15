@@ -6,6 +6,8 @@ import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../widgets/prayer_heatmap.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Prayer Analytics Dashboard with stat cards, heatmap, and top prayers.
 class PrayerAnalyticsScreen extends ConsumerWidget {
@@ -15,7 +17,7 @@ class PrayerAnalyticsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Prayer Analytics'),
+        title: Text(l10n(context).prayerAnalytics),
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -55,7 +57,7 @@ class PrayerAnalyticsScreen extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Overview', style: Theme.of(context).textTheme.titleMedium),
+        Text(l10n(context).overview, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 12),
         GridView.count(
           crossAxisCount: 2,
@@ -66,19 +68,19 @@ class PrayerAnalyticsScreen extends ConsumerWidget {
           childAspectRatio: 1.5,
           children: [
             _StatCard(
-              title: 'Total Prayers',
+              title: l10n(context).totalPrayers,
               value: totalAsync.whenOrNull(data: (v) => '$v') ?? '–',
               icon: Icons.format_list_bulleted_rounded,
               color: AppTheme.brandBlue,
             ),
             _StatCard(
-              title: 'Answered',
+              title: l10n(context).answered,
               value: answeredAsync.whenOrNull(data: (v) => '$v') ?? '–',
               icon: Icons.check_circle_outline_rounded,
               color: AppTheme.teal,
             ),
             _StatCard(
-              title: 'Answer Rate',
+              title: l10n(context).answerRate,
               value: ratioAsync.whenOrNull(
                       data: (v) => '${(v * 100).toStringAsFixed(0)}%') ??
                   '–',
@@ -86,7 +88,7 @@ class PrayerAnalyticsScreen extends ConsumerWidget {
               color: AppTheme.brandPurple,
             ),
             _StatCard(
-              title: 'Day Streak',
+              title: l10n(context).dayStreak,
               value: streakAsync.whenOrNull(data: (v) => '$v') ?? '–',
               icon: Icons.local_fire_department_rounded,
               color: AppTheme.coral,
@@ -103,7 +105,7 @@ class PrayerAnalyticsScreen extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Prayer Activity', style: Theme.of(context).textTheme.titleMedium),
+        Text(l10n(context).prayerActivity, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 12),
         heatmapAsync.when(
           loading: () => const Padding(
@@ -124,7 +126,7 @@ class PrayerAnalyticsScreen extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Most Prayed',
+          l10n(context).mostPrayed,
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 12),
@@ -140,18 +142,18 @@ class PrayerAnalyticsScreen extends ConsumerWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
+                  color: context.subtleFill,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: Colors.grey.shade400),
+                    Icon(Icons.info_outline, color: context.hintText),
                     const SizedBox(width: 12),
                     Text(
-                      'Start logging prayers to see stats',
+                      l10n(context).startLoggingPrayersToSeeStats,
                       style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 14,
+                        color: context.mutedText,
+                        fontSize: 16,
                       ),
                     ),
                   ],
@@ -222,7 +224,7 @@ class _StatCard extends StatelessWidget {
                 child: Text(
                   title,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: color.withValues(alpha: 0.7),
                   ),
@@ -277,7 +279,7 @@ class _TopPrayerRow extends StatelessWidget {
                 child: Text(
                   '$rank',
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.brandPurple,
                   ),
@@ -289,7 +291,7 @@ class _TopPrayerRow extends StatelessWidget {
               child: Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 16,
                   fontWeight: FontWeight.w500,
                 ),
                 maxLines: 1,
@@ -305,7 +307,7 @@ class _TopPrayerRow extends StatelessWidget {
               child: Text(
                 '$logCount logs',
                 style: const TextStyle(
-                  fontSize: 12,
+                  fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: AppTheme.teal,
                 ),

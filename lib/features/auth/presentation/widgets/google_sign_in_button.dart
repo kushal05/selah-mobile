@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../../core/providers/motion_preferences.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Glass-styled Google Sign-In button matching the auth screen theme.
 class GoogleSignInButton extends StatelessWidget {
@@ -30,7 +32,7 @@ class GoogleSignInButton extends StatelessWidget {
                     const Icon(Icons.g_mobiledata, size: 24),
               ),
         label: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
+          duration: context.motion(const Duration(milliseconds: 200)),
           child: isLoading
               ? const SizedBox(
                   key: ValueKey('google_loading'),
@@ -41,11 +43,11 @@ class GoogleSignInButton extends StatelessWidget {
                     color: Colors.white,
                   ),
                 )
-              : const Text(
-                  'Continue with Google',
+              : Text(
+                  l10n(context).continueWithGoogle,
                   key: ValueKey('google_label'),
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -84,10 +86,10 @@ class AuthDivider extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
-            'or',
+            l10n(context).or,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 13,
+              fontSize: 14,
             ),
           ),
         ),

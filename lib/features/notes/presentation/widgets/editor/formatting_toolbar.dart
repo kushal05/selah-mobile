@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../shared/widgets/drag_handle.dart';
 import '../../../domain/models/block_type.dart';
 import '../../providers/note_editor_provider.dart';
+import '../../../../../core/providers/motion_preferences.dart';
+import '../../../../../core/theme/theme_colors.dart';
+import '../../../../../l10n/l10n.dart';
 
 /// Contextual formatting toolbar for the editor
 /// Appears when text is selected or keyboard is visible
@@ -49,7 +52,7 @@ class FormattingToolbar extends ConsumerWidget {
               if (onVersePickerPressed != null)
                 _FormatButton(
                   icon: Icons.menu_book_rounded,
-                  tooltip: 'Insert Verse',
+                  tooltip: l10n(context).insertVerse,
                   onPressed: onVersePickerPressed!,
                 ),
               if (onVersePickerPressed != null) const _ToolbarDivider(),
@@ -57,22 +60,22 @@ class FormattingToolbar extends ConsumerWidget {
               // Inline formatting (always visible)
               _FormatButton(
                 icon: Icons.format_bold,
-                tooltip: 'Bold',
+                tooltip: l10n(context).bold,
                 onPressed: () => _toggleFormat(ref, bold: true),
               ),
               _FormatButton(
                 icon: Icons.format_italic,
-                tooltip: 'Italic',
+                tooltip: l10n(context).italic,
                 onPressed: () => _toggleFormat(ref, italic: true),
               ),
               _FormatButton(
                 icon: Icons.format_underlined,
-                tooltip: 'Underline',
+                tooltip: l10n(context).underline,
                 onPressed: () => _toggleFormat(ref, underline: true),
               ),
               _FormatButton(
                 icon: Icons.strikethrough_s,
-                tooltip: 'Strikethrough',
+                tooltip: l10n(context).strikethrough,
                 onPressed: () => _toggleFormat(ref, strikethrough: true),
               ),
               const _ToolbarDivider(),
@@ -80,12 +83,12 @@ class FormattingToolbar extends ConsumerWidget {
               // Heading buttons (outside dropdown)
               _FormatButton(
                 icon: Icons.looks_one,
-                tooltip: 'Heading',
+                tooltip: l10n(context).heading,
                 onPressed: () => _changeBlockType(ref, BlockType.heading2),
               ),
               _FormatButton(
                 icon: Icons.looks_two,
-                tooltip: 'Sub-Heading',
+                tooltip: l10n(context).subHeading,
                 onPressed: () => _changeBlockType(ref, BlockType.heading3),
               ),
               const _ToolbarDivider(),
@@ -93,17 +96,17 @@ class FormattingToolbar extends ConsumerWidget {
               // Block formatting
               _FormatButton(
                 icon: Icons.format_list_bulleted,
-                tooltip: 'Bullet List',
+                tooltip: l10n(context).bulletList,
                 onPressed: () => _changeBlockType(ref, BlockType.bulletList),
               ),
               _FormatButton(
                 icon: Icons.format_list_numbered,
-                tooltip: 'Numbered List',
+                tooltip: l10n(context).numberedList,
                 onPressed: () => _changeBlockType(ref, BlockType.numberedList),
               ),
               _FormatButton(
                 icon: Icons.check_box_outlined,
-                tooltip: 'Checkbox',
+                tooltip: l10n(context).checkbox,
                 onPressed: () => _changeBlockType(ref, BlockType.checkbox),
               ),
 
@@ -112,12 +115,12 @@ class FormattingToolbar extends ConsumerWidget {
                 const _ToolbarDivider(),
                 _FormatButton(
                   icon: Icons.format_indent_decrease,
-                  tooltip: 'Outdent (Shift+Tab)',
+                  tooltip: l10n(context).outdentShiftTab,
                   onPressed: () => _outdent(ref),
                 ),
                 _FormatButton(
                   icon: Icons.format_indent_increase,
-                  tooltip: 'Indent (Tab)',
+                  tooltip: l10n(context).indentTab,
                   onPressed: () => _indent(ref),
                 ),
               ],
@@ -265,7 +268,9 @@ class _FormatButton extends StatelessWidget {
 
     return Tooltip(
       message: tooltip,
-      child: GestureDetector(
+      child: Semantics(
+        button: true,
+        child: GestureDetector(
         onTap: onPressed,
         behavior: HitTestBehavior.opaque,
         child: Container(
@@ -282,6 +287,7 @@ class _FormatButton extends StatelessWidget {
           ),
         ),
       ),
+      ),
     );
   }
 }
@@ -295,7 +301,7 @@ class _ToolbarDivider extends StatelessWidget {
       width: 1,
       height: 24,
       margin: const EdgeInsets.symmetric(horizontal: 4),
-      color: Colors.grey.shade300,
+      color: context.subtleFill,
     );
   }
 }
@@ -312,7 +318,7 @@ class _HeadingMenu extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return PopupMenuButton<BlockType>(
-      tooltip: 'More Styles',
+      tooltip: l10n(context).moreStyles,
       icon: const Icon(Icons.title, size: 20),
       itemBuilder: (context) => [
         _buildMenuItem(BlockType.heading1, 'Title', 20),
@@ -393,6 +399,9 @@ class FloatingFormattingToolbar extends StatelessWidget {
 
 void showEditorGuide(BuildContext context) {
   showModalBottomSheet(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
     context: context,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
@@ -421,90 +430,90 @@ class _EditorHelpSheet extends StatelessWidget {
             child: Row(
               children: [
                 Icon(Icons.help_outline_rounded, color: theme.colorScheme.primary, size: 22),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Text(
-                  'Editor Guide',
+                  l10n(context).editorGuide,
                   style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1),
+          Divider(height: 1),
           Expanded(
             child: ListView(
               controller: controller,
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-              children: const [
+              padding: EdgeInsets.fromLTRB(20, 16, 20, 32),
+              children: [
                 _HelpSection(
-                  title: 'Text Formatting',
-                  subtitle: 'Select text first, then tap a format button.',
+                  title: l10n(context).textFormatting,
+                  subtitle: l10n(context).selectTextFirstThenTapAFormatButton,
                   items: [
-                    _HelpItem(icon: Icons.format_bold, label: 'Bold', description: 'Make selected text bold.'),
-                    _HelpItem(icon: Icons.format_italic, label: 'Italic', description: 'Italicise selected text.'),
-                    _HelpItem(icon: Icons.format_underlined, label: 'Underline', description: 'Underline selected text.'),
-                    _HelpItem(icon: Icons.strikethrough_s, label: 'Strikethrough', description: 'Cross out selected text.'),
+                    _HelpItem(icon: Icons.format_bold, label: l10n(context).bold, description: l10n(context).makeSelectedTextBold),
+                    _HelpItem(icon: Icons.format_italic, label: l10n(context).italic, description: l10n(context).italiciseSelectedText),
+                    _HelpItem(icon: Icons.format_underlined, label: l10n(context).underline, description: l10n(context).underlineSelectedText),
+                    _HelpItem(icon: Icons.strikethrough_s, label: l10n(context).strikethrough, description: l10n(context).crossOutSelectedText),
                   ],
                 ),
                 SizedBox(height: 20),
                 _HelpSection(
-                  title: 'Headings & Styles',
-                  subtitle: 'Place your cursor in a block, then tap a style.',
+                  title: l10n(context).headingsStyles,
+                  subtitle: l10n(context).placeYourCursorInABlockThenTapAStyle,
                   items: [
-                    _HelpItem(icon: Icons.title, label: 'Title', description: 'Large title — use for the main section heading.'),
-                    _HelpItem(icon: Icons.looks_one, label: 'Heading', description: 'Medium heading for sub-sections.'),
-                    _HelpItem(icon: Icons.looks_two, label: 'Sub-Heading', description: 'Smaller heading for nested sections.'),
-                    _HelpItem(icon: Icons.text_fields, label: 'Paragraph', description: 'Standard body text (default).'),
+                    _HelpItem(icon: Icons.title, label: l10n(context).title, description: l10n(context).largeTitleUseForTheMainSectionHeading),
+                    _HelpItem(icon: Icons.looks_one, label: l10n(context).heading, description: l10n(context).mediumHeadingForSubSections),
+                    _HelpItem(icon: Icons.looks_two, label: l10n(context).subHeading, description: l10n(context).smallerHeadingForNestedSections),
+                    _HelpItem(icon: Icons.text_fields, label: l10n(context).paragraph, description: l10n(context).standardBodyTextDefault),
                   ],
                 ),
                 SizedBox(height: 20),
                 _HelpSection(
-                  title: 'Lists',
-                  subtitle: 'Converts the current block into a list item. Tap again to toggle off.',
+                  title: l10n(context).lists,
+                  subtitle: l10n(context).convertsTheCurrentBlockIntoAListItemTapAgain,
                   items: [
-                    _HelpItem(icon: Icons.format_list_bulleted, label: 'Bullet List', description: 'Unordered list of items.'),
-                    _HelpItem(icon: Icons.format_list_numbered, label: 'Numbered List', description: 'Ordered, auto-numbered list.'),
-                    _HelpItem(icon: Icons.check_box_outlined, label: 'Checkbox', description: 'Tap the checkbox to mark items complete.'),
-                    _HelpItem(icon: Icons.format_indent_increase, label: 'Indent (Tab)', description: 'Nest the list item one level deeper.'),
-                    _HelpItem(icon: Icons.format_indent_decrease, label: 'Outdent (Shift+Tab)', description: 'Move the list item one level up.'),
+                    _HelpItem(icon: Icons.format_list_bulleted, label: l10n(context).bulletList, description: l10n(context).unorderedListOfItems),
+                    _HelpItem(icon: Icons.format_list_numbered, label: l10n(context).numberedList, description: l10n(context).orderedAutoNumberedList),
+                    _HelpItem(icon: Icons.check_box_outlined, label: l10n(context).checkbox, description: l10n(context).tapTheCheckboxToMarkItemsComplete),
+                    _HelpItem(icon: Icons.format_indent_increase, label: l10n(context).indentTab, description: l10n(context).nestTheListItemOneLevelDeeper),
+                    _HelpItem(icon: Icons.format_indent_decrease, label: l10n(context).outdentShiftTab, description: l10n(context).moveTheListItemOneLevelUp),
                   ],
                 ),
                 SizedBox(height: 20),
                 _HelpSection(
-                  title: 'Bible Verse',
+                  title: l10n(context).bibleVerse,
                   items: [
                     _HelpItem(
                       icon: Icons.menu_book_rounded,
-                      label: 'Insert Verse',
-                      description: 'Search and insert any Bible verse as a formatted card. Tap the card to expand or edit it.',
+                      label: l10n(context).insertVerse,
+                      description: l10n(context).searchAndInsertAnyBibleVerseAsAFormattedCard,
                     ),
                   ],
                 ),
                 SizedBox(height: 20),
                 _HelpSection(
-                  title: 'Editing Actions',
-                  subtitle: 'Available in the top bar.',
+                  title: l10n(context).editingActions,
+                  subtitle: l10n(context).availableInTheTopBar,
                   items: [
-                    _HelpItem(icon: Icons.undo, label: 'Undo', description: 'Undo the last change.'),
-                    _HelpItem(icon: Icons.redo, label: 'Redo', description: 'Redo the last undone change.'),
-                    _HelpItem(icon: Icons.info_outline, label: 'Metadata', description: 'Set the date, preacher, and tags for this note.'),
+                    _HelpItem(icon: Icons.undo, label: l10n(context).actionUndo, description: l10n(context).undoTheLastChange),
+                    _HelpItem(icon: Icons.redo, label: l10n(context).redo, description: l10n(context).redoTheLastUndoneChange),
+                    _HelpItem(icon: Icons.info_outline, label: l10n(context).metadata, description: l10n(context).setTheDatePreacherAndTagsForThisNote),
                   ],
                 ),
                 SizedBox(height: 20),
                 _HelpSection(
-                  title: 'Note Sections',
-                  subtitle: 'Tap the section header to expand or collapse.',
+                  title: l10n(context).noteSections,
+                  subtitle: l10n(context).tapTheSectionHeaderToExpandOrCollapse,
                   items: [
-                    _HelpItem(icon: Icons.person_outline, label: 'Personal Application', description: 'Write how the message applies to your own life.'),
-                    _HelpItem(icon: Icons.volunteer_activism_outlined, label: 'Prayer', description: 'Record prayers prompted by the message.'),
+                    _HelpItem(icon: Icons.person_outline, label: l10n(context).personalApplication, description: l10n(context).writeHowTheMessageAppliesToYourOwnLife),
+                    _HelpItem(icon: Icons.volunteer_activism_outlined, label: l10n(context).prayer, description: l10n(context).recordPrayersPromptedByTheMessage),
                   ],
                 ),
                 SizedBox(height: 20),
                 _HelpSection(
-                  title: 'Keyboard Shortcuts',
+                  title: l10n(context).keyboardShortcuts,
                   items: [
-                    _HelpItem(icon: Icons.keyboard_return, label: 'Enter', description: 'Start a new block at the cursor position.'),
-                    _HelpItem(icon: Icons.backspace_outlined, label: 'Backspace at start', description: 'Merge with the block above, or remove list style.'),
-                    _HelpItem(icon: Icons.tab, label: 'Tab / Shift+Tab', description: 'Indent or outdent a list item.'),
+                    _HelpItem(icon: Icons.keyboard_return, label: l10n(context).enter, description: l10n(context).startANewBlockAtTheCursorPosition),
+                    _HelpItem(icon: Icons.backspace_outlined, label: l10n(context).backspaceAtStart, description: l10n(context).mergeWithTheBlockAboveOrRemoveListStyle),
+                    _HelpItem(icon: Icons.tab, label: l10n(context).tabShiftTab, description: l10n(context).indentOrOutdentAListItem),
                   ],
                 ),
               ],
@@ -601,7 +610,7 @@ class DockedFormattingToolbar extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         offset: isVisible ? Offset.zero : const Offset(0, 1),
         child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 200),
+          duration: context.motion(const Duration(milliseconds: 200)),
           opacity: isVisible ? 1.0 : 0.0,
           child: SafeArea(
             child: Padding(

@@ -10,6 +10,10 @@ import '../../../bible/domain/models/bible_books.dart';
 import '../../../notes/presentation/widgets/editor/bible_reference_picker.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
 import '../../domain/models/promise_conditions_codec.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../shared/widgets/selectable_chip.dart';
 
 /// Screen for adding or editing a promise
 /// Provides form fields for verse reference, promise text, notes, tags, and conditions
@@ -113,6 +117,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         leading: IconButton(
+          tooltip: l10n(context).close,
           icon: const Icon(Icons.close),
           onPressed: () => _handleClose(context),
         ),
@@ -121,7 +126,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
           TextButton(
             onPressed: _handleSave,
             style: TextButton.styleFrom(foregroundColor: AppTheme.rosePink),
-            child: const Text('Save'),
+            child: Text(l10n(context).actionSave),
           ),
         ],
       ),
@@ -157,11 +162,11 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Verse Reference',
+          l10n(context).verseReference,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: AppTheme.gray700,
+            color: context.primaryText,
           ),
         ),
         const SizedBox(height: AppTheme.spacing8),
@@ -172,7 +177,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing16, vertical: AppTheme.spacing16),
             decoration: BoxDecoration(
-              color: AppTheme.gray50,
+              color: context.subtleFill,
               borderRadius: AppTheme.borderRadius3XL,
             ),
             child: Row(
@@ -181,7 +186,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
                   Icons.book_outlined,
                   color: hasReference
                       ? AppTheme.rosePink
-                      : AppTheme.gray400,
+                      : context.hintText,
                 ),
                 const SizedBox(width: AppTheme.spacing12),
                 Expanded(
@@ -195,13 +200,13 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
                           hasReference ? FontWeight.w500 : FontWeight.normal,
                       color: hasReference
                           ? Colors.black87
-                          : AppTheme.gray400,
+                          : context.hintText,
                     ),
                   ),
                 ),
                 Icon(
                   Icons.chevron_right,
-                  color: AppTheme.gray400,
+                  color: context.hintText,
                 ),
               ],
             ),
@@ -266,15 +271,15 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
     return TextFormField(
       controller: _promiseTextController,
       decoration: InputDecoration(
-        labelText: 'Promise Text',
-        hintText: 'Enter the promise verse or text...',
+        labelText: l10n(context).promiseText,
+        hintText: l10n(context).enterThePromiseVerseOrText,
         floatingLabelBehavior: FloatingLabelBehavior.always,
         alignLabelWithHint: true,
         filled: true,
-        fillColor: AppTheme.gray50,
+        fillColor: context.subtleFill,
         prefixIcon: Padding(
           padding: const EdgeInsets.only(bottom: 64),
-          child: Icon(Icons.format_quote_outlined, color: AppTheme.gray400),
+          child: Icon(Icons.format_quote_outlined, color: context.hintText),
         ),
         border: OutlineInputBorder(
           borderRadius: AppTheme.borderRadius3XL,
@@ -305,11 +310,11 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
         labelStyle: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
-          color: AppTheme.gray700,
+          color: context.primaryText,
         ),
         hintStyle: TextStyle(
-          fontSize: 15,
-          color: AppTheme.gray400,
+          fontSize: 16,
+          color: context.hintText,
         ),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: AppTheme.spacing16, vertical: AppTheme.spacing16),
@@ -319,7 +324,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
       textCapitalization: TextCapitalization.sentences,
       textInputAction: TextInputAction.newline,
       style: const TextStyle(
-        fontSize: 15,
+        fontSize: 16,
         height: 1.5,
         fontStyle: FontStyle.italic,
       ),
@@ -336,15 +341,15 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
     return TextFormField(
       controller: _notesController,
       decoration: InputDecoration(
-        labelText: 'Notes (Optional)',
-        hintText: 'Add your reflections or explanation...',
+        labelText: l10n(context).notesOptional,
+        hintText: l10n(context).addYourReflectionsOrExplanation,
         floatingLabelBehavior: FloatingLabelBehavior.always,
         alignLabelWithHint: true,
         filled: true,
-        fillColor: AppTheme.gray50,
+        fillColor: context.subtleFill,
         prefixIcon: Padding(
           padding: const EdgeInsets.only(bottom: 64),
-          child: Icon(Icons.notes_outlined, color: AppTheme.gray400),
+          child: Icon(Icons.notes_outlined, color: context.hintText),
         ),
         border: OutlineInputBorder(
           borderRadius: AppTheme.borderRadius3XL,
@@ -363,11 +368,11 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
         labelStyle: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
-          color: AppTheme.gray700,
+          color: context.primaryText,
         ),
         hintStyle: TextStyle(
-          fontSize: 15,
-          color: AppTheme.gray400,
+          fontSize: 16,
+          color: context.hintText,
         ),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: AppTheme.spacing16, vertical: AppTheme.spacing16),
@@ -377,7 +382,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
       textCapitalization: TextCapitalization.sentences,
       textInputAction: TextInputAction.newline,
       style: const TextStyle(
-        fontSize: 15,
+        fontSize: 16,
         height: 1.5,
       ),
     );
@@ -391,11 +396,11 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Tags',
+          l10n(context).tags,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: AppTheme.gray700,
+            color: context.primaryText,
           ),
         ),
         const SizedBox(height: AppTheme.spacing8),
@@ -408,7 +413,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
               runSpacing: AppTheme.spacing8,
               children: allTags.map((tag) {
                 final isSelected = _tagIds.contains(tag.id);
-                return _SelectableChip(
+                return SelectableChip(
                   label: tag.name,
                   isSelected: isSelected,
                   onTap: () {
@@ -431,7 +436,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
         if (_isAddingTag)
           Container(
             decoration: BoxDecoration(
-              color: AppTheme.gray50,
+              color: context.subtleFill,
               borderRadius: AppTheme.borderRadiusXL,
             ),
             child: Row(
@@ -441,9 +446,9 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
                     controller: _tagController,
                     focusNode: _tagInputFocusNode,
                     decoration: InputDecoration(
-                      hintText: 'Enter tag name...',
+                      hintText: l10n(context).enterTagName,
                       prefixIcon: Icon(Icons.label_outline,
-                          size: AppTheme.iconBase, color: AppTheme.gray400),
+                          size: AppTheme.iconBase, color: context.hintText),
                       filled: true,
                       fillColor: Colors.transparent,
                       isDense: true,
@@ -453,17 +458,18 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
                       enabledBorder: InputBorder.none,
                       focusedBorder: InputBorder.none,
                       hintStyle: TextStyle(
-                        fontSize: 14,
-                        color: AppTheme.gray400,
+                        fontSize: 16,
+                        color: context.hintText,
                       ),
                     ),
-                    style: const TextStyle(fontSize: 14),
+                    style: const TextStyle(fontSize: 16),
                     textCapitalization: TextCapitalization.words,
                     onSubmitted: (name) => _submitTag(name, userId),
                   ),
                 ),
                 const SizedBox(width: AppTheme.spacing8),
                 IconButton(
+                  tooltip: l10n(context).addTag,
                   icon: Icon(
                     Icons.check,
                     color: AppTheme.rosePink,
@@ -471,9 +477,10 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
                   onPressed: () => _submitTag(_tagController.text, userId),
                 ),
                 IconButton(
+                  tooltip: l10n(context).actionCancel,
                   icon: Icon(
                     Icons.close,
-                    color: AppTheme.gray500,
+                    color: context.mutedText,
                   ),
                   onPressed: () {
                     FocusScope.of(context).unfocus();
@@ -496,7 +503,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
             },
             style: TextButton.styleFrom(foregroundColor: AppTheme.rosePink),
             icon: const Icon(Icons.add, size: 18),
-            label: const Text('Add tag'),
+            label: Text(l10n(context).addTag),
           ),
       ],
     );
@@ -507,11 +514,11 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Conditions',
+          l10n(context).conditions,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: AppTheme.gray700,
+            color: context.primaryText,
           ),
         ),
         const SizedBox(height: AppTheme.spacing8),
@@ -529,7 +536,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
             },
             style: TextButton.styleFrom(foregroundColor: AppTheme.rosePink),
             icon: const Icon(Icons.add, size: 18),
-            label: const Text('Add condition'),
+            label: Text(l10n(context).addCondition),
           ),
       ],
     );
@@ -552,9 +559,9 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
       margin: const EdgeInsets.only(bottom: AppTheme.spacing12),
       padding: AppTheme.paddingAllBase,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.cardSurface,
         borderRadius: AppTheme.borderRadiusXL,
-        border: Border.all(color: AppTheme.gray200),
+        border: Border.all(color: context.subtleFill),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -583,7 +590,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
                 child: Text(
                   condition.status.toUpperCase(),
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: statusColor,
                   ),
@@ -591,7 +598,8 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
               ),
               const SizedBox(width: AppTheme.spacing8),
               IconButton(
-                icon: Icon(Icons.close, size: 18, color: AppTheme.gray500),
+                tooltip: l10n(context).removeCondition,
+                icon: Icon(Icons.close, size: 18, color: context.mutedText),
                 onPressed: () {
                   setState(() => _conditions.remove(condition));
                 },
@@ -604,7 +612,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
             const SizedBox(height: AppTheme.spacing8),
             Text(
               condition.notes!,
-              style: TextStyle(fontSize: 14, color: AppTheme.gray600),
+              style: TextStyle(fontSize: 16, color: context.mutedText),
             ),
           ],
         ],
@@ -616,9 +624,9 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
     return Container(
       padding: AppTheme.paddingAllBase,
       decoration: BoxDecoration(
-        color: AppTheme.gray50,
+        color: context.subtleFill,
         borderRadius: AppTheme.borderRadiusXL,
-        border: Border.all(color: AppTheme.gray200),
+        border: Border.all(color: context.subtleFill),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -627,9 +635,9 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
             controller: _conditionController,
             focusNode: _conditionInputFocusNode,
             decoration: InputDecoration(
-              hintText: 'Enter condition description...',
+              hintText: l10n(context).enterConditionDescription,
               prefixIcon: Icon(Icons.check_circle_outline,
-                  size: AppTheme.iconBase, color: AppTheme.gray400),
+                  size: AppTheme.iconBase, color: context.hintText),
               filled: true,
               fillColor: Colors.white,
               isDense: true,
@@ -639,18 +647,18 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
                 borderRadius: AppTheme.borderRadiusXL,
                 borderSide: BorderSide.none,
               ),
-              hintStyle: TextStyle(fontSize: 14, color: AppTheme.gray400),
+              hintStyle: TextStyle(fontSize: 16, color: context.hintText),
             ),
-            style: const TextStyle(fontSize: 14),
+            style: const TextStyle(fontSize: 16),
             textCapitalization: TextCapitalization.sentences,
           ),
           const SizedBox(height: AppTheme.spacing12),
           TextField(
             controller: _conditionNotesController,
             decoration: InputDecoration(
-              hintText: 'Notes (optional)...',
+              hintText: l10n(context).notesOptional2,
               prefixIcon: Icon(Icons.notes_outlined,
-                  size: AppTheme.iconBase, color: AppTheme.gray400),
+                  size: AppTheme.iconBase, color: context.hintText),
               filled: true,
               fillColor: Colors.white,
               isDense: true,
@@ -660,19 +668,19 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
                 borderRadius: AppTheme.borderRadiusXL,
                 borderSide: BorderSide.none,
               ),
-              hintStyle: TextStyle(fontSize: 14, color: AppTheme.gray400),
+              hintStyle: TextStyle(fontSize: 16, color: context.hintText),
             ),
-            style: const TextStyle(fontSize: 14),
+            style: const TextStyle(fontSize: 16),
             textCapitalization: TextCapitalization.sentences,
             maxLines: 2,
           ),
           const SizedBox(height: AppTheme.spacing12),
           Text(
-            'Status',
+            l10n(context).status,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: AppTheme.gray600,
+              color: context.mutedText,
             ),
           ),
           const SizedBox(height: AppTheme.spacing8),
@@ -705,10 +713,10 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
                   ),
                 ),
                 labelStyle: TextStyle(
-                  fontSize: 12,
+                  fontSize: 13,
                   color: isSelected
                       ? _getConditionStatusColor(status)
-                      : AppTheme.gray700,
+                      : context.primaryText,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               );
@@ -728,12 +736,12 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
                     _conditionStatus = 'ACTIVE';
                   });
                 },
-                child: const Text('Cancel'),
+                child: Text(l10n(context).actionCancel),
               ),
               const SizedBox(width: AppTheme.spacing8),
               FilledButton(
                 onPressed: _submitCondition,
-                child: const Text('Add'),
+                child: Text(l10n(context).add),
               ),
             ],
           ),
@@ -810,20 +818,20 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Discard changes?'),
-          content: const Text(
-              'You have unsaved changes. Are you sure you want to discard them?'),
+          title: Text(l10n(context).discardChanges),
+          content: Text(
+              l10n(context).youHaveUnsavedChangesAreYouSureYouWantToDisc),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text(l10n(context).actionCancel),
             ),
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
                 context.pop();
               },
-              child: const Text('Discard'),
+              child: Text(l10n(context).discard),
             ),
           ],
         ),
@@ -882,9 +890,9 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error saving promise: $e'),
+              content: Text(UserFacingError.message(e, action: 'save this promise')),
               behavior: SnackBarBehavior.floating,
-              backgroundColor: Colors.red,
+              backgroundColor: AppTheme.errorSurface,
             ),
           );
         }
@@ -944,52 +952,3 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
   }
 }
 
-/// A selectable chip widget for tags
-class _SelectableChip extends StatelessWidget {
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final bool showDelete;
-
-  const _SelectableChip({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-    this.showDelete = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: AppTheme.borderRadius3XL,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing12, vertical: AppTheme.spacing6),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.rosePink : AppTheme.gray200,
-          borderRadius: AppTheme.borderRadius3XL,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                color: isSelected ? Colors.white : AppTheme.gray700,
-              ),
-            ),
-            if (showDelete && isSelected) ...[
-              const SizedBox(width: AppTheme.spacing4),
-              Icon(
-                Icons.close,
-                size: AppTheme.iconMD,
-                color: Colors.white.withValues(alpha: 0.8),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}

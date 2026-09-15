@@ -7,6 +7,9 @@ import '../../../../core/sync/models/user_profile_model.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Screen that lists all discoverable users with an Add button to send
 /// friend requests. A search bar at the top filters the list in real time.
@@ -68,7 +71,7 @@ class _UsernameSearchScreenState extends ConsumerState<UsernameSearchScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Find Friends'),
+        title: Text(l10n(context).findFriends),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
       ),
@@ -80,10 +83,11 @@ class _UsernameSearchScreenState extends ConsumerState<UsernameSearchScreen> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search by username...',
+                hintText: l10n(context).searchByUsername,
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
+                      tooltip: l10n(context).clearSearch,
                         icon: const Icon(Icons.clear),
                         onPressed: () {
                           _searchController.clear();
@@ -131,17 +135,17 @@ class _UsernameSearchScreenState extends ConsumerState<UsernameSearchScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
+              Icon(Icons.error_outline, size: 48, color: context.dangerText),
               const SizedBox(height: 12),
               Text(
                 _error!,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.red.shade600),
+                style: TextStyle(color: context.dangerText),
               ),
               const SizedBox(height: 16),
               TextButton(
                 onPressed: _loadUsers,
-                child: const Text('Retry'),
+                child: Text(l10n(context).retry),
               ),
             ],
           ),
@@ -156,7 +160,7 @@ class _UsernameSearchScreenState extends ConsumerState<UsernameSearchScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.people_outline, size: 64, color: Colors.grey.shade400),
+              Icon(Icons.people_outline, size: 64, color: context.hintText),
               const SizedBox(height: 16),
               Text(
                 _searchController.text.isNotEmpty
@@ -165,7 +169,7 @@ class _UsernameSearchScreenState extends ConsumerState<UsernameSearchScreen> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w500,
-                  color: Colors.grey.shade600,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -307,7 +311,7 @@ class _UsernameSearchScreenState extends ConsumerState<UsernameSearchScreen> {
         setState(() => _isLoadingMore = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to load more: $e'),
+            content: Text(UserFacingError.message(e, action: 'load more')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -338,7 +342,7 @@ class _UsernameSearchScreenState extends ConsumerState<UsernameSearchScreen> {
         setState(() => _sendingRequests.remove(profile.userId));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to send request: $e'),
+            content: Text(UserFacingError.message(e, action: 'send request')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -404,8 +408,8 @@ class _UserCard extends StatelessWidget {
                 Text(
                   '@${profile.username}',
                   style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
+                    fontSize: 14,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
                 if (profile.bio.isNotEmpty) ...[
@@ -413,8 +417,8 @@ class _UserCard extends StatelessWidget {
                   Text(
                     profile.bio,
                     style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade500,
+                      fontSize: 13,
+                      color: context.mutedText,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -428,14 +432,14 @@ class _UserCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.grey.shade200,
+                color: context.subtleFill,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                'Sent',
+                l10n(context).sent,
                 style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey.shade600,
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -451,7 +455,7 @@ class _UserCard extends StatelessWidget {
               onPressed: onAdd,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.teal,
-                foregroundColor: Colors.white,
+                foregroundColor: AppTheme.onAccent(AppTheme.teal),
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -461,7 +465,7 @@ class _UserCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text('Add', style: TextStyle(fontSize: 13)),
+              child: Text(l10n(context).add, style: TextStyle(fontSize: 14)),
             ),
         ],
       ),

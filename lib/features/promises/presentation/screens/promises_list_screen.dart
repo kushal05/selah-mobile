@@ -9,6 +9,15 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../features/promises/domain/models/promise_conditions_codec.dart';
 import '../../../../shared/widgets/cards/promise_card.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../shared/widgets/undo_snackbar.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../shared/widgets/empty_state.dart';
+import '../../../../core/navigation/routes.dart';
+import '../../../../shared/widgets/feature_intro.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
+import '../../../../shared/widgets/swipe_action.dart';
+import '../../../../core/navigation/tab_navigation.dart';
 
 /// Promises list screen
 class PromisesListScreen extends ConsumerStatefulWidget {
@@ -23,7 +32,6 @@ class _PromisesListScreenState extends ConsumerState<PromisesListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final shell = StatefulNavigationShell.of(context);
     final promisesAsync = _showingTrash
         ? ref.watch(trashedPromisesStreamProvider)
         : ref.watch(promisesStreamProvider);
@@ -32,7 +40,7 @@ class _PromisesListScreenState extends ConsumerState<PromisesListScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop && context.mounted) {
-          shell.goBranch(0); // Switch to Home tab
+          goToTab(context, 0); // Switch to Home tab
         }
       },
       child: Scaffold(
@@ -47,6 +55,11 @@ class _PromisesListScreenState extends ConsumerState<PromisesListScreen> {
             ),
           ),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.search_rounded),
+              tooltip: l10n(context).actionSearch,
+              onPressed: () => context.push(Routes.search),
+            ),
             IconButton(
               icon: Icon(_showingTrash ? Icons.list : Icons.delete_outline),
               tooltip: _showingTrash ? 'Show promises' : 'Show trash',
@@ -63,13 +76,13 @@ class _PromisesListScreenState extends ConsumerState<PromisesListScreen> {
             : FloatingActionButton(
                 heroTag: null,
                 backgroundColor: AppTheme.rosePink,
-                foregroundColor: Colors.white,
+                foregroundColor: AppTheme.onAccent(AppTheme.rosePink),
                 onPressed: () => context.push('/promises/new'),
                 child: const Icon(Icons.add),
               ),
         body: promisesAsync.when(
           loading: () => const ListTileSkeletonList(count: 6, hasLeading: false),
-          error: (error, stack) => Center(child: Text('Error: $error')),
+          error: (error, stack) => Center(child: Text(UserFacingError.forLoad(error))),
           data: (promises) {
             if (promises.isEmpty) {
               return _buildEmptyState(context);
@@ -77,9 +90,10 @@ class _PromisesListScreenState extends ConsumerState<PromisesListScreen> {
 
             return ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: promises.length,
+              itemCount: promises.length + 1,
               itemBuilder: (context, index) {
-                final promise = promises[index];
+                if (index == 0) return FeatureIntros.promises;
+                final promise = promises[index - 1];
                 if (_showingTrash) {
                   return _TrashedPromiseListTile(promise: promise);
                 }
@@ -89,19 +103,18 @@ class _PromisesListScreenState extends ConsumerState<PromisesListScreen> {
                     motion: const DrawerMotion(),
                     extentRatio: 0.2,
                     children: [
-                      SlidableAction(
-                        onPressed: (ctx) async {
+                      buildSwipeAction(
+            icon: Icons.delete,
+            label: l10n(context).moveToTrash,
+            accent: AppTheme.error,
+            onPressed: (ctx) async {
                           final shouldDelete = await _showDeleteConfirmation(context);
                           if (!context.mounted) return;
                           if (shouldDelete) {
                             _deletePromise(context, ref, promise.id);
                           }
                         },
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                        icon: Icons.delete,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+          )
                     ],
                   ),
                   child: PromiseCard(
@@ -121,47 +134,13 @@ class _PromisesListScreenState extends ConsumerState<PromisesListScreen> {
 
   Widget _buildEmptyState(BuildContext context) {
     if (_showingTrash) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.delete_outline, size: 48, color: Colors.grey.shade400),
-            const SizedBox(height: 12),
-            Text(
-              'Trash is empty',
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-            ),
-          ],
-        ),
-      );
+      return EmptyTrashState(itemsLabel: l10n(context).trashLabelPromises);
     }
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.book_outlined, size: 64, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
-            Text(
-              'No promises yet',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey.shade600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Tap + to add your first Bible promise',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade500,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return EmptyState(
+      icon: Icons.bookmark_outline_rounded,
+      title: l10n(context).noPromisesYet,
+      message: l10n(context).aPromiseIsAVerseYouWantToHoldOnToSomethingGo,
+          accent: AppTheme.rosePink,
     );
   }
 
@@ -169,18 +148,18 @@ class _PromisesListScreenState extends ConsumerState<PromisesListScreen> {
     return await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Move to Trash'),
+            title: Text(l10n(context).moveToTrash),
             content:
-                const Text('Are you sure you want to move this promise to trash?'),
+                Text(l10n(context).areYouSureYouWantToMoveThisPromiseToTrash),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
+                child: Text(l10n(context).actionCancel),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Move to Trash'),
+                child: Text(l10n(context).moveToTrash),
               ),
             ],
           ),
@@ -188,14 +167,29 @@ class _PromisesListScreenState extends ConsumerState<PromisesListScreen> {
         false;
   }
 
-  void _deletePromise(BuildContext context, WidgetRef ref, String promiseId) {
+  Future<void> _deletePromise(
+      BuildContext context, WidgetRef ref, String promiseId) async {
     final repository = ref.read(promiseRepositoryProvider);
-    repository.trashPromise(promiseId);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Moved to trash'),
-        behavior: SnackBarBehavior.floating,
-      ),
+    try {
+      await repository.trashPromise(promiseId);
+    } catch (e) {
+      // Without this the delete fails silently: no snackbar, no error, and
+      // the row simply stays put with no explanation.
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content:
+              Text(UserFacingError.message(e, action: 'delete this promise')),
+          backgroundColor: AppTheme.errorSurface,
+        ),
+      );
+      return;
+    }
+    if (!context.mounted) return;
+    showUndoSnackBar(
+      context,
+      itemLabel: 'Promise',
+      onUndo: () => repository.restorePromise(promiseId),
     );
   }
 }
@@ -210,13 +204,13 @@ class _TrashedPromiseListTile extends ConsumerWidget {
     return ListTile(
       title: Text(
         promise.reference,
-        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(
         promise.preview.isNotEmpty ? promise.preview : promise.content,
-        style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+        style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
       ),
@@ -225,14 +219,14 @@ class _TrashedPromiseListTile extends ConsumerWidget {
         children: [
           IconButton(
             icon: const Icon(Icons.restore),
-            tooltip: 'Restore',
+            tooltip: l10n(context).restore,
             onPressed: () async {
               try {
                 await ref.read(promiseRepositoryProvider).restorePromise(promise.id);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Promise restored'),
+                    SnackBar(
+                      content: Text(l10n(context).promiseRestored),
                       behavior: SnackBarBehavior.floating,
                     ),
                   );
@@ -241,9 +235,9 @@ class _TrashedPromiseListTile extends ConsumerWidget {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Failed to restore: $e'),
+                      content: Text(UserFacingError.message(e, action: 'restore')),
                       behavior: SnackBarBehavior.floating,
-                      backgroundColor: Colors.red,
+                      backgroundColor: AppTheme.errorSurface,
                     ),
                   );
                 }
@@ -252,25 +246,25 @@ class _TrashedPromiseListTile extends ConsumerWidget {
           ),
           IconButton(
             icon: const Icon(Icons.delete_forever),
-            tooltip: 'Delete permanently',
-            color: Colors.red,
+            tooltip: l10n(context).deletePermanently,
+            color: context.dangerText,
             onPressed: () async {
               final confirmed = await showDialog<bool>(
                     context: context,
                     builder: (context) => AlertDialog(
-                      title: const Text('Delete Permanently'),
-                      content: const Text(
-                          'This promise will be permanently deleted. This cannot be undone.'),
+                      title: Text(l10n(context).deletePermanently),
+                      content: Text(
+                          l10n(context).thisPromiseWillBePermanentlyDeletedThisCanno),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.of(context).pop(false),
-                          child: const Text('Cancel'),
+                          child: Text(l10n(context).actionCancel),
                         ),
                         TextButton(
                           onPressed: () => Navigator.of(context).pop(true),
                           style:
                               TextButton.styleFrom(foregroundColor: Colors.red),
-                          child: const Text('Delete'),
+                          child: Text(l10n(context).actionDelete),
                         ),
                       ],
                     ),
@@ -283,8 +277,8 @@ class _TrashedPromiseListTile extends ConsumerWidget {
                       .deletePromise(promise.id);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Promise permanently deleted'),
+                      SnackBar(
+                        content: Text(l10n(context).promisePermanentlyDeleted),
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
@@ -293,9 +287,9 @@ class _TrashedPromiseListTile extends ConsumerWidget {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Failed to delete: $e'),
+                        content: Text(UserFacingError.message(e, action: 'delete')),
                         behavior: SnackBarBehavior.floating,
-                        backgroundColor: Colors.red,
+                        backgroundColor: AppTheme.errorSurface,
                       ),
                     );
                   }

@@ -1854,9 +1854,10 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
             break;
           }
         }
-        if (title.isEmpty) {
-          title = 'Untitled Note';
-        }
+        // Left empty rather than stamped with a title the user never wrote:
+        // they would reopen the note to find the field they were meant to
+        // fill already occupied. Lists render it via Note.displayTitle.
+
       }
 
       if (state.isNewNote) {

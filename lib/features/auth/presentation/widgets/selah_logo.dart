@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Branded Selah logo using the app icon asset with optional wordmark.
 ///
@@ -61,7 +62,7 @@ class SelahLogo extends StatelessWidget {
         if (showWordmark) ...[
           SizedBox(height: size == SelahLogoSize.large ? AppTheme.spacing16 : AppTheme.spacing10),
           Text(
-            'Selah',
+            l10n(context).appName,
             style: TextStyle(
               fontSize: _wordmarkSize,
               fontWeight: FontWeight.w700,
@@ -173,7 +174,7 @@ class SelahLogoGlowState extends State<SelahLogoGlow>
               SizedBox(
                   height: widget.size == SelahLogoSize.large ? AppTheme.spacing16 : AppTheme.spacing10),
               Text(
-                'Selah',
+                l10n(context).appName,
                 style: TextStyle(
                   fontSize: switch (widget.size) {
                     SelahLogoSize.small => 20.0,

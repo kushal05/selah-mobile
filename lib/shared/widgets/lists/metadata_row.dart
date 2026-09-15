@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/theme_colors.dart';
 
 /// Displays metadata information (e.g., date, preacher) as icon+text pairs
 class MetadataRow extends StatelessWidget {
@@ -53,13 +54,13 @@ class MetadataItem extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: Colors.grey.shade600),
+        Icon(icon, size: 16, color: context.subtleFill),
         const SizedBox(width: 4),
         Text(
           text,
           style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey.shade600,
+            fontSize: 16,
+            color: context.subtleFill,
           ),
         ),
       ],

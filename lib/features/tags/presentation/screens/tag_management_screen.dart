@@ -5,6 +5,9 @@ import '../../../../core/sync/models/tag_model.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Provider that fetches usage counts for all tags.
 final tagUsageCountsProvider =
@@ -27,11 +30,11 @@ class TagManagementScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tags'),
+        title: Text(l10n(context).tags),
       ),
       body: tagsAsync.when(
         loading: () => const ListTileSkeletonList(count: 6, hasLeading: false),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => Center(child: Text(UserFacingError.forLoad(e))),
         data: (tags) {
           if (tags.isEmpty) {
             return Center(
@@ -42,14 +45,14 @@ class TagManagementScreen extends ConsumerWidget {
                       size: 48, color: cs.onSurface.withValues(alpha: 0.3)),
                   const SizedBox(height: AppTheme.spacing12),
                   Text(
-                    'No tags yet',
+                    l10n(context).noTagsYet,
                     style: AppTheme.headingSmall.copyWith(
                       color: cs.onSurface.withValues(alpha: 0.5),
                     ),
                   ),
                   const SizedBox(height: AppTheme.spacing4),
                   Text(
-                    'Tags added to notes and songs will appear here',
+                    l10n(context).tagsAddedToNotesAndSongsWillAppearHere,
                     style: AppTheme.bodySmallStyle.copyWith(
                       color: cs.onSurface.withValues(alpha: 0.4),
                     ),
@@ -114,11 +117,11 @@ class _TagTile extends ConsumerWidget {
         onSelected: (action) =>
             _handleAction(context, ref, action),
         itemBuilder: (context) => [
-          const PopupMenuItem(value: 'rename', child: Text('Rename')),
-          const PopupMenuItem(value: 'merge', child: Text('Merge into...')),
-          const PopupMenuItem(
+          PopupMenuItem(value: 'rename', child: Text(l10n(context).rename)),
+          PopupMenuItem(value: 'merge', child: Text(l10n(context).mergeInto)),
+          PopupMenuItem(
             value: 'delete',
-            child: Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text(l10n(context).actionDelete, style: TextStyle(color: context.dangerText)),
           ),
         ],
       ),
@@ -141,12 +144,12 @@ class _TagTile extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Rename Tag'),
+        title: Text(l10n(context).renameTag),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Tag name',
+          decoration: InputDecoration(
+            labelText: l10n(context).tagName2,
             border: OutlineInputBorder(),
           ),
           textCapitalization: TextCapitalization.words,
@@ -154,7 +157,7 @@ class _TagTile extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(l10n(context).actionCancel),
           ),
           FilledButton(
             onPressed: () async {
@@ -177,12 +180,12 @@ class _TagTile extends ConsumerWidget {
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('$e')),
+                    SnackBar(content: Text(UserFacingError.message(e, action: 'update that tag'))),
                   );
                 }
               }
             },
-            child: const Text('Rename'),
+            child: Text(l10n(context).rename),
           ),
         ],
       ),
@@ -193,12 +196,15 @@ class _TagTile extends ConsumerWidget {
     final targets = allTags.where((t) => t.id != tag.id).toList();
     if (targets.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No other tags to merge with')),
+        SnackBar(content: Text(l10n(context).noOtherTagsToMergeWith)),
       );
       return;
     }
 
     showModalBottomSheet(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radius3XL)),
@@ -258,7 +264,7 @@ class _TagTile extends ConsumerWidget {
                     } catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('$e')),
+                          SnackBar(content: Text(UserFacingError.message(e, action: 'update that tag'))),
                         );
                       }
                     }
@@ -278,7 +284,7 @@ class _TagTile extends ConsumerWidget {
     return await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Merge Tags?'),
+            title: Text(l10n(context).mergeTags),
             content: Text(
               'All items tagged "$source" will be re-tagged with "$target". '
               'The "$source" tag will be deleted. This cannot be undone.',
@@ -286,11 +292,11 @@ class _TagTile extends ConsumerWidget {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
+                child: Text(l10n(context).actionCancel),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Merge'),
+                child: Text(l10n(context).merge),
               ),
             ],
           ),
@@ -302,7 +308,7 @@ class _TagTile extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Tag?'),
+        title: Text(l10n(context).deleteTag),
         content: Text(
           'The tag "${tag.name}" will be removed. '
           'Notes and songs will not be deleted, only untagged.',
@@ -310,7 +316,7 @@ class _TagTile extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(l10n(context).actionCancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -330,12 +336,12 @@ class _TagTile extends ConsumerWidget {
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('$e')),
+                    SnackBar(content: Text(UserFacingError.message(e, action: 'update that tag'))),
                   );
                 }
               }
             },
-            child: const Text('Delete'),
+            child: Text(l10n(context).actionDelete),
           ),
         ],
       ),

@@ -15,6 +15,9 @@ import '../../../prayers/presentation/screens/prayer_detail_screen.dart';
 import '../../../prayers/presentation/screens/add_prayer_screen.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
 import '../widgets/announcement_card.dart';
+import '../../../../core/services/user_facing_error.dart';
+import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Group detail screen with tabs for prayers, announcements, and info
 class GroupDetailScreen extends ConsumerStatefulWidget {
@@ -51,11 +54,11 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
       loading: () =>
           const Scaffold(body: DetailPageSkeleton()),
       error: (error, stack) =>
-          Scaffold(body: Center(child: Text('Error: $error'))),
+          Scaffold(body: Center(child: Text(UserFacingError.forLoad(error)))),
       data: (group) {
         if (group == null) {
-          return const Scaffold(
-            body: Center(child: Text('Group not found')),
+          return Scaffold(
+            body: Center(child: Text(l10n(context).groupNotFound)),
           );
         }
 
@@ -94,24 +97,24 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
                       }
                     },
                     itemBuilder: (context) => [
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'members',
-                        child: Text('Manage Members'),
+                        child: Text(l10n(context).manageMembers),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'share',
-                        child: Text('Share Join Code'),
+                        child: Text(l10n(context).shareJoinCode),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'edit',
-                        child: Text('Edit Group'),
+                        child: Text(l10n(context).editGroup),
                       ),
                       const PopupMenuDivider(),
                       PopupMenuItem(
                         value: 'delete',
                         child: Text(
-                          'Delete Group',
-                          style: TextStyle(color: Colors.red.shade600),
+                          l10n(context).deleteGroup,
+                          style: TextStyle(color: context.dangerText),
                         ),
                       ),
                     ],
@@ -156,11 +159,11 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Group Join Code'),
+        title: Text(l10n(context).groupJoinCode),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Share this code with others to invite them:'),
+            Text(l10n(context).shareThisCodeWithOthersToInviteThem),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.symmetric(
@@ -187,13 +190,13 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
               Clipboard.setData(ClipboardData(text: joinCode));
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Code copied to clipboard'),
+                SnackBar(
+                  content: Text(l10n(context).codeCopiedToClipboard),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
             },
-            child: const Text('Copy'),
+            child: Text(l10n(context).copy),
           ),
           TextButton(
             onPressed: () {
@@ -202,11 +205,11 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
                 'Join our group!\n\nCode: $joinCode\n$link',
               );
             },
-            child: const Text('Share'),
+            child: Text(l10n(context).share),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Done'),
+            child: Text(l10n(context).done),
           ),
         ],
       ),
@@ -224,14 +227,14 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Edit Group'),
+        title: Text(l10n(context).editGroup),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: nameController,
               decoration: InputDecoration(
-                labelText: 'Group Name',
+                labelText: l10n(context).groupName,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -243,7 +246,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
               controller: descController,
               maxLines: 3,
               decoration: InputDecoration(
-                labelText: 'Description',
+                labelText: l10n(context).description,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -255,11 +258,11 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l10n(context).actionCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Save'),
+            child: Text(l10n(context).actionSave),
           ),
         ],
       ),
@@ -283,7 +286,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to update: $e'),
+            content: Text(UserFacingError.message(e, action: 'update')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -298,19 +301,19 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Group'),
-        content: const Text(
-          'Are you sure you want to delete this group? This action cannot be undone.',
+        title: Text(l10n(context).deleteGroup),
+        content: Text(
+          l10n(context).areYouSureYouWantToDeleteThisGroupThisAction,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l10n(context).actionCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: Text(l10n(context).actionDelete),
           ),
         ],
       ),
@@ -327,7 +330,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to delete: $e'),
+            content: Text(UserFacingError.message(e, action: 'delete')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -397,8 +400,8 @@ class _OverviewTab extends ConsumerWidget {
                             Text(
                               group.description,
                               style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey.shade600,
+                                fontSize: 16,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -420,7 +423,7 @@ class _OverviewTab extends ConsumerWidget {
             children: [
               _OverviewStatCard(
                 icon: Icons.people_outline,
-                label: 'Members',
+                label: l10n(context).members,
                 count: membersAsync.whenOrNull(
                         data: (members) => members.length) ??
                     0,
@@ -428,7 +431,7 @@ class _OverviewTab extends ConsumerWidget {
               const SizedBox(width: 12),
               _OverviewStatCard(
                 icon: Icons.volunteer_activism,
-                label: 'Prayers',
+                label: l10n(context).navPrayers,
                 count: prayersAsync.whenOrNull(
                         data: (prayers) => prayers.length) ??
                     0,
@@ -436,7 +439,7 @@ class _OverviewTab extends ConsumerWidget {
               const SizedBox(width: 12),
               _OverviewStatCard(
                 icon: Icons.campaign_outlined,
-                label: 'Posts',
+                label: l10n(context).posts,
                 count: announcementsAsync.whenOrNull(
                         data: (announcements) => announcements.length) ??
                     0,
@@ -460,14 +463,14 @@ class _OverviewTab extends ConsumerWidget {
                   Row(
                     children: [
                       Icon(Icons.push_pin,
-                          size: 16, color: Colors.grey.shade600),
+                          size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
                       const SizedBox(width: 4),
                       Text(
-                        'Pinned',
+                        l10n(context).pinned,
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade600,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -496,8 +499,8 @@ class _OverviewTab extends ConsumerWidget {
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.grey.shade600,
+                                  fontSize: 14,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ],
@@ -548,8 +551,8 @@ class _OverviewStatCard extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade600,
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -578,7 +581,7 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
       children: [
         groupPrayersAsync.when(
           loading: () => const ListTileSkeletonList(count: 5, hasLeading: false),
-          error: (error, stack) => Center(child: Text('Error: $error')),
+          error: (error, stack) => Center(child: Text(UserFacingError.forLoad(error))),
           data: (groupPrayers) {
             if (groupPrayers.isEmpty) {
               return Center(
@@ -588,22 +591,22 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.volunteer_activism,
-                          size: 48, color: Colors.grey.shade400),
+                          size: 48, color: context.hintText),
                       const SizedBox(height: 16),
                       Text(
-                        'No prayers shared yet',
+                        l10n(context).noPrayersSharedYet,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
-                          color: Colors.grey.shade600,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Tap + to add a prayer to this group',
+                        l10n(context).tapToAddAPrayerToThisGroup,
                         style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade500,
+                          fontSize: 16,
+                          color: context.mutedText,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -640,17 +643,17 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
                 Row(
                   children: [
                     _StatChip(
-                        label: 'Active',
+                        label: l10n(context).active,
                         count: activeCount,
                         color: AppTheme.teal),
                     const SizedBox(width: 8),
                     _StatChip(
-                        label: 'Answered',
+                        label: l10n(context).answered,
                         count: answeredCount,
                         color: AppTheme.teal),
                     const SizedBox(width: 8),
                     _StatChip(
-                        label: 'Archived',
+                        label: l10n(context).archived,
                         count: archivedCount,
                         color: AppTheme.mutedGrey),
                   ],
@@ -663,7 +666,9 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
                   final title = prayer?.title ?? 'Prayer';
                   final status = prayer?.status;
 
-                  return GestureDetector(
+                  return Semantics(
+                    button: true,
+                    child: GestureDetector(
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) =>
@@ -691,7 +696,7 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
                                 Text(
                                   title,
                                   style: const TextStyle(
-                                    fontSize: 15,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w600,
                                   ),
                                   maxLines: 1,
@@ -701,8 +706,8 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
                                 Text(
                                   'Added by ${gp.addedByUsername}',
                                   style: TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.grey.shade600,
+                                    fontSize: 14,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                               ],
@@ -711,10 +716,11 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
                           if (status != null) _buildStatusBadge(status),
                           const SizedBox(width: 4),
                           Icon(Icons.chevron_right,
-                              color: Colors.grey.shade400, size: 20),
+                              color: context.hintText, size: 20),
                         ],
                       ),
                     ),
+                  ),
                   );
                 }),
                 // Bottom spacing for FAB
@@ -739,6 +745,9 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
 
   void _showAddPrayerOptions(BuildContext context) {
     showModalBottomSheet(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -751,7 +760,7 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  'Add Prayer to Group',
+                  l10n(context).addPrayerToGroup,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -767,11 +776,11 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
                   child: const Icon(Icons.add,
                       color: AppTheme.teal, size: 20),
                 ),
-                title: const Text('Create New Prayer'),
+                title: Text(l10n(context).createNewPrayer),
                 subtitle: Text(
-                  'Create a new prayer and add it to this group',
+                  l10n(context).createANewPrayerAndAddItToThisGroup,
                   style: TextStyle(
-                      fontSize: 12, color: Colors.grey.shade600),
+                      fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
                 onTap: () {
                   Navigator.pop(context);
@@ -788,11 +797,11 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
                   child: const Icon(Icons.playlist_add,
                       color: AppTheme.teal, size: 20),
                 ),
-                title: const Text('Add Existing Prayer'),
+                title: Text(l10n(context).addExistingPrayer),
                 subtitle: Text(
-                  'Choose from your personal prayers',
+                  l10n(context).chooseFromYourPersonalPrayers,
                   style: TextStyle(
-                      fontSize: 12, color: Colors.grey.shade600),
+                      fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
                 onTap: () {
                   Navigator.pop(context);
@@ -826,18 +835,18 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
     final addToGroup = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add to Group?'),
+        title: Text(l10n(context).addToGroup),
         content: Text(
           'Would you like to add "${newest.title}" to this group?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('No'),
+            child: Text(l10n(context).no),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Yes, Add'),
+            child: Text(l10n(context).yesAdd),
           ),
         ],
       ),
@@ -864,8 +873,8 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
     if (available.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('All your prayers are already in this group'),
+          SnackBar(
+            content: Text(l10n(context).allYourPrayersAreAlreadyInThisGroup),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -874,6 +883,9 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
     }
 
     final selected = await showModalBottomSheet<PrayerModel>(
+      // Defaults to false: a scroll-controlled sheet otherwise draws its
+      // top edge behind the notch or Dynamic Island.
+      useSafeArea: true,
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -894,7 +906,7 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
                     children: [
                       Expanded(
                         child: Text(
-                          'Select a Prayer',
+                          l10n(context).selectAPrayer,
                           style: Theme.of(context)
                               .textTheme
                               .titleMedium
@@ -902,6 +914,7 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
                         ),
                       ),
                       IconButton(
+                        tooltip: l10n(context).close,
                         icon: const Icon(Icons.close),
                         onPressed: () => Navigator.pop(context),
                       ),
@@ -929,7 +942,7 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
                         subtitle: Text(
                           prayer.status.displayName,
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 13,
                             color: _statusColor(prayer.status),
                           ),
                         ),
@@ -972,8 +985,8 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Prayer added to group'),
+          SnackBar(
+            content: Text(l10n(context).prayerAddedToGroup),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -982,7 +995,7 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to add prayer: $e'),
+            content: Text(UserFacingError.message(e, action: 'add prayer')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -1006,7 +1019,7 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: FontWeight.w600,
           color: color,
         ),
@@ -1049,7 +1062,7 @@ class _StatChip extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.w500,
                 color: color.withValues(alpha: 0.8),
               ),
@@ -1079,7 +1092,7 @@ class _AnnouncementsTabState extends ConsumerState<_AnnouncementsTab> {
 
     return announcementsAsync.when(
       loading: () => const Column(children: [FeedItemSkeleton(), FeedItemSkeleton(), FeedItemSkeleton()]),
-      error: (error, stack) => Center(child: Text('Error: $error')),
+      error: (error, stack) => Center(child: Text(UserFacingError.forLoad(error))),
       data: (announcements) {
         final authService = ref.read(authServiceProvider);
         final userId = authService.currentUserId ?? '';
@@ -1112,14 +1125,14 @@ class _AnnouncementsTabState extends ConsumerState<_AnnouncementsTab> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.campaign_outlined,
-                          size: 48, color: Colors.grey.shade400),
+                          size: 48, color: context.hintText),
                       const SizedBox(height: 16),
                       Text(
-                        'No announcements',
+                        l10n(context).noAnnouncements,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
-                          color: Colors.grey.shade600,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -1167,14 +1180,14 @@ class _AnnouncementsTabState extends ConsumerState<_AnnouncementsTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('New Announcement'),
+        title: Text(l10n(context).newAnnouncement),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: titleController,
               decoration: InputDecoration(
-                labelText: 'Title',
+                labelText: l10n(context).title,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -1186,7 +1199,7 @@ class _AnnouncementsTabState extends ConsumerState<_AnnouncementsTab> {
               controller: contentController,
               maxLines: 4,
               decoration: InputDecoration(
-                labelText: 'Content (optional)',
+                labelText: l10n(context).contentOptional,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -1198,11 +1211,11 @@ class _AnnouncementsTabState extends ConsumerState<_AnnouncementsTab> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l10n(context).actionCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Post'),
+            child: Text(l10n(context).post),
           ),
         ],
       ),
@@ -1233,7 +1246,7 @@ class _AnnouncementsTabState extends ConsumerState<_AnnouncementsTab> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to create announcement: $e'),
+            content: Text(UserFacingError.message(e, action: 'create announcement')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -1252,14 +1265,14 @@ class _AnnouncementsTabState extends ConsumerState<_AnnouncementsTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Edit Announcement'),
+        title: Text(l10n(context).editAnnouncement),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: titleController,
               decoration: InputDecoration(
-                labelText: 'Title',
+                labelText: l10n(context).title,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -1271,7 +1284,7 @@ class _AnnouncementsTabState extends ConsumerState<_AnnouncementsTab> {
               controller: contentController,
               maxLines: 4,
               decoration: InputDecoration(
-                labelText: 'Content',
+                labelText: l10n(context).content,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -1283,11 +1296,11 @@ class _AnnouncementsTabState extends ConsumerState<_AnnouncementsTab> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l10n(context).actionCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Save'),
+            child: Text(l10n(context).actionSave),
           ),
         ],
       ),
@@ -1312,7 +1325,7 @@ class _AnnouncementsTabState extends ConsumerState<_AnnouncementsTab> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to update: $e'),
+            content: Text(UserFacingError.message(e, action: 'update')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -1336,7 +1349,7 @@ class _AnnouncementsTabState extends ConsumerState<_AnnouncementsTab> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to update: $e'),
+            content: Text(UserFacingError.message(e, action: 'update')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -1348,17 +1361,17 @@ class _AnnouncementsTabState extends ConsumerState<_AnnouncementsTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Announcement'),
-        content: const Text('Are you sure you want to delete this announcement?'),
+        title: Text(l10n(context).deleteAnnouncement),
+        content: Text(l10n(context).areYouSureYouWantToDeleteThisAnnouncement),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l10n(context).actionCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: Text(l10n(context).actionDelete),
           ),
         ],
       ),
@@ -1377,7 +1390,7 @@ class _AnnouncementsTabState extends ConsumerState<_AnnouncementsTab> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to delete: $e'),
+            content: Text(UserFacingError.message(e, action: 'delete')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -1398,21 +1411,21 @@ class _MembersTab extends ConsumerWidget {
     return membersAsync.when(
       loading: () => const Column(
           children: [ListTileSkeleton(), ListTileSkeleton(), ListTileSkeleton()]),
-      error: (error, _) => Center(child: Text('Error: $error')),
+      error: (error, _) => Center(child: Text(UserFacingError.forLoad(error))),
       data: (members) {
         if (members.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.people_outline, size: 48, color: Colors.grey.shade400),
+                Icon(Icons.people_outline, size: 48, color: context.hintText),
                 const SizedBox(height: 16),
                 Text(
-                  'No members yet',
+                  l10n(context).noMembersYet,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
-                    color: Colors.grey.shade600,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -1448,7 +1461,7 @@ class _MembersTab extends ConsumerWidget {
                     child: Text(
                       initial,
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.teal,
                       ),
@@ -1462,15 +1475,15 @@ class _MembersTab extends ConsumerWidget {
                         Text(
                           displayName,
                           style: const TextStyle(
-                            fontSize: 14,
+                            fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         Text(
                           '@${member.memberUsername}',
                           style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
+                            fontSize: 13,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -1482,17 +1495,17 @@ class _MembersTab extends ConsumerWidget {
                     decoration: BoxDecoration(
                       color: member.isAdmin
                           ? AppTheme.teal.withValues(alpha: 0.1)
-                          : Colors.grey.shade100,
+                          : context.subtleFill,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       member.role.displayName,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: member.isAdmin
                             ? AppTheme.teal
-                            : Colors.grey.shade600,
+                            : context.mutedText,
                       ),
                     ),
                   ),
@@ -1568,14 +1581,14 @@ class _InfoTab extends ConsumerWidget {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: Colors.grey.shade100,
+                                  color: context.subtleFill,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
                                   group.groupType.displayName,
                                   style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey.shade600,
+                                    fontSize: 13,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                               ),
@@ -1584,14 +1597,14 @@ class _InfoTab extends ConsumerWidget {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: Colors.grey.shade100,
+                                  color: context.subtleFill,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
                                   group.joinPolicy.displayName,
                                   style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey.shade600,
+                                    fontSize: 13,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                               ),
@@ -1605,8 +1618,8 @@ class _InfoTab extends ConsumerWidget {
                       Text(
                         group.description,
                         style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade700,
+                          fontSize: 16,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           height: 1.4,
                         ),
                       ),
@@ -1620,8 +1633,8 @@ class _InfoTab extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // Members section
-          const Text(
-            'Members',
+          Text(
+            l10n(context).members,
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -1630,7 +1643,7 @@ class _InfoTab extends ConsumerWidget {
           const SizedBox(height: 12),
           membersAsync.when(
             loading: () => const Column(children: [ListTileSkeleton(), ListTileSkeleton(), ListTileSkeleton()]),
-            error: (error, stack) => Text('Error: $error'),
+            error: (error, stack) => Text(UserFacingError.forLoad(error)),
             data: (members) {
               return Column(
                 children: members.map((member) {
@@ -1657,7 +1670,7 @@ class _InfoTab extends ConsumerWidget {
                           child: Text(
                             initial,
                             style: const TextStyle(
-                              fontSize: 14,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: AppTheme.teal,
                             ),
@@ -1671,15 +1684,15 @@ class _InfoTab extends ConsumerWidget {
                               Text(
                                 displayName,
                                 style: const TextStyle(
-                                  fontSize: 14,
+                                  fontSize: 16,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                               Text(
                                 '@${member.memberUsername}',
                                 style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600,
+                                  fontSize: 13,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ],
@@ -1692,17 +1705,17 @@ class _InfoTab extends ConsumerWidget {
                             color: member.isAdmin
                                 ? AppTheme.teal
                                     .withValues(alpha: 0.1)
-                                : Colors.grey.shade100,
+                                : context.subtleFill,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             member.role.displayName,
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 12,
                               fontWeight: FontWeight.w600,
                               color: member.isAdmin
                                   ? AppTheme.teal
-                                  : Colors.grey.shade600,
+                                  : context.mutedText,
                             ),
                           ),
                         ),
@@ -1729,10 +1742,10 @@ class _InfoTab extends ConsumerWidget {
                   onPressed: () =>
                       _confirmLeaveGroup(context, ref, groupId, currentUserId),
                   icon: const Icon(Icons.exit_to_app),
-                  label: const Text('Leave Group'),
+                  label: Text(l10n(context).leaveGroup),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red.shade700,
-                    side: BorderSide(color: Colors.red.shade200),
+                    side: BorderSide(color: context.dangerText),
                   ),
                 ),
               );
@@ -1752,17 +1765,17 @@ class _InfoTab extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Leave Group'),
-        content: const Text('Are you sure you want to leave this group?'),
+        title: Text(l10n(context).leaveGroup),
+        content: Text(l10n(context).areYouSureYouWantToLeaveThisGroup),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l10n(context).actionCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Leave'),
+            child: Text(l10n(context).leave),
           ),
         ],
       ),
@@ -1776,8 +1789,8 @@ class _InfoTab extends ConsumerWidget {
       ref.invalidate(groupCountProvider);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('You left the group'),
+          SnackBar(
+            content: Text(l10n(context).youLeftTheGroup),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -1787,7 +1800,7 @@ class _InfoTab extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to leave group: $e'),
+            content: Text(UserFacingError.message(e, action: 'leave group')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -1820,13 +1833,13 @@ class _FeedTab extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 48, color: Colors.grey.shade400),
+              Icon(Icons.error_outline, size: 48, color: context.hintText),
               const SizedBox(height: 16),
-              Text('Could not load feed', style: TextStyle(color: Colors.grey.shade600)),
+              Text(l10n(context).couldNotLoadFeed, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
               const SizedBox(height: 8),
               TextButton(
                 onPressed: () => ref.invalidate(groupFeedProvider(groupId)),
-                child: const Text('Retry'),
+                child: Text(l10n(context).retry),
               ),
             ],
           ),
@@ -1840,20 +1853,20 @@ class _FeedTab extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.dynamic_feed_outlined, size: 48, color: Colors.grey.shade400),
+                  Icon(Icons.dynamic_feed_outlined, size: 48, color: context.hintText),
                   const SizedBox(height: 16),
                   Text(
-                    'No activity yet',
+                    l10n(context).noActivityYet,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
-                      color: Colors.grey.shade600,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Shared prayers and announcements will appear here',
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                    l10n(context).sharedPrayersAndAnnouncementsWillAppearHere,
+                    style: TextStyle(fontSize: 14, color: context.mutedText),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -1891,11 +1904,11 @@ class _FeedItemCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: theme.dividerColor.withValues(alpha: 0.5)),
       ),
-      child: item.isPrayer ? _buildPrayerItem() : _buildAnnouncementItem(),
+      child: item.isPrayer ? _buildPrayerItem(context) : _buildAnnouncementItem(context),
     );
   }
 
-  Widget _buildPrayerItem() {
+  Widget _buildPrayerItem(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1913,25 +1926,25 @@ class _FeedItemCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Prayer shared',
+                l10n(context).prayerShared,
                 style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
               ),
               if (item.userId != null) ...[
                 const SizedBox(height: 2),
                 Text(
                   'by ${item.userId}',
-                  style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
+                  style: theme.textTheme.bodySmall?.copyWith(color: context.subtleFill),
                 ),
               ],
             ],
           ),
         ),
-        _timestamp(item.createdAt),
+        _timestamp(context, item.createdAt),
       ],
     );
   }
 
-  Widget _buildAnnouncementItem() {
+  Widget _buildAnnouncementItem(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1962,7 +1975,7 @@ class _FeedItemCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   item.content!,
-                  style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey.shade700),
+                  style: theme.textTheme.bodySmall?.copyWith(color: context.subtleFill),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1971,18 +1984,18 @@ class _FeedItemCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'by @${item.authorUsername}',
-                  style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey.shade500),
+                  style: theme.textTheme.bodySmall?.copyWith(color: context.subtleFill),
                 ),
               ],
             ],
           ),
         ),
-        _timestamp(item.createdAt),
+        _timestamp(context, item.createdAt),
       ],
     );
   }
 
-  Widget _timestamp(int createdAt) {
+  Widget _timestamp(BuildContext context, int createdAt) {
     final dt = DateTime.fromMillisecondsSinceEpoch(createdAt);
     final now = DateTime.now();
     final diff = now.difference(dt);
@@ -1996,7 +2009,7 @@ class _FeedItemCard extends StatelessWidget {
     }
     return Text(
       label,
-      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+      style: TextStyle(fontSize: 12, color: context.mutedText),
     );
   }
 }
