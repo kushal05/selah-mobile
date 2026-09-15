@@ -460,6 +460,8 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     return AppBar(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       elevation: 0,
+      // no-back: the Notes tab root. A branch root has nothing to pop to,
+      // so a back button would be a dead control.
       automaticallyImplyLeading: false,
       title: TabTitle(_showingTrash ? 'Trash' : 'Notes'),
       actions: [
@@ -1754,9 +1756,8 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
-                color: isActive
-                    ? AppTheme.brandPurple
-                    : Colors.white,
+                // Was Colors.white, which stayed a white pill in dark mode.
+                color: isActive ? AppTheme.brandPurple : context.cardSurface,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: isActive

@@ -286,6 +286,8 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
     return AppBar(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       elevation: 0,
+      // no-back: the Songs tab root. A branch root has nothing to pop to,
+      // so a back button would be a dead control.
       automaticallyImplyLeading: false,
       title: TabTitle(l10n(context).navSongs),
       actions: [

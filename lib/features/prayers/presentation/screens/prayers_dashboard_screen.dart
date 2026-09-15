@@ -89,6 +89,8 @@ class PrayersDashboardScreen extends ConsumerWidget {
         appBar: AppBar(
           backgroundColor: context.pageGround,
           elevation: 0,
+          // no-back: the Prayers tab root. A branch root has nothing to pop to,
+          // so a back button would be a dead control.
           automaticallyImplyLeading: false,
           title: TabTitle(l10n(context).navPrayers),
           actions: [

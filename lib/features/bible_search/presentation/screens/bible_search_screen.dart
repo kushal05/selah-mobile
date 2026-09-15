@@ -369,8 +369,8 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
       colorScheme: parentTheme.colorScheme.copyWith(
         primary: _bibleGreen,
         onPrimary: Colors.white,
-        secondaryContainer: AppTheme.bibleBackground,
-        onSecondaryContainer: AppTheme.bibleForeground,
+        secondaryContainer: AppTheme.bibleSurfaceFor(parentTheme.brightness),
+        onSecondaryContainer: AppTheme.bibleInkFor(parentTheme.brightness),
       ),
     );
 
@@ -380,15 +380,22 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
       appBar: AppBar(
         backgroundColor: parentTheme.scaffoldBackgroundColor,
         elevation: 0,
-        // Only show a close button when opened as a verse-picker dialog.
-        // As a tab, no leading icon is needed.
-        leading: widget.selectMode
-            ? IconButton(
-              tooltip: l10n(context).closeSearch,
-                icon: const Icon(Icons.close),
-                onPressed: () => context.pop(),
-              )
-            : null,
+        // This is a pushed route on the root navigator, not a tab — the
+        // comment that used to sit here said otherwise, and with
+        // automaticallyImplyLeading false and a null leading there was no way
+        // back to the Bible at all.
+        //
+        // Close when it is a verse picker (it opens as a fullscreenDialog),
+        // back when it is the search screen proper.
+        leading: IconButton(
+          tooltip: widget.selectMode
+              ? l10n(context).closeSearch
+              : MaterialLocalizations.of(context).backButtonTooltip,
+          icon: Icon(widget.selectMode
+              ? Icons.close
+              : Icons.arrow_back_ios_new_rounded),
+          onPressed: () => context.pop(),
+        ),
         automaticallyImplyLeading: false,
         title: Text(
           l10n(context).bibleSearch,

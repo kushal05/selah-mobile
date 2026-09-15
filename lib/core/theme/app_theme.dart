@@ -398,6 +398,22 @@ class AppTheme {
 
   // ── Feature-specific colours ────────────────────────────────────────────
   static const Color bibleBackground = Color(0xFFE8F5E9);
+
+  /// Dark-mode counterparts. The light pair was applied unconditionally in the
+  /// chapter screen's theme override, so the translation pill rendered as a
+  /// light green chip on a near-black bar.
+  static const Color bibleBackgroundOnDark = Color(0xFF1B3A24);
+  static const Color bibleForegroundOnDark = Color(0xFFA9D9B5);
+
+  /// The Bible reader's accent surface for [brightness].
+  ///
+  /// Use these rather than the raw tokens: the raw names are registered as
+  /// light-only in the contrast audit, so a bare use is reported.
+  static Color bibleSurfaceFor(Brightness b) =>
+      b == Brightness.dark ? bibleBackgroundOnDark : bibleBackground;
+
+  static Color bibleInkFor(Brightness b) =>
+      b == Brightness.dark ? bibleForegroundOnDark : bibleForeground;
   static const Color bibleForeground = Color(0xFF1B5E20);
   static const Color bibleVerseNumber = Color(0xFFE65100); // amber-600 equiv
   static const Color prayerAnswered = Color(0xFF66BB6A);   // green-400 equiv

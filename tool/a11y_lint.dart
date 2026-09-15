@@ -114,6 +114,28 @@ void main(List<String> args) {
           'render under the status bar, a camera cutout or the gesture bar.'));
     }
 
+    // 6. An AppBar that suppresses its back button without supplying one.
+    //
+    //    `automaticallyImplyLeading: false` with no `leading:` leaves a pushed
+    //    screen with no way out. Bible search shipped that way, carrying a
+    //    comment claiming it was a tab — it was a root-navigator route, and
+    //    the only exit was the OS back gesture.
+    //
+    //    Tab roots legitimately have no back button, and say so with a
+    //    `// no-back:` marker, the same shape as the l10n-exempt marker.
+    for (final call in _callsTo('AppBar', src)) {
+      if (!call.body.contains('automaticallyImplyLeading: false')) continue;
+      if (RegExp(r'leading:\s*(?!null)').hasMatch(call.body)) continue;
+      // The marker sits inside the AppBar, beside the argument it explains —
+      // not above the widget — so the body is what to search.
+      if (call.body.contains('no-back:')) continue;
+      if (_suppressedAt(src, call.line, marker: 'no-back:')) continue;
+      findings.add(_Finding(file.path, call.line,
+          'AppBar sets automaticallyImplyLeading: false and supplies no '
+          'leading: — a pushed screen has no way back. Add a leading, or mark '
+          'a tab root with // no-back: <reason>.'));
+    }
+
     for (final call in _callsTo('GestureDetector', src)) {
       if (call.body.contains('onTapUp:') &&
           !call.body.contains('onTap:') &&
@@ -186,12 +208,12 @@ bool _exemptFromL10n(String path) =>
 /// For strings that genuinely cannot be looked up — OS notification channels
 /// and const data built before any BuildContext exists. The marker must carry
 /// a reason after the colon so the exemption is reviewable.
-bool _suppressedAt(String src, int line) {
+bool _suppressedAt(String src, int line, {String marker = 'l10n-exempt:'}) {
   final lines = src.split('\n');
-  for (final i in [line - 1, line - 2]) {
-    if (i >= 0 && i < lines.length && lines[i].contains('l10n-exempt:')) {
-      return true;
-    }
+  // A few lines of lookback: an AppBar's marker sits above the widget, not
+  // above the argument that triggered the finding.
+  for (var i = line - 1; i >= 0 && i >= line - 5; i--) {
+    if (i < lines.length && lines[i].contains(marker)) return true;
   }
   return false;
 }

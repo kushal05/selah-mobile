@@ -126,7 +126,7 @@ Widget buildFolderVisibilitySelector({
                       if (s) onChanged(v);
                     },
               selectedColor: accentColor.withValues(alpha: 0.12),
-              backgroundColor: Colors.grey.shade50,
+              backgroundColor: context.subtleFill,
               side: BorderSide(
                 color: isSelected
                     ? accentColor.withValues(alpha: 0.4)

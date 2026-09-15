@@ -72,8 +72,8 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
       colorScheme: parentTheme.colorScheme.copyWith(
         primary: _bibleGreen,
         onPrimary: Colors.white,
-        secondaryContainer: AppTheme.bibleBackground,
-        onSecondaryContainer: AppTheme.bibleForeground,
+        secondaryContainer: AppTheme.bibleSurfaceFor(parentTheme.brightness),
+        onSecondaryContainer: AppTheme.bibleInkFor(parentTheme.brightness),
       ),
     );
 
@@ -83,7 +83,9 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
         appBar: AppBar(
           backgroundColor: parentTheme.scaffoldBackgroundColor,
           elevation: 0,
-          automaticallyImplyLeading: false,
+          // no-back: the Bible tab root. A branch root has nothing to pop to,
+        // so a back button would be a dead control.
+        automaticallyImplyLeading: false,
           title: Text(
             l10n(context).navBible,
             style: parentTheme.textTheme.titleLarge?.copyWith(

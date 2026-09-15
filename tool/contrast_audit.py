@@ -343,6 +343,10 @@ LIGHT_ONLY_TOKENS = (
     'gray50', 'gray100', 'gray200', 'gray300', 'gray400', 'gray500',
     'gray600', 'gray700', 'onTintPrimary', 'onTintSecondary', 'scaffoldGray',
     'borderColor', 'dividerColor',
+    # The Bible reader's accent pair. Applied unconditionally in the chapter
+    # screen's theme override, it rendered a light green translation pill on a
+    # near-black bar. Use bibleSurfaceFor/bibleInkFor instead.
+    'bibleBackground', 'bibleForeground',
 )
 LIGHT_TOKEN_RE = re.compile(
     r'\bAppTheme\.(' + '|'.join(LIGHT_ONLY_TOKENS) + r')\b')

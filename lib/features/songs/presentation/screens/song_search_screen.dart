@@ -135,7 +135,7 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
                 decoration: InputDecoration(
                   hintText: l10n(context).searchByTitle,
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: context.subtleFill,
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(

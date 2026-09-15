@@ -106,7 +106,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                 decoration: InputDecoration(
                   hintText: l10n(context).searchAcrossAllContent,
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: context.subtleFill,
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(

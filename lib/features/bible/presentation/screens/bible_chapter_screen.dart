@@ -330,8 +330,10 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
       colorScheme: parentTheme.colorScheme.copyWith(
         primary: _bibleGreen,
         onPrimary: Colors.white,
-        secondaryContainer: AppTheme.bibleBackground,
-        onSecondaryContainer: AppTheme.bibleForeground,
+        // Brightness-aware: the light pair was applied in both themes, so the
+        // translation pill came out a light green chip on a near-black bar.
+        secondaryContainer: AppTheme.bibleSurfaceFor(parentTheme.brightness),
+        onSecondaryContainer: AppTheme.bibleInkFor(parentTheme.brightness),
       ),
     );
 

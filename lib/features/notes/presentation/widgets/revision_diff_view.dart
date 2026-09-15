@@ -6,6 +6,7 @@ import '../../../../shared/widgets/skeletons/skeletons.dart';
 import '../../domain/models/note_revision.dart';
 import '../providers/database_provider.dart';
 import '../../../../l10n/l10n.dart';
+import '../../../../core/theme/app_theme.dart';
 
 /// Screen that shows a side-by-side comparison between a revision and the
 /// current note state.
@@ -92,19 +93,23 @@ class _RevisionDiffViewState extends ConsumerState<RevisionDiffView> {
                 color: cs.surfaceContainerLow,
                 child: Row(
                   children: [
+                    // shade50/shade200 are light-theme swatches with no dark
+                    // counterpart — these legend chips were near-white boxes
+                    // on a dark ground. Derived from the semantic colours so
+                    // both themes get a readable tint.
                     _LegendChip(
-                        color: Colors.red.shade50,
-                        borderColor: Colors.red.shade200,
+                        color: AppTheme.error.withValues(alpha: 0.14),
+                        borderColor: AppTheme.error.withValues(alpha: 0.35),
                         label: l10n(context).removed),
                     const SizedBox(width: 12),
                     _LegendChip(
-                        color: Colors.green.shade50,
-                        borderColor: Colors.green.shade200,
+                        color: AppTheme.success.withValues(alpha: 0.14),
+                        borderColor: AppTheme.success.withValues(alpha: 0.35),
                         label: l10n(context).added),
                     const SizedBox(width: 12),
                     _LegendChip(
-                        color: Colors.amber.shade50,
-                        borderColor: Colors.amber.shade200,
+                        color: AppTheme.warning.withValues(alpha: 0.14),
+                        borderColor: AppTheme.warning.withValues(alpha: 0.35),
                         label: l10n(context).changed),
                     const Spacer(),
                     Text(
@@ -289,28 +294,30 @@ class _DiffRow extends StatelessWidget {
     );
   }
 
+  // Derived from the semantic colours rather than shadeNN swatches, which
+  // are light-theme only and rendered as near-white blocks in dark mode.
   Color _oldBgColor() => switch (diff.type) {
-        _DiffType.removed => Colors.red.shade50,
-        _DiffType.changed => Colors.amber.shade50,
+        _DiffType.removed => AppTheme.error.withValues(alpha: 0.14),
+        _DiffType.changed => AppTheme.warning.withValues(alpha: 0.14),
         _DiffType.added => Colors.transparent,
       };
 
   Color _oldBorderColor() => switch (diff.type) {
-        _DiffType.removed => Colors.red.shade200,
-        _DiffType.changed => Colors.amber.shade200,
-        _DiffType.added => Colors.grey.shade200,
+        _DiffType.removed => AppTheme.error.withValues(alpha: 0.35),
+        _DiffType.changed => AppTheme.warning.withValues(alpha: 0.35),
+        _DiffType.added => AppTheme.mutedGrey.withValues(alpha: 0.35),
       };
 
   Color _newBgColor() => switch (diff.type) {
-        _DiffType.added => Colors.green.shade50,
-        _DiffType.changed => Colors.green.shade50,
+        _DiffType.added => AppTheme.success.withValues(alpha: 0.14),
+        _DiffType.changed => AppTheme.success.withValues(alpha: 0.14),
         _DiffType.removed => Colors.transparent,
       };
 
   Color _newBorderColor() => switch (diff.type) {
-        _DiffType.added => Colors.green.shade200,
-        _DiffType.changed => Colors.green.shade200,
-        _DiffType.removed => Colors.grey.shade200,
+        _DiffType.added => AppTheme.success.withValues(alpha: 0.35),
+        _DiffType.changed => AppTheme.success.withValues(alpha: 0.35),
+        _DiffType.removed => AppTheme.mutedGrey.withValues(alpha: 0.35),
       };
 }
 

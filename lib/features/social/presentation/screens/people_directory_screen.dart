@@ -77,6 +77,8 @@ class _PeopleDirectoryScreenState
       appBar: AppBar(
         backgroundColor: context.pageGround,
         elevation: 0,
+        // no-back: the People tab root. A branch root has nothing to pop to,
+        // so a back button would be a dead control.
         automaticallyImplyLeading: false,
         title: TabTitle(strings.people),
         actions: [

@@ -48,6 +48,8 @@ class _PromisesListScreenState extends ConsumerState<PromisesListScreen> {
         appBar: AppBar(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           elevation: 0,
+          // no-back: the Promises tab root. A branch root has nothing to pop to,
+          // so a back button would be a dead control.
           automaticallyImplyLeading: false,
           title: TabTitle(_showingTrash ? 'Trash' : 'Promises'),
           actions: [

@@ -424,7 +424,7 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
                   value: _todaysPrayers.isEmpty
                       ? 0
                       : _loggedCount / _todaysPrayers.length,
-                  backgroundColor: Colors.grey.shade200,
+                  backgroundColor: context.subtleFill,
                   valueColor: const AlwaysStoppedAnimation<Color>(
                       AppTheme.teal),
                   minHeight: 6,

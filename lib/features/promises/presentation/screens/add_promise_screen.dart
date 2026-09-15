@@ -639,7 +639,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
               prefixIcon: Icon(Icons.check_circle_outline,
                   size: AppTheme.iconBase, color: context.hintText),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: context.subtleFill,
               isDense: true,
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: AppTheme.spacing12, vertical: AppTheme.spacing14),
@@ -660,7 +660,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
               prefixIcon: Icon(Icons.notes_outlined,
                   size: AppTheme.iconBase, color: context.hintText),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: context.subtleFill,
               isDense: true,
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: AppTheme.spacing12, vertical: AppTheme.spacing14),
