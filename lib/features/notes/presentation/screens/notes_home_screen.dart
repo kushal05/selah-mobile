@@ -423,13 +423,24 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
             : Column(
           children: [
             // Folder Section (collapsible accordion)
-            AnimatedContainer(
+            // AnimatedSize with a ceiling rather than AnimatedContainer with a
+            // fixed height: expanding gave 35% of the screen whether there
+            // were twenty folders or none, so an empty list drew ~300pt of
+            // blank space on a tall phone. Now it takes what it needs and
+            // stops at the ceiling.
+            AnimatedSize(
               duration: context.motion(const Duration(milliseconds: 300)),
               curve: Curves.easeInOut,
-              height: _isFolderSectionExpanded
-                  ? MediaQuery.of(context).size.height * 0.35
-                  : 48,
-              child: _buildFolderSection(context),
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                key: const ValueKey('folderSection'),
+                constraints: BoxConstraints(
+                  maxHeight: _isFolderSectionExpanded
+                      ? MediaQuery.of(context).size.height * 0.35
+                      : 48,
+                ),
+                child: _buildFolderSection(context),
+              ),
             ),
 
             // Notes Section (takes remaining space)
@@ -549,13 +560,14 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       // heavier container fill.
       color: context.pageGround,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Collapsible Header
           _buildCollapsibleFolderHeader(context, foldersAsync),
 
           // Folder List (only visible when expanded)
           if (_isFolderSectionExpanded)
-            Expanded(
+            Flexible(
               child: foldersAsync.when(
                 loading: () => const ListTileSkeletonList(count: 4, hasLeading: false),
                 error: (e, _) => Center(child: Text(UserFacingError.forLoad(e))),
@@ -630,6 +642,9 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                   }
 
                   return ListView.builder(
+                      // Sizes to its rows so the section can be shorter than
+                      // the ceiling when there are only a few folders.
+                      shrinkWrap: true,
                     padding: const EdgeInsets.only(bottom: 16),
                     itemCount: folderWidgets.length,
                     itemBuilder: (context, index) => folderWidgets[index],

@@ -115,11 +115,19 @@ class _LinkPickerSheetState<T> extends State<_LinkPickerSheet<T>> {
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: SizedBox(
-        // Tall enough to read several items without scrolling the sheet
-        // itself, which the 400px dialog could not do.
-        height: MediaQuery.sizeOf(context).height * 0.75,
+      child: ConstrainedBox(
+        // Keyed so a test can measure this box rather than one of the several
+        // ConstrainedBoxes the app scaffolding puts above it.
+        key: const ValueKey('linkPickerSheet'),
+        // A ceiling, not a height. Tall enough to read several items without
+        // scrolling the sheet itself, which the 400px dialog could not do —
+        // but a two-item list should not get the same sheet as a fifty-item
+        // one, which a fixed height gave it.
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+        ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             const DragHandle(),
             Padding(
@@ -155,7 +163,10 @@ class _LinkPickerSheetState<T> extends State<_LinkPickerSheet<T>> {
               ),
             ),
             const SizedBox(height: 4),
-            Expanded(
+            // Flexible, not Expanded: the list takes only the height it needs
+            // up to the ceiling above, so the sheet ends just below the last
+            // row instead of leaving dead space under a short list.
+            Flexible(
               child: filtered.isEmpty
                   ? Center(
                       child: Padding(
@@ -170,6 +181,9 @@ class _LinkPickerSheetState<T> extends State<_LinkPickerSheet<T>> {
                       ),
                     )
                   : ListView.builder(
+                      // Sizes to its rows so a short list shortens the sheet;
+                      // the Flexible above still caps it at the ceiling.
+                      shrinkWrap: true,
                       padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
                       itemCount: filtered.length,
                       itemBuilder: (context, index) {

@@ -51,7 +51,44 @@ Future<List<String>?> _openPicker(
   return result;
 }
 
+/// Height of the sheet body currently on screen.
+double _sheetHeight(WidgetTester tester) =>
+    tester.getSize(find.byKey(const ValueKey('linkPickerSheet'))).height;
+
 void main() {
+  // The sheet used a fixed `height: screenHeight * 0.75`, so two items got
+  // exactly the same tall sheet as fifty, with dead space under the last row.
+  // It is a ceiling now, and the list sizes to its rows beneath it.
+  //
+  // Two tests rather than one: a modal barrier from the first sheet absorbs
+  // the tap that would open the second.
+  const cap = 874 * 0.75;
+
+  testWidgets('a two-item list gives a sheet well under the ceiling',
+      (tester) async {
+    tester.view.physicalSize = const Size(402, 874) * 3;
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+
+    await _openPicker(tester,
+        items: const [_Item('a', 'Isaiah 41:10'), _Item('b', 'Psalm 23')]);
+
+    expect(_sheetHeight(tester), lessThan(cap - 100),
+        reason: 'a short list should not fill three quarters of the screen');
+  });
+
+  testWidgets('a long list is still capped at the ceiling', (tester) async {
+    tester.view.physicalSize = const Size(402, 874) * 3;
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+
+    await _openPicker(tester,
+        items: List.generate(60, (i) => _Item('i$i', 'Item $i')));
+
+    expect(_sheetHeight(tester), lessThanOrEqualTo(cap + 1),
+        reason: 'the ceiling must still apply to a long list');
+  });
+
   testWidgets('renders as a sheet with the available items', (tester) async {
     await _openPicker(tester);
 

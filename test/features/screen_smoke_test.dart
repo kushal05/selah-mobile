@@ -23,6 +23,7 @@ import 'package:notify/features/prayers/presentation/screens/prayer_list_screen.
 import 'package:notify/features/habits/presentation/screens/habits_screen.dart';
 import 'package:notify/features/people/presentation/screens/people_list_screen.dart';
 import 'package:notify/features/promises/presentation/screens/promises_list_screen.dart';
+import 'package:notify/features/notes/presentation/screens/notes_home_screen.dart';
 import 'package:notify/features/auth/presentation/screens/onboarding_screen.dart';
 
 /// Pumps [screen] inside the app's real theme and localisations, with the
@@ -132,6 +133,27 @@ void main() {
       (tester) async {
     await _pumpScreen(tester, const OnboardingScreen(),
         size: const Size(320, 640));
+  });
+
+  // The folder accordion expanded to a fixed 35% of screen height whether it
+  // held twenty folders or none, so an empty list drew ~300pt of blank space.
+  // It is a ceiling now and the section sizes to its content.
+  testWidgets('folder section does not reserve 35% for an empty list',
+      (tester) async {
+    await _pumpScreen(tester, const NotesHomeScreen());
+
+    // Asserted, not skipped: an `if (empty) return` here would let this test
+    // pass by never reaching its assertion.
+    final header = find.textContaining('FOLDERS');
+    expect(header, findsWidgets, reason: 'folder header should render');
+    await tester.tap(header.first);
+    await tester.pump(const Duration(milliseconds: 600));
+
+    final box = find.byKey(const ValueKey('folderSection'));
+    expect(box, findsOneWidget);
+    final height = tester.getSize(box).height;
+    expect(height, lessThan(900 * 0.35),
+        reason: 'an empty folder list must not fill the whole ceiling');
   });
 
   testWidgets('habits screen renders', (tester) async {
