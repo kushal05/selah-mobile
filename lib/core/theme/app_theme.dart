@@ -1084,6 +1084,14 @@ class AppTheme {
       appBarTheme: AppBarTheme(
         elevation: 0,
         scrolledUnderElevation: 0,
+        // Titles are left-aligned on every screen, on every platform.
+        //
+        // Without this, Flutter centres an AppBar title on iOS whenever the
+        // bar has fewer than two actions. That is a per-screen accident, not
+        // a design: Prayers has one action and so sat centred while Notes
+        // (three) and Promises (two) sat left — and adding or removing a
+        // single icon button would have silently moved any of them.
+        centerTitle: false,
         backgroundColor: scaffoldGray,
         surfaceTintColor: Colors.transparent,
         iconTheme: const IconThemeData(color: textDark),

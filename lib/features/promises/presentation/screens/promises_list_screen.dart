@@ -18,6 +18,7 @@ import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../shared/widgets/swipe_action.dart';
 import '../../../../core/navigation/tab_navigation.dart';
+import '../../../../shared/widgets/tab_title.dart';
 
 /// Promises list screen
 class PromisesListScreen extends ConsumerStatefulWidget {
@@ -48,12 +49,7 @@ class _PromisesListScreenState extends ConsumerState<PromisesListScreen> {
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           elevation: 0,
           automaticallyImplyLeading: false,
-          title: Text(
-            _showingTrash ? 'Trash' : 'Promises',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
+          title: TabTitle(_showingTrash ? 'Trash' : 'Promises'),
           actions: [
             IconButton(
               icon: const Icon(Icons.search_rounded),

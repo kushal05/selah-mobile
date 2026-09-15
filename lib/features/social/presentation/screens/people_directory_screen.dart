@@ -12,6 +12,7 @@ import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
+import '../../../../shared/widgets/tab_title.dart';
 
 /// One directory for everyone the app knows about.
 ///
@@ -77,7 +78,7 @@ class _PeopleDirectoryScreenState
         backgroundColor: context.pageGround,
         elevation: 0,
         automaticallyImplyLeading: false,
-        title: Text(strings.people),
+        title: TabTitle(strings.people),
         actions: [
           IconButton(
             icon: const Icon(Icons.groups_outlined),

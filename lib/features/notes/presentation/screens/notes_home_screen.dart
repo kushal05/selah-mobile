@@ -32,6 +32,7 @@ import '../../../../l10n/l10n.dart';
 import '../../../../core/navigation/tab_navigation.dart';
 import '../../../../shared/widgets/filter_pill.dart';
 import '../../../../shared/utils/date_format.dart';
+import '../../../../shared/widgets/tab_title.dart';
 
 /// Sort options for notes list
 enum NotesSortOption {
@@ -449,12 +450,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       elevation: 0,
       automaticallyImplyLeading: false,
-      title: Text(
-        _showingTrash ? 'Trash' : 'Notes',
-        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-          color: colorScheme.onSurface,
-        ),
-      ),
+      title: TabTitle(_showingTrash ? 'Trash' : 'Notes'),
       actions: [
         IconButton(
           icon: Icon(

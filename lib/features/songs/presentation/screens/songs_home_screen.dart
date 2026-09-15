@@ -22,6 +22,7 @@ import '../../../../shared/widgets/swipe_action.dart';
 import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../core/navigation/tab_navigation.dart';
+import '../../../../shared/widgets/tab_title.dart';
 
 /// Songs home screen with list view and multi-select support
 /// Displays songs organized by folders with search and filter options
@@ -286,12 +287,7 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       elevation: 0,
       automaticallyImplyLeading: false,
-      title: Text(
-        l10n(context).navSongs,
-        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-          color: Theme.of(context).colorScheme.onSurface,
-        ),
-      ),
+      title: TabTitle(l10n(context).navSongs),
       actions: [
         IconButton(
           tooltip: l10n(context).searchSongs,
@@ -320,12 +316,7 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
           setState(() => _showingTrash = false);
         },
       ),
-      title: Text(
-        l10n(context).trash,
-        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-      ),
+      title: TabTitle(l10n(context).trash),
     );
   }
 

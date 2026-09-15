@@ -20,6 +20,7 @@ import '../../../../shared/widgets/undo_snackbar.dart';
 import '../../domain/models/prayer_metadata_codec.dart';
 import '../../../../core/navigation/tab_navigation.dart';
 import '../../../../shared/widgets/filter_pill.dart';
+import '../../../../shared/widgets/tab_title.dart';
 
 /// Prayers dashboard screen with real data from local database
 /// Which slice of the list is showing.
@@ -89,12 +90,7 @@ class PrayersDashboardScreen extends ConsumerWidget {
           backgroundColor: context.pageGround,
           elevation: 0,
           automaticallyImplyLeading: false,
-          title: Text(
-            l10n(context).navPrayers,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
+          title: TabTitle(l10n(context).navPrayers),
           actions: [
             IconButton(
               icon: const Icon(Icons.search_rounded),
