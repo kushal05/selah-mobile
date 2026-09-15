@@ -88,7 +88,16 @@ class _PromisesListScreenState extends ConsumerState<PromisesListScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: promises.length + 1,
               itemBuilder: (context, index) {
-                if (index == 0) return FeatureIntros.promises;
+                // Padded to match PromiseCard's own 16pt side margin, which
+                // sits on top of this list's padding. Without it the banner
+                // ran 16pt wider on each side than every tile beneath it.
+                // Songs and Notes already wrap their intro the same way.
+                if (index == 0) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: FeatureIntros.promises,
+                  );
+                }
                 final promise = promises[index - 1];
                 if (_showingTrash) {
                   return _TrashedPromiseListTile(promise: promise);

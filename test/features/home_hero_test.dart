@@ -79,14 +79,16 @@ ScrollableState _carousel(WidgetTester tester) =>
       matching: find.byType(Scrollable),
     ));
 
-/// Which slot is showing.
+/// Which real slide is showing.
 ///
-/// Asserted on scroll position rather than on the page dots: the dots are an
-/// implicitly-animated width, so reading them measures the animation's
-/// progress as much as the state, which made these tests flap.
-double _slot(WidgetTester tester) {
+/// The row is [clone of last, ...slides, clone of first], so the visible slide
+/// is the slot minus the leading clone. Asserted on scroll position rather
+/// than on the page dots: the dots are an implicitly-animated width, so
+/// reading them measures the animation's progress as much as the state, which
+/// made these tests flap.
+double _slide(WidgetTester tester) {
   final s = _carousel(tester);
-  return (s.position.pixels / s.position.viewportDimension).roundToDouble();
+  return (s.position.pixels / s.position.viewportDimension).roundToDouble() - 1;
 }
 
 void main() {
@@ -135,10 +137,10 @@ void main() {
     await _pump(tester, const DailyFocusCard(),
         size: const Size(402, 874), textScale: 1.0, overrides: populated);
 
-    expect(_slot(tester), 0.0);
+    expect(_slide(tester), 0.0);
     await tester.pump(const Duration(seconds: 7));
     await tester.pumpAndSettle(const Duration(milliseconds: 100));
-    expect(_slot(tester), 1.0,
+    expect(_slide(tester), 1.0,
         reason: 'the carousel should have advanced by itself');
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -162,7 +164,7 @@ void main() {
 
     await tester.pump(const Duration(seconds: 7));
     await tester.pumpAndSettle(const Duration(milliseconds: 100));
-    expect(_slot(tester), 1.0,
+    expect(_slide(tester), 1.0,
         reason: 'an idle notification must not disable auto-advance');
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -179,11 +181,13 @@ void main() {
     ));
     final width = tester.getSize(find.byType(DailyFocusCard)).width;
 
-    // Three slides plus one trailing duplicate of the first.
-    expect(scroll.position.maxScrollExtent, closeTo(width * 3, 1.0),
-        reason: 'there should be a fourth slot to scroll into');
+    // Three slides plus a clone at each end.
+    expect(scroll.position.maxScrollExtent, closeTo(width * 4, 1.0),
+        reason: 'there should be a clone beyond each end to scroll into');
+    expect(scroll.position.pixels, closeTo(width, 1.0),
+        reason: 'it should open on the real first slide, not the clone');
 
-    double page() => (scroll.position.pixels / width).round().toDouble();
+    double page() => (scroll.position.pixels / width).round().toDouble() - 1;
 
     // Walk the whole loop: 0 -> 1 -> 2 -> back to 0 without rewinding.
     final visited = <double>[page()];
@@ -208,8 +212,8 @@ void main() {
     expect(page(), 2.0, reason: 'should be sitting on the last real slide');
     await tester.pump(const Duration(seconds: 6)); // wrap begins
     await tester.pump(const Duration(milliseconds: 220)); // mid-animation
-    expect(scroll.position.pixels, greaterThan(width * 2),
-        reason: 'the wrap must move forward onto the duplicate, not rewind');
+    expect(scroll.position.pixels, greaterThan(width * 3),
+        reason: 'the wrap must move forward onto the clone, not rewind');
     await tester.pumpAndSettle(const Duration(milliseconds: 400));
 
     // And it is still running — a fourth tick moves it on again, which is
@@ -221,15 +225,33 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('swiping left off the first slide wraps to the last',
+      (tester) async {
+    await _pump(tester, const DailyFocusCard(),
+        size: const Size(402, 874), textScale: 1.0, overrides: populated);
+
+    expect(_slide(tester), 0.0, reason: 'opens on the first slide');
+
+    // Drag right = move backwards. Without a clone before the first slide
+    // this hit the start of the scroll view and stopped dead.
+    await tester.drag(find.byType(DailyFocusCard), const Offset(400, 0));
+    await tester.pumpAndSettle(const Duration(milliseconds: 200));
+
+    expect(_slide(tester), 2.0,
+        reason: 'going back past the first slide should land on the last');
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('the carousel shows all three slides', (tester) async {
     await _pump(tester, const DailyFocusCard(),
         size: const Size(402, 874), textScale: 1.0, overrides: populated);
 
-    // Slide one appears twice: the real one and the trailing duplicate that
-    // makes the loop seamless.
+    // The first and last slides each render twice: the real one plus the
+    // clone that lets the loop run off that end.
     expect(find.text('Hospital people'), findsNWidgets(2));
     expect(find.text('Isaiah 41:10'), findsOneWidget);
-    expect(find.text('Psalms 23'), findsOneWidget);
+    expect(find.text('Psalms 23'), findsNWidgets(2));
   });
 
   for (final scale in [1.0, 1.5, 2.0]) {

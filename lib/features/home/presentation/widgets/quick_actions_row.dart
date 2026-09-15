@@ -1,3 +1,4 @@
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -219,22 +220,44 @@ class _QuickActionsFolder extends StatelessWidget {
       backgroundColor: Colors.transparent,
       elevation: 0,
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 18, 16, 22),
-        decoration: BoxDecoration(
-          color: context.raisedSurface,
-          borderRadius: AppTheme.borderRadius3XL,
-          boxShadow: AppTheme.shadowMD(Colors.black),
-        ),
-        child: Column(
+      // Glass rather than a panel: the blur is what makes a translucent
+      // surface read as frosted instead of merely faded, because the content
+      // behind it is still visible but unreadable. Without the blur, a low
+      // alpha just looks like a washed-out card.
+      child: ClipRRect(
+        borderRadius: AppTheme.borderRadius3XL,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 22),
+            decoration: BoxDecoration(
+              // Barely there: enough to lift the tiles off whatever is behind
+              // and to keep a hairline edge, not enough to hide the screen.
+              color: context.raisedSurface.withValues(
+                  alpha: Theme.of(context).brightness == Brightness.dark
+                      ? 0.55
+                      : 0.45),
+              borderRadius: AppTheme.borderRadius3XL,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.25),
+              ),
+            ),
+            child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              l10n(context).allQuickActions,
+              // Uppercased here rather than in the ARB: the caps are a
+              // typographic choice, and baking them into the string would
+              // force every translation to carry them too.
+              l10n(context).allQuickActions.toUpperCase(),
+              // primaryText, not mutedText: the panel is glass now, so this
+              // label sits over whatever is behind it — a blurred gradient in
+              // the common case. A deliberately low-contrast grey was legible
+              // on a solid surface and is not on this one.
               style: AppTheme.caption.copyWith(
                 fontWeight: FontWeight.w700,
-                color: context.mutedText,
-                letterSpacing: 0.4,
+                color: context.primaryText,
+                letterSpacing: 0.8,
               ),
             ),
             const SizedBox(height: 16),
@@ -269,7 +292,9 @@ class _QuickActionsFolder extends StatelessWidget {
                 ),
               );
             }),
-          ],
+              ],
+            ),
+          ),
         ),
       ),
     );

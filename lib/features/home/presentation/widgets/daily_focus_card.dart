@@ -129,6 +129,10 @@ class _FocusCarousel extends StatefulWidget {
 
 class _FocusCarouselState extends State<_FocusCarousel> {
   final _controller = ScrollController();
+  // Slot 0 is the clone of the last slide, so the row has to open one slot in
+  // on the real first one. The width is not known until layout, so the jump
+  // happens on the first frame rather than at construction.
+  bool _positioned = false;
   int _page = 0;
   Timer? _autoScroll;
   double _width = 0;
@@ -153,21 +157,37 @@ class _FocusCarouselState extends State<_FocusCarousel> {
       // Always forward, never `% length`. Modulo made the last slide rewind
       // through every earlier one to reach the first, which reads as the
       // carousel running backwards rather than looping.
-      final next = _page + 1;
       await _controller.animateTo(
-        next * _width,
+        (_slotIndex + 1) * _width,
         duration: const Duration(milliseconds: 450),
         curve: Curves.easeInOut,
       );
-      // Landed on the trailing copy of slide one, which is pixel-identical to
-      // the real one — so jumping home is invisible, and the next tick
-      // carries on forward. That is what makes the loop endless rather than
-      // a three-step shuttle.
-      if (mounted && _controller.hasClients && next == widget.slides.length) {
-        _controller.jumpTo(0);
-        setState(() => _page = 0);
-      }
+      _normalise();
     });
+  }
+
+  /// The slot currently shown, in the padded row's own indexing.
+  int get _slotIndex => _page + 1;
+
+  /// Steps off a clone and onto its twin, without moving anything visible.
+  ///
+  /// The row carries a copy of the last slide before the first and a copy of
+  /// the first after the last, so the reader can run off either end. Landing
+  /// on a clone is identical on screen to landing on the slide it copies, so
+  /// the jump home is invisible and the loop works in both directions.
+  void _normalise() {
+    if (!mounted || !_controller.hasClients || _width <= 0) return;
+    final slot = (_controller.offset / _width).round();
+    final n = widget.slides.length;
+    if (slot == 0) {
+      // Ran off the left onto the clone of the last slide.
+      _controller.jumpTo(n * _width);
+      setState(() => _page = n - 1);
+    } else if (slot == n + 1) {
+      // Ran off the right onto the clone of the first.
+      _controller.jumpTo(_width);
+      setState(() => _page = 0);
+    }
   }
 
   void _stopAutoScroll() {
@@ -209,6 +229,12 @@ class _FocusCarouselState extends State<_FocusCarousel> {
         const gap = 12.0;
         final width = constraints.maxWidth;
         _width = width;
+        if (!_positioned && width > 0) {
+          _positioned = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _controller.hasClients) _controller.jumpTo(width);
+          });
+        }
         // Reduce Motion: no unrequested movement.
         if (MediaQuery.of(context).disableAnimations) _stopAutoScroll();
         return Column(
@@ -229,23 +255,22 @@ class _FocusCarouselState extends State<_FocusCarousel> {
                 // Swiped onto the duplicate by hand and let go: settle back
                 // onto the real slide one so the reader is never parked on a
                 // copy with nowhere left to scroll.
-                if (n is ScrollEndNotification &&
-                    width > 0 &&
-                    _controller.hasClients &&
-                    (_controller.offset / width).round() ==
-                        widget.slides.length) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (!mounted || !_controller.hasClients) return;
-                    _controller.jumpTo(0);
-                    setState(() => _page = 0);
-                  });
+                // Came to rest on a clone after a manual swipe: step onto
+                // its twin so there is always more carousel in both
+                // directions.
+                if (n is ScrollEndNotification) {
+                  WidgetsBinding.instance
+                      .addPostFrameCallback((_) => _normalise());
                 }
                 if (n is ScrollUpdateNotification && width > 0) {
                   // <= length, because the trailing duplicate is a real slot
                   // the reader can also swipe to by hand.
-                  final page = (_controller.offset / width).round();
+                  // Slot indices include the two clones; _page is the real
+                  // slide, so it is the slot minus the leading clone.
+                  final slot = (_controller.offset / width).round();
+                  final page = slot - 1;
                   if (page != _page &&
-                      page >= 0 &&
+                      page >= -1 &&
                       page <= widget.slides.length) {
                     setState(() => _page = page);
                   }
@@ -265,27 +290,14 @@ class _FocusCarouselState extends State<_FocusCarousel> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // Clone of the last slide, so swiping left off the
+                      // first has somewhere to go.
+                      _slot(context, width, gap, widget.slides.last),
                       for (final slide in widget.slides)
-                        SizedBox(
-                          width: width,
-                          child: Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: gap / 2),
-                            child: _buildCard(context, slide),
-                          ),
-                        ),
-                      // One extra copy of the first slide. Scrolling onto it
-                      // looks like continuing past the last; the jump back to
-                      // the real one happens while it is on screen, so there
-                      // is no seam.
-                      SizedBox(
-                        width: width,
-                        child: Padding(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: gap / 2),
-                          child: _buildCard(context, widget.slides.first),
-                        ),
-                      ),
+                        _slot(context, width, gap, slide),
+                      // Clone of the first, so swiping right off the last
+                      // also continues rather than stopping.
+                      _slot(context, width, gap, widget.slides.first),
                     ],
                   ),
                 ),
@@ -318,6 +330,25 @@ class _FocusCarouselState extends State<_FocusCarousel> {
     );
   }
 
+  /// One slot: the card inset by half a gutter, clipped to its own bounds.
+  ///
+  /// The clip is the fix for a mismatched-looking gutter. Each card casts a
+  /// coloured shadow, and without clipping the previous card's shadow painted
+  /// across the gap into this slot — sampled at rgb(226,228,247), a blue cast
+  /// on a rose slide, against a page ground of rgb(244,245,247). Clipping
+  /// keeps each shadow inside its own slot so the gap reads as the page.
+  Widget _slot(BuildContext context, double width, double gap, _Slide slide) {
+    return SizedBox(
+      width: width,
+      child: ClipRect(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: gap / 2),
+          child: _buildCard(context, slide),
+        ),
+      ),
+    );
+  }
+
   Widget _buildCard(BuildContext context, _Slide slide) {
     return Container(
       width: double.infinity,
@@ -328,7 +359,12 @@ class _FocusCarouselState extends State<_FocusCarousel> {
           colors: slide.gradient,
         ),
         borderRadius: AppTheme.borderRadius4XL,
-        boxShadow: AppTheme.shadowXL(slide.gradient.first),
+        // No shadow. shadowXL is a coloured glow, and with a gutter between
+        // slides it painted into that gap — sampled green on the reading
+        // slide against a page ground of rgb(244,245,247), which is the
+        // "background doesn't match" this looked like. The gradient carries
+        // the card on its own; a glow that tints the gap does not earn it.
+        boxShadow: null,
       ),
       clipBehavior: Clip.hardEdge,
       child: Stack(

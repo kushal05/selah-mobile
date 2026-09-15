@@ -29,8 +29,11 @@ class _QuickActionButtonState extends State<QuickActionButton> {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    final bgColor = AppTheme.tintBackground(
-        widget.color, 0.84, brightness == Brightness.dark);
+    // Translucent rather than a solid tint: the page ground shows through the
+    // accent, so the tile reads as glass over the background instead of a
+    // flat opaque swatch sitting on it.
+    final bgColor = widget.color
+        .withValues(alpha: brightness == Brightness.dark ? 0.22 : 0.14);
 
     return Semantics(
       button: true,
