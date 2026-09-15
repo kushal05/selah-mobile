@@ -930,5 +930,46 @@
   "trashLabelItems": "items",
   "onboardingCaptureTitle": "Capture what God\nteaches you",
   "onboardingPrayersTitle": "Keep track of\nyour prayers",
-  "onboardingPrayersSubtitle": "Record prayer requests, track answers, and build a journal of God's faithfulness over time."
+  "onboardingPrayersSubtitle": "Record prayer requests, track answers, and build a journal of God's faithfulness over time.",
+  "note": "Note",
+  "folder": "Folder",
+  "song": "Song",
+  "expiringSoon": "Expiring soon",
+  "nDaysLeft": "{count, plural, =1{1 day left} other{{count} days left}}",
+  "@nDaysLeft": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "yourDeletedItems": "your deleted items",
+  "someDeletedItemsCouldntBeLoaded": "Some deleted items couldn't be loaded",
+  "today": "Today",
+  "yesterday": "Yesterday",
+  "older": "Older",
+  "nMinutesAgo": "{count}m ago",
+  "@nMinutesAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "nHoursAgo": "{count}h ago",
+  "@nHoursAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "nDaysAgo": "{count}d ago",
+  "@nDaysAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

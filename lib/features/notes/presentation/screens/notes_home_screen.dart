@@ -31,6 +31,7 @@ import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../core/navigation/tab_navigation.dart';
 import '../../../../shared/widgets/filter_pill.dart';
+import '../../../../shared/utils/date_format.dart';
 
 /// Sort options for notes list
 enum NotesSortOption {
@@ -380,13 +381,11 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     } else if (diff.inHours < 24) {
       return '${diff.inHours}h ago';
     } else if (diff.inDays == 1) {
-      return 'Yesterday';
+      return l10n(context).yesterday;
     } else if (diff.inDays < 7) {
       return '${diff.inDays} days ago';
     } else {
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return '${months[date.month - 1]} ${date.day}';
+      return formatShortDate(date);
     }
   }
 

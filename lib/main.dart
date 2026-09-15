@@ -1,5 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/config/app_config.dart';
@@ -33,6 +35,11 @@ void main() async {
   // landscape is ever wanted — the Bible reader is the screen that would
   // benefit — those height fractions and the root-route insets need real
   // work first.
+  // Locale data for DateFormat. Without this, every locale except en_US
+  // throws LocaleDataException the first time a date is rendered — so the
+  // failure would appear only once a translation shipped, not in testing.
+  await initializeDateFormatting();
+
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
@@ -294,14 +301,21 @@ class _SelahAppState extends ConsumerState<SelahApp>
       darkTheme: AppTheme.dark(),
       themeMode: ref.watch(themeModeProvider),
       // Localisation is wired up even though only English ships today: adding
-      // a language is now a translation task (copy lib/l10n/app_en.arb, add
-      // the locale below) rather than a refactor of 144k lines of hardcoded
-      // strings. The cost of extracting strings only grows with each screen.
+      // a language is now a translation task (copy lib/l10n/app_en.arb and
+      // translate it; supportedLocales is generated from the .arb files
+      // present, so there is nothing to add here) rather than a refactor of
+      // 144k lines of hardcoded strings. See l10n.yaml for what translation
+      // alone does not cover.
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
+        // Date formatting reads the resolved locale from here rather than
+        // threading a BuildContext through every caller. Set on each build so
+        // it follows a locale change instead of latching the first one.
+        Intl.defaultLocale = Localizations.localeOf(context).toString();
+
         // Reduce Motion also removes the sliding page transition between
         // screens, which is the largest single movement in the app. Reading
         // MediaQuery here (inside builder) puts it below MaterialApp, where

@@ -27,6 +27,7 @@ import '../../../../core/services/user_facing_error.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
+import '../../../../shared/utils/date_format.dart';
 
 /// Provider to watch a single note by ID
 final noteDetailProvider =
@@ -348,11 +349,7 @@ class NoteDetailScreen extends ConsumerWidget {
   }
 
   String _formatDate(DateTime date) {
-    const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    return formatLongDate(date);
   }
 
   void _showOptionsMenu(BuildContext context, WidgetRef ref) {

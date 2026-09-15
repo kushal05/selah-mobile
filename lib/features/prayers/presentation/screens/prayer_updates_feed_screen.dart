@@ -8,6 +8,7 @@ import '../../../../shared/widgets/skeletons/skeletons.dart';
 import '../../../../core/services/user_facing_error.dart';
 import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
+import '../../../../shared/utils/date_format.dart';
 
 /// Global prayer updates feed screen.
 ///
@@ -94,7 +95,7 @@ class PrayerUpdatesFeedScreen extends ConsumerWidget {
                         ),
                       ),
                       Text(
-                        _formatDate(date),
+                        _formatDate(context, date),
                         style: TextStyle(
                             fontSize: 12, color: context.mutedText),
                       ),
@@ -109,17 +110,13 @@ class PrayerUpdatesFeedScreen extends ConsumerWidget {
     );
   }
 
-  String _formatDate(DateTime date) {
+  String _formatDate(BuildContext context, DateTime date) {
     final now = DateTime.now();
     final diff = now.difference(date);
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays == 1) return 'Yesterday';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return '${months[date.month - 1]} ${date.day}';
+    if (diff.inMinutes < 60) return l10n(context).nMinutesAgo(diff.inMinutes);
+    if (diff.inHours < 24) return l10n(context).nHoursAgo(diff.inHours);
+    if (diff.inDays == 1) return l10n(context).yesterday;
+    if (diff.inDays < 7) return l10n(context).nDaysAgo(diff.inDays);
+    return formatShortDate(date);
   }
 }

@@ -15,6 +15,7 @@ import '../widgets/overview_grid.dart';
 import '../widgets/quick_actions_row.dart';
 import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
+import '../../../../shared/utils/date_format.dart';
 
 /// Home dashboard screen — light hero band + scrollable content body.
 class HomeDashboardScreen extends ConsumerStatefulWidget {
@@ -191,19 +192,12 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
   }
 
   String _getWeekday(int weekday) {
-    const weekdays = [
-      'Monday', 'Tuesday', 'Wednesday', 'Thursday',
-      'Friday', 'Saturday', 'Sunday'
-    ];
-    return weekdays[weekday - 1];
+    // DateTime.monday == 1, so any week starting on a Monday maps the index.
+    return formatWeekdayLong(DateTime(2024, 1, weekday));
   }
 
   String _getMonth(int month) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return months[month - 1];
+    return formatMonthAbbrev(DateTime(2000, month));
   }
 }
 

@@ -460,9 +460,9 @@ class _DateHeader extends StatelessWidget {
 
     String label;
     if (diff.inDays == 0) {
-      label = 'Today';
+      label = l10n(context).today;
     } else if (diff.inDays == 1) {
-      label = 'Yesterday';
+      label = l10n(context).yesterday;
     } else {
       label = '${date.month}/${date.day}/${date.year}';
     }

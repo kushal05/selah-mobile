@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../colored_badge.dart';
 import '../row_actions.dart';
 import '../../../core/theme/theme_colors.dart';
+import '../../utils/date_format.dart';
 
 /// Displays a note item as a premium white card in the notes list.
 class NoteRow extends StatelessWidget {
@@ -36,11 +37,7 @@ class NoteRow extends StatelessWidget {
   });
 
   String _formatNoteDate(DateTime date) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    return formatMediumDate(date);
   }
 
   @override

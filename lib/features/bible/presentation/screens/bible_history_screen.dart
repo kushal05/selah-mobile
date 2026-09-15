@@ -8,6 +8,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/navigation/routes.dart';
 import '../providers/bible_providers.dart';
 import '../../../../l10n/l10n.dart';
+import '../../../../shared/utils/date_format.dart';
 
 /// Groups history entries into Today / Yesterday / Older date buckets.
 enum _DateGroup {
@@ -15,14 +16,16 @@ enum _DateGroup {
   yesterday,
   older;
 
-  String get label {
+  /// Takes a context because these are user-facing strings; an enum has no
+  /// widget tree of its own to look them up in.
+  String label(BuildContext context) {
     switch (this) {
       case _DateGroup.today:
-        return 'Today';
+        return l10n(context).today;
       case _DateGroup.yesterday:
-        return 'Yesterday';
+        return l10n(context).yesterday;
       case _DateGroup.older:
-        return 'Older';
+        return l10n(context).older;
     }
   }
 }
@@ -91,7 +94,7 @@ class BibleHistoryScreen extends ConsumerWidget {
             );
           }
 
-          final grouped = _groupByDate(entries);
+          final grouped = _groupByDate(context, entries);
           return ListView.builder(
             padding: const EdgeInsets.symmetric(vertical: AppTheme.spacing8),
             itemCount: grouped.length,
@@ -111,7 +114,7 @@ class BibleHistoryScreen extends ConsumerWidget {
 
   /// Group entries into Today / Yesterday / Older buckets.
   List<_GroupedEntries> _groupByDate(
-      List<BibleReferenceHistoryModel> entries) {
+      BuildContext context, List<BibleReferenceHistoryModel> entries) {
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
     final yesterdayStart = todayStart.subtract(const Duration(days: 1));
@@ -138,11 +141,11 @@ class BibleHistoryScreen extends ConsumerWidget {
     final groups = <_GroupedEntries>[];
     if (today.isNotEmpty) {
       groups.add(_GroupedEntries(
-          label: _DateGroup.today.label, entries: today));
+          label: _DateGroup.today.label(context), entries: today));
     }
     if (yesterday.isNotEmpty) {
       groups.add(_GroupedEntries(
-          label: _DateGroup.yesterday.label, entries: yesterday));
+          label: _DateGroup.yesterday.label(context), entries: yesterday));
     }
     // Sort older date keys descending
     final sortedDates = olderMap.keys.toList()..sort((a, b) => b.compareTo(a));
@@ -159,11 +162,7 @@ class BibleHistoryScreen extends ConsumerWidget {
     final parts = dateKey.split('-');
     final date = DateTime(
         int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    return formatMediumDate(date);
   }
 
   void _navigateToChapter(

@@ -316,23 +316,38 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Checkbox aligned with first line of text
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: SizedBox(
-              width: 20,
-              height: 20,
-              child: Checkbox(
-                value: isChecked,
-                onChanged: (value) {
-                  ref.read(noteEditorProvider(widget.noteId).notifier).toggleCheckbox(widget.block.id);
-                },
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
+          // Checkbox aligned with first line of text.
+          //
+          // shrinkWrap removes Material's default 48pt tap padding, leaving
+          // the hit area at the 20pt visual. The padding below absorbs the
+          // 8pt gap that used to be a separate SizedBox, so the tap area is
+          // 28x22 instead of 20x20 with nothing moving on screen.
+          //
+          // It is not the 44pt minimum, and cannot be here: contentPadding is
+          // zero on the text field, so a single-line checklist row is only
+          // ~22pt tall. Reaching 44 means making every checklist row twice as
+          // tall, which is a design decision rather than a defect fix.
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => ref
+                .read(noteEditorProvider(widget.noteId).notifier)
+                .toggleCheckbox(widget.block.id),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(0, 2, 8, 0),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: Checkbox(
+                  value: isChecked,
+                  onChanged: (value) {
+                    ref.read(noteEditorProvider(widget.noteId).notifier).toggleCheckbox(widget.block.id);
+                  },
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
               ),
             ),
           ),
-          const SizedBox(width: 8),
           Expanded(
             child: _buildTextField(
               style: TextStyle(

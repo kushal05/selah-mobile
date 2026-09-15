@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/services/app_update_service.dart';
 import '../../../l10n/l10n.dart';
+import '../../utils/date_format.dart';
 
 /// QA-only picker that shows the most recent builds from the S3 manifest.
 ///
@@ -153,14 +154,10 @@ class _BuildTile extends StatelessWidget {
   }
 
   String _formatDate(int millis) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    final dt = DateTime.fromMillisecondsSinceEpoch(millis).toLocal();
-    final hour12 = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
-    final ampm = dt.hour < 12 ? 'AM' : 'PM';
-    final mm = dt.minute.toString().padLeft(2, '0');
-    return '${dt.day} ${months[dt.month - 1]}, $hour12:$mm $ampm';
+    // Was hand-rolled: day-before-month (the only site in the app that did),
+    // plus a manual 12-hour clock with hardcoded AM/PM. Both are locale
+    // conventions — most of the world reads 15:06, not 3:06 PM.
+    return formatDateAndTime(
+        DateTime.fromMillisecondsSinceEpoch(millis).toLocal());
   }
 }

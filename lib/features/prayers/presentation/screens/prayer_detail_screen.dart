@@ -24,6 +24,7 @@ import '../../../../core/services/user_facing_error.dart';
 import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../shared/widgets/section_label.dart';
+import '../../../../shared/utils/date_format.dart';
 
 const _updatesSeparator = '\n<!-- updates -->\n';
 
@@ -937,11 +938,7 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
   }
 
   String _formatDate(DateTime date) {
-    final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    return formatMediumDate(date);
   }
 
   @override

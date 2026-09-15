@@ -12,6 +12,7 @@ import '../../../../shared/widgets/skeletons/skeletons.dart';
 import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../core/services/user_facing_error.dart';
+import '../../../../shared/utils/date_format.dart';
 
 /// Unified daily prayer flow screen
 ///
@@ -464,15 +465,6 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
   }
 
   String _getFormattedDate() {
-    final now = DateTime.now();
-    const weekdays = [
-      'Monday', 'Tuesday', 'Wednesday', 'Thursday',
-      'Friday', 'Saturday', 'Sunday'
-    ];
-    const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-    return '${weekdays[now.weekday - 1]}, ${months[now.month - 1]} ${now.day}';
+    return formatWeekdayAndLongDate(DateTime.now());
   }
 }

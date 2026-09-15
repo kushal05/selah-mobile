@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
+import '../../../../shared/utils/date_format.dart';
 
 /// GitHub-style heatmap calendar grid showing prayer activity.
 /// Each cell represents a day; intensity reflects the log count.
@@ -86,10 +87,6 @@ class PrayerHeatmap extends StatelessWidget {
 
   Widget _buildMonthLabels(
       BuildContext context, DateTime gridStart, int weekCount) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
 
     final labels = <Widget>[];
     int? lastMonth;
@@ -102,7 +99,7 @@ class PrayerHeatmap extends StatelessWidget {
           SizedBox(
             width: _cellTotal,
             child: Text(
-              months[weekStart.month - 1],
+              formatMonthAbbrev(weekStart),
               style: TextStyle(fontSize: 12, color: context.mutedText),
               overflow: TextOverflow.visible,
               softWrap: false,

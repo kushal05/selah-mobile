@@ -14,6 +14,7 @@ import '../../../../shared/widgets/skeletons/skeletons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
+import '../../../../shared/utils/date_format.dart';
 
 /// Note editor screen for creating and editing notes
 /// Implements a block-based rich text editor with auto-save
@@ -420,11 +421,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
   }
 
   String _formatDate(DateTime date) {
-    final months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    return formatLongDate(date);
   }
 
   Widget _buildTitleField() {

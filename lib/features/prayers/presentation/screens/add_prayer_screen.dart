@@ -11,6 +11,7 @@ import '../../../../core/services/user_facing_error.dart';
 import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../shared/widgets/selectable_chip.dart';
+import '../../../../shared/utils/date_format.dart';
 
 /// Screen for adding a new prayer
 /// Provides form fields for title, description, status, reminder, and tags
@@ -892,11 +893,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
   }
 
   String _formatDate(DateTime date) {
-    final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    return formatMediumDate(date);
   }
 
   String _formatTime(TimeOfDay time) {

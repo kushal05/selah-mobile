@@ -2,8 +2,16 @@
 # and by builds, because pubspec sets `generate: true`) turns the ARB files in
 # lib/l10n into an AppLocalizations class.
 #
-# To add a language: copy app_en.arb to app_<code>.arb, translate the values,
-# and add the locale to supportedLocales in main.dart. No code changes needed.
+# To add a language: copy app_en.arb to app_<code>.arb and translate the values.
+# supportedLocales is generated from the .arb files present, so main.dart needs
+# no edit — it already reads AppLocalizations.supportedLocales.
+#
+# Two things are NOT covered by translation alone:
+#   - Dates and times. Use DateFormat from shared/utils/date_format.dart, which
+#     is locale-aware; do not hand-format with a month-name array.
+#   - Right-to-left layout. The app still uses physical EdgeInsets.only(left:)
+#     and Alignment.centerLeft in ~147 places rather than their *Directional
+#     equivalents, so an RTL locale will need those converted first.
 arb-dir: lib/l10n
 template-arb-file: app_en.arb
 output-localization-file: app_localizations.dart

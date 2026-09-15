@@ -5,6 +5,7 @@ import '../../domain/models/weekly_digest.dart';
 import '../providers/weekly_digest_provider.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../shared/widgets/error_state.dart';
+import '../../../../shared/utils/date_format.dart';
 
 /// Shows a 7-day summary of user activity (prayers, notes, Bible, people).
 /// Read-only — purely derived from existing data, so no writes / oplog.
@@ -89,11 +90,7 @@ class _DigestBody extends StatelessWidget {
   }
 
   String _formatRange(DateTime start, DateTime end) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    String fmt(DateTime d) => '${months[d.month - 1]} ${d.day}';
+    String fmt(DateTime d) => formatShortDate(d);
     return '${fmt(start)} — ${fmt(end)}';
   }
 }

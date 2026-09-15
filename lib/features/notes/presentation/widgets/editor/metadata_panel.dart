@@ -9,6 +9,7 @@ import '../../../../../core/services/user_facing_error.dart';
 import '../../../../../l10n/l10n.dart';
 import '../../../../../core/theme/theme_colors.dart';
 import '../../../../../shared/widgets/selectable_chip.dart';
+import '../../../../../shared/utils/date_format.dart';
 
 /// Shows the metadata panel as a bottom sheet
 Future<void> showMetadataPanel(BuildContext context, String? noteId) {
@@ -220,11 +221,7 @@ class _DatePickerField extends StatelessWidget {
   }
 
   String _formatDate(DateTime date) {
-    final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    return formatMediumDate(date);
   }
 
   Future<void> _selectDate(BuildContext context) async {

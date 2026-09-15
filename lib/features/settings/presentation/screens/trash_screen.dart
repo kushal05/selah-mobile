@@ -6,6 +6,7 @@ import '../../../../core/testing/test_clock.dart';
 import '../../../notes/domain/models/note.dart';
 import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
+import '../../../../shared/widgets/error_state.dart';
 
 /// Filter type for the trash screen
 enum _TrashFilter { all, notes, prayers, promises, songs, people, folders, preachers, tags }
@@ -76,17 +77,22 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
 
   Widget _buildTrashList() {
     final items = <_TrashItem>[];
+    // Every source we watched. whenData only fires on success, so without
+    // this a failing provider is indistinguishable from an empty category —
+    // and the screen would tell the user their deleted items are gone.
+    final sources = <AsyncValue<Object?>>[];
 
     // Collect trashed items based on filter
     if (_filter == _TrashFilter.all || _filter == _TrashFilter.notes) {
       final notes = ref.watch(trashedNotesStreamProvider);
+      sources.add(notes);
       notes.whenData((list) {
         for (final n in list) {
           items.add(_TrashItem(
             id: n.id,
             title: n.title.isEmpty ? Note.untitledLabel : n.title,
             icon: Icons.note_outlined,
-            type: 'Note',
+            type: l10n(context).note,
             trashedAt: n.trashedAt ?? 0,
             onRestore: () => _restore(() => ref.read(noteRepositoryProvider).restoreNote(n.id)),
             onDelete: () => _confirmPermanentDelete(
@@ -100,13 +106,14 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
 
     if (_filter == _TrashFilter.all || _filter == _TrashFilter.folders) {
       final folders = ref.watch(trashedFoldersStreamProvider);
+      sources.add(folders);
       folders.whenData((list) {
         for (final f in list) {
           items.add(_TrashItem(
             id: f.id,
             title: f.name,
             icon: Icons.folder_outlined,
-            type: 'Folder',
+            type: l10n(context).folder,
             trashedAt: f.trashedAt ?? 0,
             onRestore: () => _restore(() => ref.read(folderRepositoryProvider).restoreFromTrash(f.id)),
             onDelete: () => _confirmPermanentDelete(
@@ -120,13 +127,14 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
 
     if (_filter == _TrashFilter.all || _filter == _TrashFilter.prayers) {
       final prayers = ref.watch(trashedPrayersStreamProvider);
+      sources.add(prayers);
       prayers.whenData((list) {
         for (final p in list) {
           items.add(_TrashItem(
             id: p.id,
             title: p.title,
             icon: Icons.favorite_outline,
-            type: 'Prayer',
+            type: l10n(context).prayer,
             trashedAt: p.trashedAt ?? 0,
             onRestore: () => _restore(() => ref.read(prayerRepositoryProvider).restorePrayer(p.id)),
             onDelete: () => _confirmPermanentDelete(
@@ -140,6 +148,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
 
     if (_filter == _TrashFilter.all || _filter == _TrashFilter.promises) {
       final promises = ref.watch(trashedPromisesStreamProvider);
+      sources.add(promises);
       promises.whenData((list) {
         for (final p in list) {
           final title = p.reference;
@@ -147,7 +156,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
             id: p.id,
             title: title,
             icon: Icons.menu_book_outlined,
-            type: 'Promise',
+            type: l10n(context).promise,
             trashedAt: p.trashedAt ?? 0,
             onRestore: () => _restore(() => ref.read(promiseRepositoryProvider).restorePromise(p.id)),
             onDelete: () => _confirmPermanentDelete(
@@ -161,13 +170,14 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
 
     if (_filter == _TrashFilter.all || _filter == _TrashFilter.songs) {
       final songs = ref.watch(trashedSongsStreamProvider);
+      sources.add(songs);
       songs.whenData((list) {
         for (final s in list) {
           items.add(_TrashItem(
             id: s.id,
             title: s.title,
             icon: Icons.music_note_outlined,
-            type: 'Song',
+            type: l10n(context).song,
             trashedAt: s.trashedAt ?? 0,
             onRestore: () => _restore(() => ref.read(songRepositoryProvider).restoreSong(s.id)),
             onDelete: () => _confirmPermanentDelete(
@@ -181,13 +191,14 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
 
     if (_filter == _TrashFilter.all || _filter == _TrashFilter.people) {
       final people = ref.watch(trashedPeopleStreamProvider);
+      sources.add(people);
       people.whenData((list) {
         for (final p in list) {
           items.add(_TrashItem(
             id: p.id,
             title: p.name,
             icon: Icons.person_outlined,
-            type: 'Person',
+            type: l10n(context).person,
             trashedAt: p.trashedAt ?? 0,
             onRestore: () => _restore(() => ref.read(personRepositoryProvider).restorePerson(p.id)),
             onDelete: () => _confirmPermanentDelete(
@@ -201,13 +212,14 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
 
     if (_filter == _TrashFilter.all || _filter == _TrashFilter.preachers) {
       final preachers = ref.watch(trashedPreachersStreamProvider);
+      sources.add(preachers);
       preachers.whenData((list) {
         for (final p in list) {
           items.add(_TrashItem(
             id: p.id,
             title: p.name,
             icon: Icons.mic_outlined,
-            type: 'Preacher',
+            type: l10n(context).preacher,
             trashedAt: p.trashedAt ?? 0,
             onRestore: () => _restore(() => ref.read(preacherRepositoryProvider).restorePreacher(p.id)),
             onDelete: () => _confirmPermanentDelete(
@@ -221,13 +233,14 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
 
     if (_filter == _TrashFilter.all || _filter == _TrashFilter.tags) {
       final tags = ref.watch(trashedTagsStreamProvider);
+      sources.add(tags);
       tags.whenData((list) {
         for (final t in list) {
           items.add(_TrashItem(
             id: t.id,
             title: t.name,
             icon: Icons.label_outline,
-            type: 'Tag',
+            type: l10n(context).tag,
             trashedAt: t.trashedAt ?? 0,
             onRestore: () => _restore(() => ref.read(tagRepositoryProvider).restoreTag(t.id)),
             onDelete: () => _confirmPermanentDelete(
@@ -242,7 +255,23 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
     // Sort by most recently trashed
     items.sort((a, b) => b.trashedAt.compareTo(a.trashedAt));
 
+    final failed = sources.where((s) => s.hasError).toList();
+    final stillLoading = sources.any((s) => s.isLoading);
+
     if (items.isEmpty) {
+      // Order matters: "Trash is empty" is a claim about the user's data, and
+      // it must not be made while anything is still loading or has failed.
+      // On a recovery surface, a wrong "empty" reads as "permanently gone".
+      if (failed.isNotEmpty) {
+        return ErrorState(
+          error: failed.first.error!,
+          what: l10n(context).yourDeletedItems,
+          onRetry: _reloadTrash,
+        );
+      }
+      if (stillLoading) {
+        return const Center(child: CircularProgressIndicator());
+      }
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -258,11 +287,53 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: items.length,
-      itemBuilder: (context, index) => _buildTrashTile(items[index]),
+    return Column(
+      children: [
+        // Some categories loaded and some did not. Showing the list alone
+        // would understate what is in the trash without saying so.
+        if (failed.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Row(
+              children: [
+                Icon(Icons.warning_amber_rounded,
+                    size: 18, color: context.warningText),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    l10n(context).someDeletedItemsCouldntBeLoaded,
+                    style: TextStyle(fontSize: 13, color: context.warningText),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _reloadTrash,
+                  child: Text(l10n(context).retry),
+                ),
+              ],
+            ),
+          ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: items.length,
+            itemBuilder: (context, index) => _buildTrashTile(items[index]),
+          ),
+        ),
+      ],
     );
+  }
+
+  /// Re-reads every trash source. Used by both the full error state and the
+  /// partial-failure banner.
+  void _reloadTrash() {
+    ref.invalidate(trashedNotesStreamProvider);
+    ref.invalidate(trashedFoldersStreamProvider);
+    ref.invalidate(trashedPrayersStreamProvider);
+    ref.invalidate(trashedPromisesStreamProvider);
+    ref.invalidate(trashedSongsStreamProvider);
+    ref.invalidate(trashedPeopleStreamProvider);
+    ref.invalidate(trashedPreachersStreamProvider);
+    ref.invalidate(trashedTagsStreamProvider);
   }
 
   Widget _buildTrashTile(_TrashItem item) {
@@ -279,7 +350,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
           overflow: TextOverflow.ellipsis,
         ),
         subtitle: Text(
-          '${item.type} \u2022 ${daysLeft > 0 ? '$daysLeft days left' : 'Expiring soon'}',
+          '${item.type} \u2022 ${daysLeft > 0 ? l10n(context).nDaysLeft(daysLeft) : l10n(context).expiringSoon}',
           style: TextStyle(fontSize: 13, color: context.mutedText),
         ),
         trailing: Row(
