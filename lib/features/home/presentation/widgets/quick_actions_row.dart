@@ -199,7 +199,12 @@ Future<void> showQuickActionsFolder(
   return showDialog<void>(
     context: context,
     barrierDismissible: true,
-    barrierColor: Colors.black.withValues(alpha: 0.45),
+    // Light barrier. 45% black dimmed the page to rgb(134,135,136) from
+    // rgb(244,245,247), and because the panel is translucent it sat on top of
+    // that murk — the glass rendered a muddy rgb(193,178,163) instead of
+    // reading bright. The blur already separates the panel from the page, so
+    // the scrim only has to hint that the rest is inactive.
+    barrierColor: Colors.black.withValues(alpha: 0.06),
     builder: (dialogContext) => _QuickActionsFolder(actions: actions),
   );
 }
@@ -231,15 +236,16 @@ class _QuickActionsFolder extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 22),
             decoration: BoxDecoration(
-              // Barely there: enough to lift the tiles off whatever is behind
-              // and to keep a hairline edge, not enough to hide the screen.
-              color: context.raisedSurface.withValues(
-                  alpha: Theme.of(context).brightness == Brightness.dark
-                      ? 0.55
-                      : 0.45),
+              // Frosted, not tinted. In light mode the glass is white so it
+              // brightens what shows through rather than greying it; the
+              // theme surface at a low alpha let the blurred gradient behind
+              // set the panel's colour, which is what made it look dim.
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? context.raisedSurface.withValues(alpha: 0.74)
+                  : Colors.white.withValues(alpha: 0.82),
               borderRadius: AppTheme.borderRadius3XL,
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.25),
+                color: Colors.white.withValues(alpha: 0.7),
               ),
             ),
             child: Column(
