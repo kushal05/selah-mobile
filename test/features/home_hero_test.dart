@@ -177,11 +177,66 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('the carousel loops past the last slide and keeps going',
+      (tester) async {
+    await _pump(tester, const DailyFocusCard(),
+        size: const Size(402, 874), textScale: 1.0, overrides: populated);
+
+    final scroll = tester.state<ScrollableState>(find.descendant(
+      of: find.byType(DailyFocusCard),
+      matching: find.byType(Scrollable),
+    ));
+    final width = tester.getSize(find.byType(DailyFocusCard)).width;
+
+    // Three slides plus one trailing duplicate of the first.
+    expect(scroll.position.maxScrollExtent, closeTo(width * 3, 1.0),
+        reason: 'there should be a fourth slot to scroll into');
+
+    double page() => (scroll.position.pixels / width).round().toDouble();
+
+    // Walk the whole loop: 0 -> 1 -> 2 -> back to 0 without rewinding.
+    final visited = <double>[page()];
+    for (var i = 0; i < 3; i++) {
+      await tester.pump(const Duration(seconds: 7));
+      await tester.pumpAndSettle(const Duration(milliseconds: 200));
+      visited.add(page());
+    }
+    expect(visited, [0.0, 1.0, 2.0, 0.0],
+        reason: 'it should advance forward each time and land home silently');
+
+    // The end positions alone cannot tell a forward wrap from a rewind — both
+    // read 2 then 0. Sample mid-transition: looping forward moves PAST the
+    // last slide onto the duplicate, where a rewind would be heading back
+    // toward slide one. This is what the first version of this test missed.
+    // The visited loop ends back on slide 0, so two advances are needed to
+    // reach the last slide before the wrap can be observed.
+    for (var i = 0; i < 2; i++) {
+      await tester.pump(const Duration(seconds: 7));
+      await tester.pumpAndSettle(const Duration(milliseconds: 200));
+    }
+    expect(page(), 2.0, reason: 'should be sitting on the last real slide');
+    await tester.pump(const Duration(seconds: 6)); // wrap begins
+    await tester.pump(const Duration(milliseconds: 220)); // mid-animation
+    expect(scroll.position.pixels, greaterThan(width * 2),
+        reason: 'the wrap must move forward onto the duplicate, not rewind');
+    await tester.pumpAndSettle(const Duration(milliseconds: 400));
+
+    // And it is still running — a fourth tick moves it on again, which is
+    // what "infinite" means as opposed to stopping at the end.
+    await tester.pump(const Duration(seconds: 7));
+    await tester.pumpAndSettle(const Duration(milliseconds: 200));
+    expect(page(), 1.0, reason: 'the loop must continue after wrapping');
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('the carousel shows all three slides', (tester) async {
     await _pump(tester, const DailyFocusCard(),
         size: const Size(402, 874), textScale: 1.0, overrides: populated);
 
-    expect(find.text('Hospital people'), findsOneWidget);
+    // Slide one appears twice: the real one and the trailing duplicate that
+    // makes the loop seamless.
+    expect(find.text('Hospital people'), findsNWidgets(2));
     expect(find.text('Isaiah 41:10'), findsOneWidget);
     expect(find.text('Psalms 23'), findsOneWidget);
   });

@@ -148,14 +148,25 @@ class _FocusCarouselState extends State<_FocusCarousel> {
   /// asked for is exactly what the setting is for.
   void _startAutoScroll() {
     _autoScroll?.cancel();
-    _autoScroll = Timer.periodic(const Duration(seconds: 6), (_) {
+    _autoScroll = Timer.periodic(const Duration(seconds: 6), (_) async {
       if (!mounted || !_controller.hasClients || _width <= 0) return;
-      final next = (_page + 1) % widget.slides.length;
-      _controller.animateTo(
+      // Always forward, never `% length`. Modulo made the last slide rewind
+      // through every earlier one to reach the first, which reads as the
+      // carousel running backwards rather than looping.
+      final next = _page + 1;
+      await _controller.animateTo(
         next * _width,
         duration: const Duration(milliseconds: 450),
         curve: Curves.easeInOut,
       );
+      // Landed on the trailing copy of slide one, which is pixel-identical to
+      // the real one — so jumping home is invisible, and the next tick
+      // carries on forward. That is what makes the loop endless rather than
+      // a three-step shuttle.
+      if (mounted && _controller.hasClients && next == widget.slides.length) {
+        _controller.jumpTo(0);
+        setState(() => _page = 0);
+      }
     });
   }
 
@@ -206,10 +217,27 @@ class _FocusCarouselState extends State<_FocusCarousel> {
                     n.direction != ScrollDirection.idle) {
                   _stopAutoScroll();
                 }
+                // Swiped onto the duplicate by hand and let go: settle back
+                // onto the real slide one so the reader is never parked on a
+                // copy with nowhere left to scroll.
+                if (n is ScrollEndNotification &&
+                    width > 0 &&
+                    _controller.hasClients &&
+                    (_controller.offset / width).round() ==
+                        widget.slides.length) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted || !_controller.hasClients) return;
+                    _controller.jumpTo(0);
+                    setState(() => _page = 0);
+                  });
+                }
                 if (n is ScrollUpdateNotification && width > 0) {
+                  // <= length, because the trailing duplicate is a real slot
+                  // the reader can also swipe to by hand.
                   final page = (_controller.offset / width).round();
-                  if (page != _page && page >= 0 &&
-                      page < widget.slides.length) {
+                  if (page != _page &&
+                      page >= 0 &&
+                      page <= widget.slides.length) {
                     setState(() => _page = page);
                   }
                 }
@@ -231,6 +259,13 @@ class _FocusCarouselState extends State<_FocusCarousel> {
                       for (final slide in widget.slides)
                         SizedBox(
                             width: width, child: _buildCard(context, slide)),
+                      // One extra copy of the first slide. Scrolling onto it
+                      // looks like continuing past the last; the jump back to
+                      // the real one happens while it is on screen, so there
+                      // is no seam.
+                      SizedBox(
+                          width: width,
+                          child: _buildCard(context, widget.slides.first)),
                     ],
                   ),
                 ),
@@ -240,11 +275,13 @@ class _FocusCarouselState extends State<_FocusCarousel> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // The trailing duplicate shares slide one's dot: it is
+                // slide one, so lighting a different dot would be a lie.
                 for (var i = 0; i < widget.slides.length; i++)
                   AnimatedContainer(
                     duration: context.motion(AppTheme.durationFast),
                     margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: i == _page ? 18 : 6,
+                    width: i == _page % widget.slides.length ? 18 : 6,
                     height: 6,
                     decoration: BoxDecoration(
                       color: i == _page
