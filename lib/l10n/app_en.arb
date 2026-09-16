@@ -991,5 +991,13 @@
   "openPrayer": "Open Prayer",
   "markThisTimeOfPrayer": "Mark this time of prayer",
   "howDidItGoOptional": "How did it go? (optional)",
-  "logThisPrayer": "Log prayer"
+  "logThisPrayer": "Log prayer",
+  "bibleDownloadNeededForVerse": "Add a Bible to pick a verse. Download one below and the books will appear here.",
+  "@bibleDownloadNeededForVerse": {
+    "description": "Shown in the Bible reference picker when no translation is installed."
+  },
+  "bibleDownloadFailed": "Download failed. Check your connection and try again.",
+  "@bibleDownloadFailed": {
+    "description": "Shown in the Bible reference picker when no translation is installed."
+  }
 }

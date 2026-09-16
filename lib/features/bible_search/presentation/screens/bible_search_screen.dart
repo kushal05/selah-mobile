@@ -13,6 +13,7 @@ import '../widgets/bible_verse_result_card.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../core/theme/theme_colors.dart';
+import '../../../bible/presentation/widgets/bible_download_prompt.dart';
 
 /// Dedicated Bible verse search screen.
 ///
@@ -476,7 +477,7 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
 
     // Database not available
     if (!isAvailable) {
-      return _buildUnavailableState(theme);
+      return _buildUnavailableState();
     }
 
     // Database empty state — only after the count has actually returned.
@@ -484,7 +485,7 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
     // first response; assume the DB is non-empty so the user doesn't see a
     // misleading "no data" flash.
     if (_verseCount == 0 && !_hasSearched) {
-      return _buildEmptyDatabaseState(theme);
+      return _buildEmptyDatabaseState();
     }
 
     // Initial state (no search yet)
@@ -506,69 +507,27 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
     return _buildResultsList(theme);
   }
 
-  Widget _buildUnavailableState(ThemeData theme) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.error_outline,
-            size: 64,
-            color: theme.colorScheme.primary,
-          ),
-          const SizedBox(height: AppTheme.spacing16),
-          Text(
-            l10n(context).bibleDatabaseNotAvailable,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: AppTheme.spacing8),
-          Text(
-            'The Bible database could not be loaded.\nPlease restart the app.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 16,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
+  /// No Bible database at all — which is what someone who has never
+  /// downloaded a translation sees.
+  ///
+  /// It used to say "Please restart the app", which does not produce a Bible
+  /// and left nothing on screen to act on. Offer the download instead;
+  /// bibleDatabaseServiceProvider notifies when the database opens, so the
+  /// screen becomes searchable as soon as one lands.
+  Widget _buildUnavailableState() {
+    return BibleDownloadPrompt(
+      message: l10n(context).bibleDatabaseNotAvailable,
     );
   }
 
-  Widget _buildEmptyDatabaseState(ThemeData theme) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.library_books,
-            size: 64,
-            color: theme.colorScheme.primary,
-          ),
-          const SizedBox(height: AppTheme.spacing16),
-          Text(
-            l10n(context).noBibleDataLoaded,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: AppTheme.spacing8),
-          Text(
-            'The Bible database has no verses.\nPlease reinstall the app to restore the data.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 16,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
+  Widget _buildEmptyDatabaseState() {
+    // This used to say "Please reinstall the app to restore the data", which
+    // is both wrong — reinstalling is not how a Bible gets onto the device —
+    // and a dead end, since there was nothing here to act on. Offer the
+    // download instead: bibleDatabaseServiceProvider notifies when the
+    // database opens, so the screen becomes searchable as soon as one lands.
+    return BibleDownloadPrompt(
+      message: l10n(context).noBibleDataLoaded,
     );
   }
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/models/bible_version_info.dart';
+import '../bible_download_action.dart';
 import '../providers/bible_providers.dart';
 import '../../../../core/services/user_facing_error.dart';
 import '../../../../core/theme/theme_colors.dart';
@@ -135,27 +136,9 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
     if (_downloadProgress.containsKey(info.code)) return;
     setState(() => _downloadProgress[info.code] = 0.0);
     try {
-      final dbService = ref.read(bibleDatabaseServiceProvider);
-      if (!dbService.isOpen) {
-        await dbService.download(
-          info.downloadUrl,
-          onProgress: (p) {
-            if (mounted) setState(() => _downloadProgress[info.code] = p);
-          },
-        );
-      } else {
-        await dbService.downloadVersion(
-          info.code,
-          info.downloadUrl,
-          onProgress: (p) {
-            if (mounted) setState(() => _downloadProgress[info.code] = p);
-          },
-        );
-      }
-      final repo = ref.read(bibleVersionStateRepositoryProvider);
-      if (await repo.getDefaultCode() == null) {
-        await repo.setDefault(info.code);
-      }
+      await downloadBibleVersion(ref, info, onProgress: (p) {
+        if (mounted) setState(() => _downloadProgress[info.code] = p);
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(

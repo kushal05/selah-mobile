@@ -5,6 +5,7 @@ import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/theme/theme_colors.dart';
 import '../../../../bible/domain/models/bible_version_info.dart';
 import '../../../../bible/presentation/providers/bible_providers.dart';
+import '../../../../bible/presentation/widgets/bible_download_prompt.dart';
 import '../../../../bible/domain/models/bible_books.dart';
 import '../../../../../l10n/l10n.dart';
 
@@ -318,6 +319,19 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    // With no Bible installed there is nothing behind any of the three tabs.
+    // The picker used to open on the book grid anyway and let you choose a
+    // book, a chapter and a verse before the last step came up empty with
+    // nothing to insert. Offer the download in the first step instead — the
+    // providers are driven by the Bible database's open state, so finishing
+    // one swaps this for the book grid with the dialog still open.
+    //
+    // Book-only mode is exempt: it lists BibleBooks.books, a static registry
+    // that needs no database, and its one caller is the Bible search filter —
+    // a screen that already says the Bible is missing. Gating it there would
+    // say so twice.
+    final needsDownload =
+        !widget.bookOnly && ref.watch(installedBibleVersionsProvider).isEmpty;
 
     return ClipRect(
       child: Column(
@@ -351,8 +365,9 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
             ],
           ),
         ),
-        // Tab selector (hidden in book-only mode)
-        if (!widget.bookOnly)
+        // Tab selector (hidden in book-only mode, and while there is
+        // nothing to navigate)
+        if (!widget.bookOnly && !needsDownload)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing20, vertical: AppTheme.spacing8),
             child: Row(
@@ -371,7 +386,12 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
         // Content
         Expanded(
           child: ClipRect(
-            child: widget.bookOnly ? _buildBookGrid(cs) : _buildContent(cs),
+            child: needsDownload
+                ? BibleDownloadPrompt(
+                    message: l10n(context).bibleDownloadNeededForVerse)
+                : widget.bookOnly
+                    ? _buildBookGrid(cs)
+                    : _buildContent(cs),
           ),
         ),
         // OK button for multi-select book-only mode
