@@ -225,29 +225,52 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
       reference: reference,
       verseText: verse.text,
       existingHighlight: existing,
-      onSave: (color, note) {
+      // These three were fire-and-forget. The sheet closed, the write was
+      // never awaited, and a failure had nowhere to go — the highlight simply
+      // did not appear, or would not delete, with nothing said. The note
+      // attached to a highlight is the user's own writing, so losing it
+      // quietly is the worst of the options.
+      onSave: (color, note) async {
+        final messenger = ScaffoldMessenger.of(context);
+        final failed = l10n(context).couldNotSaveHighlight;
         final repo = ref.read(bibleHighlightRepositoryProvider);
-        if (existing != null) {
-          repo.updateHighlight(existing.copyWithUpdate(
-            color: color,
-            note: note,
+        try {
+          if (existing != null) {
+            await repo.updateHighlight(existing.copyWithUpdate(
+              color: color,
+              note: note,
+            ));
+          } else {
+            await repo.createHighlight(
+              bookId: _bookId,
+              chapter: _chapter,
+              verseStart: verse.verse,
+              verseEnd: verse.verse,
+              color: color,
+              note: note,
+            );
+          }
+        } catch (_) {
+          messenger.showSnackBar(SnackBar(
+            content: Text(failed),
+            behavior: SnackBarBehavior.floating,
           ));
-        } else {
-          repo.createHighlight(
-            bookId: _bookId,
-            chapter: _chapter,
-            verseStart: verse.verse,
-            verseEnd: verse.verse,
-            color: color,
-            note: note,
-          );
         }
       },
       onRemove: existing != null
-          ? () {
-              ref
-                  .read(bibleHighlightRepositoryProvider)
-                  .deleteHighlight(existing!.id);
+          ? () async {
+              final messenger = ScaffoldMessenger.of(context);
+              final failed = l10n(context).couldNotRemoveHighlight;
+              try {
+                await ref
+                    .read(bibleHighlightRepositoryProvider)
+                    .deleteHighlight(existing!.id);
+              } catch (_) {
+                messenger.showSnackBar(SnackBar(
+                  content: Text(failed),
+                  behavior: SnackBarBehavior.floating,
+                ));
+              }
             }
           : null,
       onSaveToPromises: (ref_, text) => _saveAsPromise(ref_, text),

@@ -1015,5 +1015,17 @@
   "tapRetryToTryAgain": "Tap retry to try again",
   "@tapRetryToTryAgain": {
     "description": "Shown on the home hero when the prayers read fails."
+  },
+  "couldNotSaveHighlight": "Couldn't save that highlight. Try again.",
+  "@couldNotSaveHighlight": {
+    "description": "Shown when a Bible highlight write fails."
+  },
+  "couldNotRemoveHighlight": "Couldn't remove that highlight. Try again.",
+  "@couldNotRemoveHighlight": {
+    "description": "Shown when a Bible highlight write fails."
+  },
+  "couldNotRemoveHistoryEntry": "Couldn't remove that entry. Try again.",
+  "@couldNotRemoveHistoryEntry": {
+    "description": "Shown when deleting a reading-history entry fails."
   }
 }
