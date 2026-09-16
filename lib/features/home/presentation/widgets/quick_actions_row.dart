@@ -11,6 +11,7 @@ import '../../../../shared/widgets/buttons/quick_action_button.dart';
 import '../../../../features/bible/presentation/providers/bible_providers.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../l10n/l10n.dart';
+import '../../../../shared/widgets/scroll_progress_indicator.dart';
 import '../../../../shared/widgets/section_label.dart';
 
 /// One quick action, described rather than built.
@@ -41,8 +42,11 @@ class QuickActionSpec {
 ///
 /// The row scrolls horizontally rather than fitting four fixed tiles, and
 /// "See more" opens all of them at once.
-class QuickActionsRow extends ConsumerWidget {
+class QuickActionsRow extends ConsumerStatefulWidget {
   const QuickActionsRow({super.key});
+
+  @override
+  ConsumerState<QuickActionsRow> createState() => _QuickActionsRowState();
 
   /// Every quick action, in priority order.
   ///
@@ -116,12 +120,22 @@ class QuickActionsRow extends ConsumerWidget {
       ),
     ];
   }
+}
+
+class _QuickActionsRowState extends ConsumerState<QuickActionsRow> {
+  final _scroll = ScrollController();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final history = ref.watch(bibleReferenceHistoryStreamProvider);
     final last = history.valueOrNull?.firstOrNull;
-    final actions = specs(
+    final actions = QuickActionsRow.specs(
       context,
       ref,
       lastBook: last?.book,
@@ -169,6 +183,7 @@ class QuickActionsRow extends ConsumerWidget {
         // test passed. A Row takes the height of its tallest child, so there
         // is nothing to get wrong at any text size.
         SingleChildScrollView(
+          controller: _scroll,
           scrollDirection: Axis.horizontal,
           clipBehavior: Clip.none,
           child: Row(
@@ -186,6 +201,7 @@ class QuickActionsRow extends ConsumerWidget {
             ],
           ),
         ),
+        ScrollProgressIndicator(controller: _scroll),
       ],
     );
   }
