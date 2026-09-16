@@ -60,3 +60,11 @@ app.*.map.json
 # lib/l10n/*.arb because pubspec sets `generate: true`, so committing them
 # only creates merge conflicts and drift against the ARB source of truth.
 lib/l10n/app_localizations*.dart
+
+# Android release signing. The keystore is the app's identity for its lifetime:
+# committing it hands anyone the ability to publish as Selah, and losing it
+# means the app can never be updated again. Keep it out of the repo and backed
+# up somewhere safe.
+android/key.properties
+*.jks
+*.keystore
