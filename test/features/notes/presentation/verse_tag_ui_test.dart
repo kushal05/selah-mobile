@@ -175,4 +175,41 @@ void main() {
 
     expect(changed, ['t2']);
   });
+
+  testWidgets('long tag names on a narrow screen do not overflow',
+      (tester) async {
+    // The chip could not yield, so two ordinary tag names ran 306px off a
+    // 320pt screen. Fixed in SelectableChip, which four tag inputs share;
+    // this holds the line here.
+    tester.view.physicalSize = const Size(320, 640) * 3;
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        tagRepositoryProvider.overrideWithValue(repo),
+        tagsStreamProvider.overrideWith((ref) => Stream.value([
+              tag('t1', 'thanksgiving-and-praise-and-more'),
+              tag('t2', 'intercession-for-the-nations'),
+            ])),
+        currentUserIdProvider.overrideWith((ref) => _userId),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.light(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: BibleReferenceBlockWidget(
+              reference: refWith(const ['t1', 't2']),
+              onTagsChanged: (ids) => changed = ids,
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+  });
 }
