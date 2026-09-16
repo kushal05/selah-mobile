@@ -186,19 +186,29 @@ class _QuickActionsRowState extends ConsumerState<QuickActionsRow> {
           controller: _scroll,
           scrollDirection: Axis.horizontal,
           clipBehavior: Clip.none,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var i = 0; i < actions.length; i++) ...[
-                if (i > 0) const SizedBox(width: AppTheme.spacing12),
-                QuickActionButton(
-                  icon: actions[i].icon,
-                  label: actions[i].label,
-                  color: actions[i].color,
-                  onTap: actions[i].onTap,
-                ),
+          // One height for the whole strip, taken from the tallest tile.
+          //
+          // Left to themselves the tiles size to their own labels, so "New
+          // Note" and "Search" on one line sat visibly shorter than "New
+          // Prayer" and "Read Bible" on two — a row of cards with a ragged
+          // bottom edge. IntrinsicHeight measures the tallest and hands that
+          // height to the rest. It is still the tiles deciding, not a number
+          // guessed from font metrics, so it holds at any text size.
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < actions.length; i++) ...[
+                  if (i > 0) const SizedBox(width: AppTheme.spacing12),
+                  QuickActionButton(
+                    icon: actions[i].icon,
+                    label: actions[i].label,
+                    color: actions[i].color,
+                    onTap: actions[i].onTap,
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
         ScrollProgressIndicator(controller: _scroll),

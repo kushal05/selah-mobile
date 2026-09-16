@@ -16,6 +16,7 @@ import 'package:notify/core/theme/app_theme.dart';
 import 'package:notify/l10n/l10n.dart';
 import 'package:notify/features/home/presentation/widgets/daily_focus_card.dart';
 import 'package:notify/features/home/presentation/widgets/quick_actions_row.dart';
+import 'package:notify/shared/widgets/buttons/quick_action_button.dart';
 import 'package:notify/core/sync/models/prayer_model.dart';
 import 'package:notify/core/sync/models/promise_model.dart';
 import 'package:notify/core/sync/models/bible_reference_history_model.dart';
@@ -282,4 +283,27 @@ void main() {
     expect(find.text('Add person'), findsOneWidget);
     expect(find.text('See more'), findsOneWidget);
   });
+
+  // 0.85 and 1.0 only, and deliberately.
+  //
+  // The test font makes every glyph a square, so which labels wrap is an
+  // artefact of it rather than of the real type: at 1.3x and above every
+  // label runs to two lines here and the tiles come out uniform whatever the
+  // layout does — an assertion at those scales cannot fail. At these two the
+  // unfixed row really does return [116, 116, 116, 116, 116, 98, 116].
+  for (final scale in [0.85, 1.0]) {
+    testWidgets('quick action tiles share one height at ${scale}x text',
+        (tester) async {
+      await _pump(tester, const QuickActionsRow(),
+          size: const Size(402, 874), textScale: scale, overrides: empty);
+
+      final tiles = find.byType(QuickActionButton);
+      final heights = List.generate(tiles.evaluate().length,
+          (i) => tester.getSize(tiles.at(i)).height);
+
+      expect(heights.toSet().length, 1,
+          reason: 'a one-line label gave a shorter card than a two-line one, '
+              'so the strip had a ragged bottom edge: $heights');
+    });
+  }
 }
