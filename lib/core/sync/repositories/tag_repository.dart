@@ -253,11 +253,19 @@ class TagRepository extends BaseSyncRepository<TagModel> {
   /// kept pointing at a tag that had just been soft-deleted — they resolved to
   /// nothing and the tag silently fell off those items. Listing the tables in
   /// one place is what stops the next junction table being forgotten too.
-  static const _tagJunctions = <(String table, String ownerColumn)>[
-    ('sync_note_tags', 'note_id'),
-    ('sync_song_tags', 'song_id'),
-    ('sync_prayer_tags', 'prayer_id'),
-    ('sync_promise_tags', 'promise_id'),
+  /// (table, owner column, the key that column has in the model's JSON, and
+  /// the oplog type the relation syncs under).
+  static const _tagJunctions =
+      <(String, String, String, OplogEntityType)>[
+    ('sync_note_tags', 'note_id', 'noteId', OplogEntityType.noteTag),
+    ('sync_song_tags', 'song_id', 'songId', OplogEntityType.songTag),
+    ('sync_prayer_tags', 'prayer_id', 'prayerId', OplogEntityType.prayerTag),
+    (
+      'sync_promise_tags',
+      'promise_id',
+      'promiseId',
+      OplogEntityType.promiseTag
+    ),
   ];
 
   /// Merge [sourceTagId] into [targetTagId] across every junction table, then
@@ -274,10 +282,12 @@ class TagRepository extends BaseSyncRepository<TagModel> {
     if (target == null) throw TagNotFoundException(targetTagId);
 
     await _db.transaction(() async {
-      for (final (table, ownerColumn) in _tagJunctions) {
+      for (final (table, ownerColumn, ownerKey, type) in _tagJunctions) {
         await _repointJunction(
           table: table,
           ownerColumn: ownerColumn,
+          ownerKey: ownerKey,
+          entityType: type,
           sourceTagId: sourceTagId,
           targetTagId: targetTagId,
         );
@@ -300,6 +310,8 @@ class TagRepository extends BaseSyncRepository<TagModel> {
   Future<void> _repointJunction({
     required String table,
     required String ownerColumn,
+    required String ownerKey,
+    required OplogEntityType entityType,
     required String sourceTagId,
     required String targetTagId,
   }) async {
@@ -320,29 +332,93 @@ class TagRepository extends BaseSyncRepository<TagModel> {
         ],
       ).getSingleOrNull();
 
+      final userId = row.read<String>('user_id');
+
       if (existing == null) {
         final now = TestClock.now();
+        final newId = generateId();
         await _db.customStatement(
           'INSERT INTO $table '
           '(id, $ownerColumn, tag_id, user_id, updated_at, version, deleted, '
           'created_at) VALUES (?, ?, ?, ?, ?, 1, 0, ?)',
-          [
-            generateId(),
-            ownerId,
-            targetTagId,
-            row.read<String>('user_id'),
-            now,
-            now,
-          ],
+          [newId, ownerId, targetTagId, userId, now, now],
+        );
+        await _writeJunctionOp(
+          entityType: entityType,
+          operation: OplogOperation.insert,
+          id: newId,
+          ownerKey: ownerKey,
+          ownerId: ownerId,
+          tagId: targetTagId,
+          userId: userId,
+          timestamp: now,
+          version: 1,
+          deleted: 0,
         );
       }
 
+      final retiredAt = TestClock.now();
+      final retiredVersion = row.read<int>('version') + 1;
+      final retiredId = row.read<String>('id');
       await _db.customStatement(
         'UPDATE $table SET deleted = 1, updated_at = ?, version = ? '
         'WHERE id = ?',
-        [TestClock.now(), row.read<int>('version') + 1, row.read<String>('id')],
+        [retiredAt, retiredVersion, retiredId],
+      );
+      await _writeJunctionOp(
+        entityType: entityType,
+        operation: OplogOperation.delete,
+        id: retiredId,
+        ownerKey: ownerKey,
+        ownerId: ownerId,
+        tagId: sourceTagId,
+        userId: userId,
+        timestamp: retiredAt,
+        version: retiredVersion,
+        deleted: 1,
       );
     }
+  }
+
+  /// Records a junction change in the oplog.
+  ///
+  /// Without this a merge stayed on the device it was done on: the tag's own
+  /// delete synced, so other devices lost the tag and kept every relation
+  /// pointing at it — the merge looked like a deletion everywhere else. The
+  /// four junction models share a shape, so one payload builder covers them.
+  Future<void> _writeJunctionOp({
+    required OplogEntityType entityType,
+    required OplogOperation operation,
+    required String id,
+    required String ownerKey,
+    required String ownerId,
+    required String tagId,
+    required String userId,
+    required int timestamp,
+    required int version,
+    required int deleted,
+  }) async {
+    final payload = <String, dynamic>{
+      'id': id,
+      ownerKey: ownerId,
+      'tagId': tagId,
+      'userId': userId,
+      'updatedAt': timestamp,
+      'version': version,
+      'deleted': deleted,
+      'createdAt': timestamp,
+    };
+    final entry = OplogEntry(
+      opId: generateOpId(),
+      entityType: entityType,
+      entityId: id,
+      operation: operation,
+      payload: payload,
+      timestamp: timestamp,
+      deviceId: deviceId,
+      entityVersion: version,
+    );
+    await _db.into(_db.oplog).insert(_oplogToCompanion(entry));
   }
 
   // ==================== HELPERS ====================

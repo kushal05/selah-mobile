@@ -40,8 +40,12 @@ class HabitStatsCard extends ConsumerWidget {
     final done = todayAsync.valueOrNull?.contains(habit.key);
     final isDone = done == true;
     final known = done != null;
-    final streak = streakAsync.valueOrNull ?? 0;
-    final best = bestAsync.valueOrNull ?? 0;
+    // Nullable for the same reason as `done` above: "0 days" is a statement
+    // about the user's record, and a read that failed or has not landed yet
+    // is not entitled to make it. An em dash says "not known" without
+    // claiming the streak is broken.
+    final streak = streakAsync.valueOrNull;
+    final best = bestAsync.valueOrNull;
     final week = weekAsync.valueOrNull ?? List.filled(7, false);
     final history = historyAsync.valueOrNull ?? {};
 
@@ -181,22 +185,24 @@ class HabitStatsCard extends ConsumerWidget {
               children: [
                 _StatChip(
                   icon: Icons.local_fire_department_rounded,
-                  iconColor: streak > 0
+                  iconColor: (streak ?? 0) > 0
                       ? const Color(0xFFEF4444)
                       : context.mutedText,
-                  label: streak > 0
-                      ? '$streak day${streak == 1 ? '' : 's'}'
-                      : '0 days',
+                  label: streak == null
+                      ? '—'
+                      : streak > 0
+                          ? '$streak day${streak == 1 ? '' : 's'}'
+                          : '0 days',
                   sublabel: l10n(context).currentStreak,
                   theme: theme,
                 ),
                 const SizedBox(width: AppTheme.spacing8),
                 _StatChip(
                   icon: Icons.emoji_events_rounded,
-                  iconColor: best > 0
+                  iconColor: (best ?? 0) > 0
                       ? const Color(0xFFF59E0B)
                       : context.mutedText,
-                  label: best > 0 ? '$best day${best == 1 ? '' : 's'}' : '—',
+                  label: (best ?? 0) > 0 ? '$best day${best == 1 ? '' : 's'}' : '—',
                   sublabel: l10n(context).bestStreak,
                   theme: theme,
                 ),

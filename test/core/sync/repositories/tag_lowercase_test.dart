@@ -193,4 +193,76 @@ void main() {
       expect(await liveTagIdsOn('sync_note_tags'), ['keep']);
     });
   });
+
+  group('a merge reaches other devices', () {
+    Future<List<String>> opTypes() async {
+      final rows = await db
+          .customSelect('SELECT entity_type, operation FROM oplog '
+              "ORDER BY entity_type, operation")
+          .get();
+      return rows
+          .map((r) =>
+              '${r.read<String>('entity_type')}/${r.read<String>('operation')}')
+          .toList();
+    }
+
+    test('every junction it moves is recorded in the oplog', () async {
+      // Without this the merge stayed on the device it was done on: the tag's
+      // own delete synced, so other devices lost the tag and kept every
+      // relation pointing at it — a merge that looked like a deletion.
+      await seedTag('keep', 'faith', createdAt: 100);
+      await seedTag('fold', 'grace', createdAt: 200);
+      await seedLink('sync_note_tags', 'note_id', 'l1', 'note-1', 'fold');
+      await seedLink('sync_song_tags', 'song_id', 'l2', 'song-1', 'fold');
+      await seedLink('sync_prayer_tags', 'prayer_id', 'l3', 'pray-1', 'fold');
+      await seedLink('sync_promise_tags', 'promise_id', 'l4', 'prom-1', 'fold');
+
+      await tags.mergeTags(sourceTagId: 'fold', targetTagId: 'keep');
+
+      final ops = await opTypes();
+      for (final type in [
+        'note_tag',
+        'song_tag',
+        'prayer_tag',
+        'promise_tag',
+      ]) {
+        expect(ops, contains('$type/INSERT'),
+            reason: 'the relation moved to the surviving tag never synced');
+        expect(ops, contains('$type/DELETE'),
+            reason: 'the retired relation never synced');
+      }
+      expect(ops, contains('tag/DELETE'));
+    });
+
+    test('an owner that already had the target tag logs only the retirement',
+        () async {
+      await seedTag('keep', 'faith', createdAt: 100);
+      await seedTag('fold', 'grace', createdAt: 200);
+      await seedLink('sync_note_tags', 'note_id', 'l1', 'note-1', 'keep');
+      await seedLink('sync_note_tags', 'note_id', 'l2', 'note-1', 'fold');
+
+      await tags.mergeTags(sourceTagId: 'fold', targetTagId: 'keep');
+
+      final ops = await opTypes();
+      expect(ops.where((o) => o == 'note_tag/INSERT'), isEmpty,
+          reason: 'nothing was added, so nothing should be announced');
+      expect(ops, contains('note_tag/DELETE'));
+    });
+
+    test('the payload carries the relation, not the tag', () async {
+      await seedTag('keep', 'faith', createdAt: 100);
+      await seedTag('fold', 'grace', createdAt: 200);
+      await seedLink('sync_note_tags', 'note_id', 'l1', 'note-1', 'fold');
+
+      await tags.mergeTags(sourceTagId: 'fold', targetTagId: 'keep');
+
+      final row = await db
+          .customSelect("SELECT payload_json FROM oplog "
+              "WHERE entity_type = 'note_tag' AND operation = 'INSERT'")
+          .getSingle();
+      final payload = row.read<String>('payload_json');
+      expect(payload, contains('"noteId":"note-1"'));
+      expect(payload, contains('"tagId":"keep"'));
+    });
+  });
 }

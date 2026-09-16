@@ -8,6 +8,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/dialogs/reading_text_size_sheet.dart';
 import '../../domain/models/bible_highlight_entity.dart';
 import '../../domain/models/bible_verse_entity.dart';
+import '../../../../core/theme/theme_colors.dart';
 import '../providers/bible_chapter_providers.dart';
 import '../providers/verse_tag_providers.dart';
 import '../providers/bible_providers.dart';
@@ -353,6 +354,9 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     final highlightsAsync = ref.watch(
       chapterHighlightsProvider((bookId: _bookId, chapter: _chapter)),
     );
+    // A failed read renders every verse unhighlighted, which does not look
+    // like a failure — it looks like the highlights are gone. Say so instead.
+    final highlightsFailed = highlightsAsync.hasError;
     final highlights = highlightsAsync.valueOrNull ?? [];
     // Nullable: null means we have not read the bookmark yet, which is not
     // the same as "not bookmarked". toggleBookmark re-queries the database
@@ -439,6 +443,45 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
         ),
         body: Stack(
           children: [
+            if (highlightsFailed)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Material(
+                  color: AppTheme.warning.withValues(alpha: 0.12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.spacing16,
+                        vertical: AppTheme.spacing8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            l10n(context).highlightsCouldntBeLoaded,
+                            style: AppTheme.caption
+                                .copyWith(color: context.warningText),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => ref.invalidate(
+                            chapterHighlightsProvider(
+                                (bookId: _bookId, chapter: _chapter)),
+                          ),
+                          style: TextButton.styleFrom(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: const Size(0, 32),
+                            tapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: Text(l10n(context).retry),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             _isParallel
                 ? _buildParallelView(
                     theme, primaryVerses, highlights, translations, verseTags)

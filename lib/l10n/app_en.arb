@@ -1027,5 +1027,13 @@
   "couldNotRemoveHistoryEntry": "Couldn't remove that entry. Try again.",
   "@couldNotRemoveHistoryEntry": {
     "description": "Shown when deleting a reading-history entry fails."
+  },
+  "highlightsCouldntBeLoaded": "Your highlights couldn't be loaded",
+  "@highlightsCouldntBeLoaded": {
+    "description": "Shown in the Bible reader when a read fails."
+  },
+  "bookmarksCouldntBeLoaded": "Your bookmarks couldn't be loaded",
+  "@bookmarksCouldntBeLoaded": {
+    "description": "Shown in the Bible reader when a read fails."
   }
 }
