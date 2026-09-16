@@ -180,4 +180,56 @@ void main() {
       reason: 'the second tag never reached the filter',
     );
   });
+
+  testWidgets('two long tags on a narrow screen do not overflow the row',
+      (tester) async {
+    // They used to sit beside the verse text with no width to share, and ran
+    // the row 222px off a 320pt screen. As trailing spans they wrap with the
+    // sentence instead.
+    tester.view.physicalSize = const Size(320, 640) * 3;
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        tagsStreamProvider.overrideWith((ref) => Stream.value([
+              tag('t1', 'thanksgiving-and-praise'),
+              tag('t2', 'intercession'),
+            ])),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: ChapterVerseList(
+            verses: [
+              const BibleVerseEntity(
+                id: 16,
+                translation: 'nkjv',
+                bookId: 43,
+                chapter: 3,
+                verse: 16,
+                text: 'For God so loved the world, that he gave his only '
+                    'begotten Son, that whosoever believeth in him should '
+                    'not perish.',
+              ),
+            ],
+            highlights: const [],
+            scrollController: controller,
+            verseTags: const {16: {'t1', 't2'}},
+            onTagTap: (_) {},
+          ),
+        ),
+      ),
+    ));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('thanksgiving-and-praise'), findsOneWidget);
+  });
 }
