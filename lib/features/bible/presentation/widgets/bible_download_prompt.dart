@@ -45,11 +45,15 @@ class _BibleDownloadPromptState extends ConsumerState<BibleDownloadPrompt> {
 
   Future<void> _refresh() async {
     try {
+      // Both read before the first await, so neither runs against a `ref`
+      // whose widget has been disposed — this starts in initState and the
+      // user can close the dialog while the cache check is in flight. Inside
+      // the try, though, not above it: building either provider can itself
+      // throw, and that has to stay as non-fatal as the network call.
       final repo = ref.read(bibleVersionStateRepositoryProvider);
+      final api = ref.read(bibleVersionApiServiceProvider);
       if (await repo.isCacheFresh()) return;
-      final versions =
-          await ref.read(bibleVersionApiServiceProvider).getVersions();
-      await repo.upsertFromServer(versions);
+      await repo.upsertFromServer(await api.getVersions());
     } catch (_) {
       // Non-fatal: the cached registry still lists something to download.
     }
@@ -114,14 +118,6 @@ class _BibleDownloadPromptState extends ConsumerState<BibleDownloadPrompt> {
             ),
             const SizedBox(height: AppTheme.spacing16),
             for (final v in versions) _versionTile(v),
-            if (_failed != null) ...[
-              const SizedBox(height: AppTheme.spacing12),
-              Text(
-                l10n(context).bibleDownloadFailed,
-                textAlign: TextAlign.center,
-                style: AppTheme.caption.copyWith(color: context.dangerText),
-              ),
-            ],
           ],
         );
       },
@@ -160,6 +156,17 @@ class _BibleDownloadPromptState extends ConsumerState<BibleDownloadPrompt> {
                     // Determinate: an 8 MB download over a slow connection is
                     // long enough that a spinner alone reads as a hang.
                     LinearProgressIndicator(value: progress),
+                  ],
+                  // In this row rather than under the list: with six versions
+                  // offered, one "Download failed" at the bottom does not say
+                  // which one, and the retry is the button beside this text.
+                  if (_failed == info.code) ...[
+                    const SizedBox(height: AppTheme.spacing4),
+                    Text(
+                      l10n(context).bibleDownloadFailed,
+                      style: AppTheme.caption
+                          .copyWith(color: context.dangerText),
+                    ),
                   ],
                 ],
               ),

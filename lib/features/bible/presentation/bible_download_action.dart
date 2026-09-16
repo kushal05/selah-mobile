@@ -17,7 +17,15 @@ Future<void> downloadBibleVersion(
   BibleVersionInfo info, {
   void Function(double progress)? onProgress,
 }) async {
+  // Both providers are read before the download starts, not after it.
+  // Opening the database notifies its listeners, which can rebuild the caller
+  // out of the tree — the inline prompt is replaced by the book grid on
+  // exactly this event — and a `ref` belonging to a disposed widget throws.
+  // Today the continuation resumes as a microtask, ahead of the next frame,
+  // so the late read would in fact still succeed; holding the references
+  // means it does not depend on that.
   final dbService = ref.read(bibleDatabaseServiceProvider);
+  final repo = ref.read(bibleVersionStateRepositoryProvider);
 
   // The first version creates the Bible database file; every later one is
   // added to the database that is already open. Calling the wrong one of these
@@ -31,7 +39,6 @@ Future<void> downloadBibleVersion(
 
   // Whatever arrives first becomes the default, so the reader, notes and
   // search have a translation to use without the user choosing one.
-  final repo = ref.read(bibleVersionStateRepositoryProvider);
   if (await repo.getDefaultCode() == null) {
     await repo.setDefault(info.code);
   }

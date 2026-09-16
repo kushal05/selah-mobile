@@ -424,10 +424,25 @@ def _enclosing(src, pos):
                 return src[j + 1:i], arg
             depth -= 1
         elif c == ':' and depth == 0 and arg is None:
+            # Only a named argument's colon counts. A ternary's colon sits at
+            # the same depth —
+            #
+            #     foregroundColor: on ? blue : context.subtleFill
+            #                              ^ this one
+            #
+            # and taking it lost the argument name, so a fill in a foreground
+            # position written as a ternary was skipped entirely. A named
+            # argument is an identifier whose colon follows it directly and
+            # which begins the argument, i.e. sits just after `(` or `,`.
             j = i - 1
             while j >= 0 and (src[j].isalnum() or src[j] == '_'):
                 j -= 1
-            arg = src[j + 1:i]
+            name = src[j + 1:i]
+            k = j
+            while k >= 0 and src[k] in ' \t\n':
+                k -= 1
+            if name.isidentifier() and (k < 0 or src[k] in '(,{'):
+                arg = name
         i -= 1
     return None, arg
 

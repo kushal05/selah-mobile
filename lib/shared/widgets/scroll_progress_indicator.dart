@@ -75,11 +75,25 @@ class _ScrollProgressIndicatorState extends State<ScrollProgressIndicator> {
       if (!mounted || !widget.controller.hasClients) return;
       final p = widget.controller.position;
       if (!p.hasContentDimensions || !p.hasViewportDimension) return;
-      if (p.maxScrollExtent != _builtMax ||
-          p.viewportDimension != _builtViewport) {
+      if (_changed(p.maxScrollExtent, _builtMax) ||
+          _changed(p.viewportDimension, _builtViewport)) {
         setState(() {});
       }
     });
+  }
+
+  /// Whether [now] differs from what the drawn bar was built from.
+  ///
+  /// Defensive, not a fix for an observed bug. NaN is never equal to itself,
+  /// so a plain `!=` here would report a change on every frame and setState
+  /// in a loop that never settles. I could not construct a case that produces
+  /// it — a scroll view given an unbounded main axis throws rather than
+  /// handing back infinite extents — so there is no test for this, and it is
+  /// kept only because the cost is one comparison and the failure it guards
+  /// against is a pegged CPU rather than a wrong pixel.
+  static bool _changed(double now, double? built) {
+    if (!now.isFinite) return false;
+    return now != built;
   }
 
   @override
