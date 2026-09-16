@@ -1,24 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../bible/domain/models/bible_reference.dart';
 import '../../../../bible/domain/models/bible_version_info.dart';
 import '../../../../../core/providers/motion_preferences.dart';
 import '../../../../../core/theme/theme_colors.dart';
+import '../../../../../core/sync/providers/sync_providers.dart';
 import '../../../../../l10n/l10n.dart';
+import '../../../../../shared/widgets/selectable_chip.dart';
 
 /// Renders a Bible verse block in the note editor as a collapsible card.
 ///
 /// Collapsed: shows only the reference line (e.g. "John 3:16 (KJV)").
 /// Expanded:  shows the reference line plus the verse text.
 /// Tap toggles expand/collapse. Long-press opens the options sheet.
-class BibleReferenceBlockWidget extends StatefulWidget {
+class BibleReferenceBlockWidget extends ConsumerStatefulWidget {
   final BibleReference reference;
   final VoidCallback? onRemove;
   final VoidCallback? onEdit;
   final ValueChanged<String>? onChangeVersion;
   final VoidCallback? onTap;
+
+  /// Called with the new tag ids when the user tags or untags this reference.
+  final ValueChanged<List<String>>? onTagsChanged;
 
   /// Available translations from the Bible DB, used by the version picker.
   final List<String> availableTranslations;
@@ -30,17 +36,22 @@ class BibleReferenceBlockWidget extends StatefulWidget {
     this.onEdit,
     this.onChangeVersion,
     this.onTap,
+    this.onTagsChanged,
     this.availableTranslations = const [],
   });
 
   @override
-  State<BibleReferenceBlockWidget> createState() =>
+  ConsumerState<BibleReferenceBlockWidget> createState() =>
       _BibleReferenceBlockWidgetState();
 }
 
-class _BibleReferenceBlockWidgetState extends State<BibleReferenceBlockWidget>
+class _BibleReferenceBlockWidgetState
+    extends ConsumerState<BibleReferenceBlockWidget>
     with SingleTickerProviderStateMixin {
   bool _expanded = true;
+  bool _addingTag = false;
+  final _tagController = TextEditingController();
+  final _tagFocusNode = FocusNode();
   late final AnimationController _iconController;
 
   @override
@@ -56,7 +67,113 @@ class _BibleReferenceBlockWidgetState extends State<BibleReferenceBlockWidget>
   @override
   void dispose() {
     _iconController.dispose();
+    _tagController.dispose();
+    _tagFocusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _submitTag() async {
+    final name = _tagController.text.trim();
+    _tagController.clear();
+    if (name.isEmpty) {
+      setState(() => _addingTag = false);
+      return;
+    }
+    final repo = ref.read(tagRepositoryProvider);
+    final userId = ref.read(currentUserIdProvider);
+    final tag = await repo.getOrCreateTag(name, userId);
+    if (!mounted) return;
+    setState(() => _addingTag = false);
+    final current = widget.reference.tagIds;
+    if (current.contains(tag.id)) return;
+    widget.onTagsChanged?.call([...current, tag.id]);
+  }
+
+  void _removeTag(String tagId) {
+    widget.onTagsChanged?.call(
+      widget.reference.tagIds.where((id) => id != tagId).toList(),
+    );
+  }
+
+  /// Tags on this reference, and the control to add one.
+  ///
+  /// Right-aligned under the verse text: it belongs to the whole reference
+  /// rather than to any one line of it, and putting it at the end keeps the
+  /// verse itself the first thing read.
+  Widget _buildTagRow() {
+    if (widget.onTagsChanged == null) return const SizedBox.shrink();
+
+    final tagIds = widget.reference.tagIds;
+    final names = {
+      for (final t in ref.watch(tagsStreamProvider).valueOrNull ?? const [])
+        t.id: t.name,
+    };
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: Wrap(
+          alignment: WrapAlignment.end,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final id in tagIds)
+              // A tag whose name has not arrived yet is skipped rather than
+              // shown as a raw id.
+              if (names[id] != null)
+                SelectableChip(
+                  label: names[id]!,
+                  isSelected: true,
+                  showDelete: true,
+                  accent: AppTheme.brandPurple,
+                  onTap: () => _removeTag(id),
+                ),
+            if (_addingTag)
+              SizedBox(
+                width: 140,
+                child: TextField(
+                  controller: _tagController,
+                  focusNode: _tagFocusNode,
+                  autofocus: true,
+                  textInputAction: TextInputAction.done,
+                  style: AppTheme.caption.copyWith(color: context.primaryText),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: l10n(context).enterTagName,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 8),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  onSubmitted: (_) => _submitTag(),
+                  onTapOutside: (_) => _submitTag(),
+                ),
+              )
+            else
+              Semantics(
+                button: true,
+                label: l10n(context).addTag,
+                child: InkWell(
+                  onTap: () => setState(() => _addingTag = true),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    child: Icon(
+                      Icons.local_offer_outlined,
+                      size: 18,
+                      color: AppTheme.brandPurple,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _toggle() {
@@ -142,6 +259,7 @@ class _BibleReferenceBlockWidgetState extends State<BibleReferenceBlockWidget>
                         )
                       else
                         _buildVerseText(theme),
+                      _buildTagRow(),
                     ],
                   ],
                 ),
