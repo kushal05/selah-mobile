@@ -55,7 +55,12 @@ class DailyFocusCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final prayers = ref.watch(activePrayersStreamProvider).valueOrNull ?? const [];
+    // Kept as the AsyncValue, not flattened to a list. `?? const []` made a
+    // failed read and a slow one indistinguishable from "you have no
+    // prayers", and this card then said so on the most prominent surface in
+    // the app — and offered to add one the user may already have.
+    final prayersAsync = ref.watch(activePrayersStreamProvider);
+    final prayers = prayersAsync.valueOrNull ?? const [];
     final promises = ref.watch(promisesStreamProvider).valueOrNull ?? const [];
     final history =
         ref.watch(bibleReferenceHistoryStreamProvider).valueOrNull ?? const [];
@@ -64,7 +69,27 @@ class DailyFocusCard extends ConsumerWidget {
 
     // Always present, including its empty state — the carousel never renders
     // with nothing in it.
-    if (prayers.isEmpty) {
+    if (prayersAsync.hasError) {
+      slides.add(_Slide(
+        eyebrow: l10n(context).dailyFocus,
+        title: l10n(context).prayersCouldntBeLoaded,
+        subtitle: l10n(context).tapRetryToTryAgain,
+        actionLabel: l10n(context).retry,
+        onPressed: () => ref.invalidate(activePrayersStreamProvider),
+        gradient: const [AppTheme.brandBlue, AppTheme.gradientEnd],
+      ));
+    } else if (prayersAsync.isLoading && prayersAsync.valueOrNull == null) {
+      // Still reading. Say nothing about the count either way — the eyebrow
+      // holds the card's shape so nothing jumps when the answer arrives.
+      slides.add(_Slide(
+        eyebrow: l10n(context).dailyFocus,
+        title: '',
+        subtitle: '',
+        actionLabel: '',
+        onPressed: () {},
+        gradient: const [AppTheme.brandBlue, AppTheme.gradientEnd],
+      ));
+    } else if (prayers.isEmpty) {
       slides.add(_Slide(
         eyebrow: l10n(context).dailyFocus,
         title: l10n(context).noActivePrayers,
@@ -445,10 +470,15 @@ class _FocusCarouselState extends State<_FocusCarousel> {
                 // push keeps Home underneath, so Back returns here; and the
                 // empty case opens the quick sheet rather than the long form,
                 // matching every other 'add prayer' entry point.
-                _GlassActionButton(
-                  label: slide.actionLabel,
-                  onPressed: slide.onPressed,
-                ),
+                //
+                // No label means there is nothing to offer yet — the slide
+                // shown while the read is still in flight. An empty button
+                // would be a control that does nothing.
+                if (slide.actionLabel.isNotEmpty)
+                  _GlassActionButton(
+                    label: slide.actionLabel,
+                    onPressed: slide.onPressed,
+                  ),
               ],
             ),
           ),

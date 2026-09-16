@@ -1007,5 +1007,13 @@
   "habitCouldntBeUpdated": "Couldn't update that habit. Try again.",
   "@habitCouldntBeUpdated": {
     "description": "Shown on the home screen habits widget."
+  },
+  "prayersCouldntBeLoaded": "Your prayers couldn't be loaded",
+  "@prayersCouldntBeLoaded": {
+    "description": "Shown on the home hero when the prayers read fails."
+  },
+  "tapRetryToTryAgain": "Tap retry to try again",
+  "@tapRetryToTryAgain": {
+    "description": "Shown on the home hero when the prayers read fails."
   }
 }

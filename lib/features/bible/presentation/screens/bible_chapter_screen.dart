@@ -62,13 +62,17 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     _chapter = widget.chapter;
     _primaryTranslation = widget.initialTranslation;
 
+    // `.first` on an empty list throws, and this list is empty on any device
+    // with no Bible downloaded — which a chapter is still reachable from, via
+    // a note's verse reference or reading history. The screen died in
+    // initState rather than showing anything. Falling back to the primary
+    // covers both that case and the single-translation one; parallel view is
+    // gated on having two regardless.
     final translations = ref.read(bibleTranslationsProvider);
-    _secondaryTranslation = translations.length > 1
-        ? translations.firstWhere(
-            (t) => t != _primaryTranslation,
-            orElse: () => translations.first,
-          )
-        : translations.first;
+    _secondaryTranslation = translations.firstWhere(
+      (t) => t != _primaryTranslation,
+      orElse: () => _primaryTranslation,
+    );
 
     _primaryScrollController.addListener(_onPrimaryScroll);
     _secondaryScrollController.addListener(_onSecondaryScroll);
@@ -318,9 +322,15 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
       chapterHighlightsProvider((bookId: _bookId, chapter: _chapter)),
     );
     final highlights = highlightsAsync.valueOrNull ?? [];
+    // Nullable: null means we have not read the bookmark yet, which is not
+    // the same as "not bookmarked". toggleBookmark re-queries the database
+    // rather than trusting this, so tapping while it reads as false finds the
+    // existing row and deletes it — a tap meant to bookmark a chapter removes
+    // the bookmark instead. The window is the first frames after the screen
+    // opens, no error required.
     final isBookmarked = ref
         .watch(isChapterBookmarkedProvider((bookId: _bookId, chapter: _chapter)))
-        .valueOrNull ?? false;
+        .valueOrNull;
 
     final primaryVerses = ref.watch(bibleVersesProvider(
       (bookId: _bookId, chapter: _chapter, translation: _primaryTranslation),
@@ -368,14 +378,20 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
                       setState(() => _primaryTranslation = t),
                 ),
               ),
-            // Bookmark toggle
+            // Bookmark toggle — inert until we know which way it goes.
             IconButton(
               icon: Icon(
-                isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                color: isBookmarked ? _bibleGreen : null,
+                isBookmarked == true ? Icons.bookmark : Icons.bookmark_border,
+                color: isBookmarked == true ? _bibleGreen : null,
               ),
-              tooltip: isBookmarked ? 'Remove bookmark' : 'Bookmark chapter',
-              onPressed: () => _toggleBookmark(bookName),
+              tooltip: isBookmarked == null
+                  ? 'Loading bookmark'
+                  : isBookmarked
+                      ? 'Remove bookmark'
+                      : 'Bookmark chapter',
+              onPressed: isBookmarked == null
+                  ? null
+                  : () => _toggleBookmark(bookName),
             ),
             // Parallel toggle
             IconButton(
