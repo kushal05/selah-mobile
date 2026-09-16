@@ -7,6 +7,8 @@
 // tap ran toggleBookmark, which re-queries the database and deletes the row
 // it finds.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -75,5 +77,26 @@ void main() {
     await tester.pump();
 
     expect(find.text('No active prayers'), findsOneWidget);
+  });
+
+  testWidgets('the loading hero keeps the loaded card\'s height',
+      (tester) async {
+    // The first version of this fix rendered an empty title, subtitle and no
+    // button, so the card was 137pt while reading and 228pt once loaded — a
+    // 90pt jump that shoved the rest of Home down on every cold open. Being
+    // right about the data is not worth being wrong about the layout.
+    final ctl = StreamController<List<PrayerModel>>();
+    addTearDown(ctl.close);
+
+    await pumpHero(tester, ctl.stream);
+    final loading = tester.getSize(find.byType(DailyFocusCard)).height;
+
+    ctl.add(const <PrayerModel>[]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    final loaded = tester.getSize(find.byType(DailyFocusCard)).height;
+
+    expect((loaded - loading).abs(), lessThan(32),
+        reason: 'loading $loading -> loaded $loaded is a visible jump');
   });
 }

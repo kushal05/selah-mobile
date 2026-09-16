@@ -24,6 +24,12 @@ class _Slide {
   final VoidCallback onPressed;
   final List<Color> gradient;
 
+  /// True while the data behind this slide is still being read. The slide
+  /// keeps the loaded layout's height and shows placeholder bars, because a
+  /// card that grows by 90pt when the answer arrives shoves the whole page
+  /// down on every cold open.
+  final bool isLoading;
+
   const _Slide({
     required this.eyebrow,
     required this.title,
@@ -31,6 +37,7 @@ class _Slide {
     required this.actionLabel,
     required this.onPressed,
     required this.gradient,
+    this.isLoading = false,
   });
 }
 
@@ -79,14 +86,14 @@ class DailyFocusCard extends ConsumerWidget {
         gradient: const [AppTheme.brandBlue, AppTheme.gradientEnd],
       ));
     } else if (prayersAsync.isLoading && prayersAsync.valueOrNull == null) {
-      // Still reading. Say nothing about the count either way — the eyebrow
-      // holds the card's shape so nothing jumps when the answer arrives.
+      // Still reading. Say nothing about the count either way.
       slides.add(_Slide(
         eyebrow: l10n(context).dailyFocus,
         title: '',
         subtitle: '',
         actionLabel: '',
         onPressed: () {},
+        isLoading: true,
         gradient: const [AppTheme.brandBlue, AppTheme.gradientEnd],
       ));
     } else if (prayers.isEmpty) {
@@ -446,26 +453,39 @@ class _FocusCarouselState extends State<_FocusCarousel> {
                   ),
                 ),
                 const SizedBox(height: AppTheme.spacing8),
-                Text(
-                  slide.title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    height: 1.25,
-                    letterSpacing: -0.2,
+                if (slide.isLoading) ...[
+                  // Two title lines and one subtitle line, which is the
+                  // tallest the loaded slide gets — so the card settles
+                  // rather than grows.
+                  const _SlideBar(width: 220, height: 22 * 1.25),
+                  const SizedBox(height: 2),
+                  const _SlideBar(width: 150, height: 22 * 1.25),
+                  const SizedBox(height: AppTheme.spacing4),
+                  _SlideBar(
+                      width: 180,
+                      height: AppTheme.bodySmallStyle.fontSize! * 1.4),
+                ] else ...[
+                  Text(
+                    slide.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      height: 1.25,
+                      letterSpacing: -0.2,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: AppTheme.spacing4),
-                Text(
-                  slide.subtitle,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: AppTheme.alphaText),
-                    fontSize: AppTheme.bodySmallStyle.fontSize,
+                  const SizedBox(height: AppTheme.spacing4),
+                  Text(
+                    slide.subtitle,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: AppTheme.alphaText),
+                      fontSize: AppTheme.bodySmallStyle.fontSize,
+                    ),
                   ),
-                ),
+                ],
                 const SizedBox(height: 18),
                 // push keeps Home underneath, so Back returns here; and the
                 // empty case opens the quick sheet rather than the long form,
@@ -474,7 +494,9 @@ class _FocusCarouselState extends State<_FocusCarousel> {
                 // No label means there is nothing to offer yet — the slide
                 // shown while the read is still in flight. An empty button
                 // would be a control that does nothing.
-                if (slide.actionLabel.isNotEmpty)
+                if (slide.isLoading)
+                  const _SlideBar(width: 130, height: 40, radius: 20)
+                else if (slide.actionLabel.isNotEmpty)
                   _GlassActionButton(
                     label: slide.actionLabel,
                     onPressed: slide.onPressed,
@@ -562,4 +584,24 @@ class _GlassActionButtonState extends State<_GlassActionButton> {
     ),
     );
   }
+}
+
+/// A placeholder bar on the hero while its data is still being read.
+class _SlideBar extends StatelessWidget {
+  final double width;
+  final double height;
+  final double radius;
+
+  const _SlideBar(
+      {required this.width, required this.height, this.radius = 6});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      );
 }

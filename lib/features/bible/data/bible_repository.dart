@@ -20,6 +20,14 @@ class BibleRepository {
 
   BibleRepository(this._dbService);
 
+  /// The open Bible database.
+  ///
+  /// Throws when no Bible is installed — an assert in debug, a null check in
+  /// release — and the query methods below only catch [SqliteException], so
+  /// the failure escaped them and took the Bible chapter screen down on
+  /// build. Every read therefore checks [BibleDatabaseService.isOpen] first
+  /// and answers "no data", which is what they already answered when a query
+  /// itself failed.
   Database get _db => _dbService.db;
 
   // ---------------------------------------------------------------------------
@@ -28,11 +36,6 @@ class BibleRepository {
 
   /// All 66 books ordered by canonical sort_order.
   List<BibleBookEntity> getAllBooks() {
-    // No Bible installed: the same "no data" answer these
-    // methods already give on a database error. Without this the
-    // `db` getter throws — an assert in debug, a null check in
-    // release — and only SqliteException is caught below, so the
-    // Bible chapter screen died on build with no Bible present.
     if (!_dbService.isOpen) return const [];
     try {
       final rows = _db.select('SELECT * FROM bible_books ORDER BY sort_order');
@@ -45,11 +48,6 @@ class BibleRepository {
 
   /// Books filtered by testament (0 = OT, 1 = NT), ordered by sort_order.
   List<BibleBookEntity> getBooksByTestament(int testament) {
-    // No Bible installed: the same "no data" answer these
-    // methods already give on a database error. Without this the
-    // `db` getter throws — an assert in debug, a null check in
-    // release — and only SqliteException is caught below, so the
-    // Bible chapter screen died on build with no Bible present.
     if (!_dbService.isOpen) return const [];
     try {
       final rows = _db.select(
@@ -65,11 +63,6 @@ class BibleRepository {
 
   /// Find a single book by its ID (1..66).
   BibleBookEntity? getBookById(int bookId) {
-    // No Bible installed: the same "no data" answer these
-    // methods already give on a database error. Without this the
-    // `db` getter throws — an assert in debug, a null check in
-    // release — and only SqliteException is caught below, so the
-    // Bible chapter screen died on build with no Bible present.
     if (!_dbService.isOpen) return null;
     try {
       final rows = _db.select(
@@ -86,11 +79,6 @@ class BibleRepository {
 
   /// Find a book by name (case-insensitive exact match).
   BibleBookEntity? getBookByName(String name) {
-    // No Bible installed: the same "no data" answer these
-    // methods already give on a database error. Without this the
-    // `db` getter throws — an assert in debug, a null check in
-    // release — and only SqliteException is caught below, so the
-    // Bible chapter screen died on build with no Bible present.
     if (!_dbService.isOpen) return null;
     try {
       final rows = _db.select(
@@ -107,11 +95,6 @@ class BibleRepository {
 
   /// Find a book by short name (case-insensitive exact match).
   BibleBookEntity? getBookByShortName(String shortName) {
-    // No Bible installed: the same "no data" answer these
-    // methods already give on a database error. Without this the
-    // `db` getter throws — an assert in debug, a null check in
-    // release — and only SqliteException is caught below, so the
-    // Bible chapter screen died on build with no Bible present.
     if (!_dbService.isOpen) return null;
     try {
       final rows = _db.select(
@@ -134,11 +117,6 @@ class BibleRepository {
   ///
   /// Example: getChapters(bookId: 43, translation: 'KJV') → [1, 2, ..., 21]
   List<int> getChapters({required int bookId, required String translation}) {
-    // No Bible installed: the same "no data" answer these
-    // methods already give on a database error. Without this the
-    // `db` getter throws — an assert in debug, a null check in
-    // release — and only SqliteException is caught below, so the
-    // Bible chapter screen died on build with no Bible present.
     if (!_dbService.isOpen) return const [];
     try {
       final rows = _db.select(
@@ -168,11 +146,6 @@ class BibleRepository {
     required int chapter,
     required String translation,
   }) {
-    // No Bible installed: the same "no data" answer these
-    // methods already give on a database error. Without this the
-    // `db` getter throws — an assert in debug, a null check in
-    // release — and only SqliteException is caught below, so the
-    // Bible chapter screen died on build with no Bible present.
     if (!_dbService.isOpen) return const [];
     try {
       final rows = _db.select(
@@ -199,11 +172,6 @@ class BibleRepository {
     required int verse,
     required String translation,
   }) {
-    // No Bible installed: the same "no data" answer these
-    // methods already give on a database error. Without this the
-    // `db` getter throws — an assert in debug, a null check in
-    // release — and only SqliteException is caught below, so the
-    // Bible chapter screen died on build with no Bible present.
     if (!_dbService.isOpen) return null;
     try {
       final rows = _db.select(
@@ -232,11 +200,6 @@ class BibleRepository {
     required int verseEnd,
     required String translation,
   }) {
-    // No Bible installed: the same "no data" answer these
-    // methods already give on a database error. Without this the
-    // `db` getter throws — an assert in debug, a null check in
-    // release — and only SqliteException is caught below, so the
-    // Bible chapter screen died on build with no Bible present.
     if (!_dbService.isOpen) return const [];
     try {
       final rows = _db.select(
@@ -262,8 +225,6 @@ class BibleRepository {
     required List<int> verseNumbers,
     required String translation,
   }) {
-    // Same guard as the other reads: with no Bible installed the `db`
-    // getter throws and only SqliteException is caught below.
     if (!_dbService.isOpen) return const [];
     if (verseNumbers.isEmpty) return [];
 
@@ -310,8 +271,6 @@ class BibleRepository {
     String? translation,
     int limit = 50,
   }) {
-    // Same guard as the other reads: with no Bible installed the `db`
-    // getter throws and only SqliteException is caught below.
     if (!_dbService.isOpen) return const [];
     if (query.trim().isEmpty) return [];
 
@@ -351,11 +310,6 @@ class BibleRepository {
   ///
   /// Example return: ['KJV']
   List<String> getAvailableTranslations() {
-    // No Bible installed: the same "no data" answer these
-    // methods already give on a database error. Without this the
-    // `db` getter throws — an assert in debug, a null check in
-    // release — and only SqliteException is caught below, so the
-    // Bible chapter screen died on build with no Bible present.
     if (!_dbService.isOpen) return const [];
     try {
       final rows = _db.select(
