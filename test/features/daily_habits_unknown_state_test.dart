@@ -15,6 +15,7 @@ import 'package:notify/core/theme/app_theme.dart';
 import 'package:notify/l10n/app_localizations.dart';
 import 'package:notify/features/habits/data/habit_log_repository.dart';
 import 'package:notify/features/home/presentation/providers/habit_providers.dart';
+import 'package:notify/features/habits/presentation/widgets/habit_stats_card.dart';
 import 'package:notify/features/home/presentation/widgets/daily_habits_widget.dart';
 
 /// Records toggleToday calls without touching a database.
@@ -124,5 +125,63 @@ void main() {
 
     expect(anyTileTappable(tester), isTrue);
     expect(find.text("Today's habits couldn't be loaded"), findsNothing);
+  });
+
+  // The same widget appears twice in the app. The home row was fixed first;
+  // the habits screen's stats card carries an identical toggleToday and had
+  // the identical default, written as `valueOrNull?.contains(k) ?? false`,
+  // which is why the first scan for `.valueOrNull ?? false` walked past it.
+  group('habits screen stats card', () {
+    Future<void> pumpCard(
+        WidgetTester tester, Stream<Set<String>> stream) async {
+      tester.view.physicalSize = const Size(402, 874) * 3;
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      spy = SpyRepo();
+
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          todayHabitKeysProvider.overrideWith((ref) => stream),
+          habitLogRepositoryProvider.overrideWithValue(spy),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const Scaffold(
+            body: SingleChildScrollView(
+              child: HabitStatsCard(
+                habit: HabitType.bible,
+                icon: Icons.menu_book,
+                color: Colors.blue,
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.pump();
+    }
+
+    testWidgets('does not toggle while the state is unknown', (tester) async {
+      await pumpCard(tester, StreamController<Set<String>>().stream);
+
+      await tester.tap(find.byType(HabitStatsCard), warnIfMissed: false);
+      await tester.pump();
+
+      expect(spy.toggled, isEmpty);
+      expect(find.text('Mark done'), findsNothing,
+          reason: 'offering "mark done" asserts it is not done');
+    });
+
+    testWidgets('and works once it is known', (tester) async {
+      await pumpCard(tester, Stream.value(<String>{}));
+      await tester.pump();
+
+      expect(find.text('Mark done'), findsOneWidget);
+      await tester.tap(find.text('Mark done'));
+      await tester.pump();
+
+      expect(spy.toggled, hasLength(1));
+    });
   });
 }

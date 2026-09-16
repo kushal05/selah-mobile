@@ -33,7 +33,13 @@ class HabitStatsCard extends ConsumerWidget {
     final weekAsync = ref.watch(habitWeeklyStatsProvider(habit));
     final historyAsync = ref.watch(habitHistoryProvider(habit));
 
-    final isDone = todayAsync.valueOrNull?.contains(habit.key) ?? false;
+    // Nullable: `?? false` made "not read yet" look like "not done", and
+    // toggleToday re-queries the database rather than trusting this — so a
+    // tap in that window finds the existing log and deletes it. Same bug as
+    // the home screen's habits row; this card is the other place it lives.
+    final done = todayAsync.valueOrNull?.contains(habit.key);
+    final isDone = done == true;
+    final known = done != null;
     final streak = streakAsync.valueOrNull ?? 0;
     final best = bestAsync.valueOrNull ?? 0;
     final week = weekAsync.valueOrNull ?? List.filled(7, false);
@@ -88,12 +94,18 @@ class HabitStatsCard extends ConsumerWidget {
                   ),
                 ),
                 Semantics(
-                  button: true,
-                  label: isDone
-                      ? '${habit.label}, done today. Mark not done'
-                      : '${habit.label}, not done. Mark done',
+                  button: known,
+                  label: known
+                      ? (isDone
+                          ? '${habit.label}, done today. Mark not done'
+                          : '${habit.label}, not done. Mark done')
+                      : '${habit.label}, loading',
                   child: GestureDetector(
-                  onTap: () async {
+                  onTap: !known
+                      ? null
+                      : () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    final failed = l10n(context).habitCouldntBeUpdated;
                     try {
                       await ref
                           .read(habitLogRepositoryProvider)
@@ -104,6 +116,12 @@ class HabitStatsCard extends ConsumerWidget {
                       ref.invalidate(habitWeeklyStatsProvider(habit));
                     } catch (e) {
                       SyncLogger.error('[HabitStatsCard] toggleToday failed', e);
+                      // The log is for us. Tell the user too — otherwise the
+                      // chip just does not change and reads as a missed tap.
+                      messenger.showSnackBar(SnackBar(
+                        content: Text(failed),
+                        behavior: SnackBarBehavior.floating,
+                      ));
                     }
                   },
                   child: AnimatedContainer(
@@ -126,18 +144,21 @@ class HabitStatsCard extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          isDone
-                              ? Icons.check_circle_rounded
-                              : Icons.radio_button_unchecked_rounded,
+                          !known
+                              ? Icons.more_horiz_rounded
+                              : isDone
+                                  ? Icons.check_circle_rounded
+                                  : Icons.radio_button_unchecked_rounded,
                           size: 14,
-                          color: isDone
-                              ? color
-                              : theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.4),
+                          color: isDone ? color : context.mutedText,
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          isDone ? 'Done' : 'Mark done',
+                          !known
+                              ? '\u2026'
+                              : isDone
+                                  ? 'Done'
+                                  : 'Mark done',
                           style: theme.textTheme.labelSmall?.copyWith(
                             fontWeight: FontWeight.w600,
                             color: isDone
