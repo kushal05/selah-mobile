@@ -876,7 +876,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
     );
-    if (date != null) {
+    if (date != null && mounted) {
       setState(() => _reminderDate = date);
     }
   }
@@ -887,7 +887,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
       context: context,
       initialTime: _reminderTime ?? TimeOfDay.now(),
     );
-    if (time != null) {
+    if (time != null && mounted) {
       setState(() => _reminderTime = time);
     }
   }

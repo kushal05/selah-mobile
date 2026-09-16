@@ -69,6 +69,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
       final dbConditions =
           await conditionRepo.getConditionsForPromise(widget.promiseId!);
 
+      if (!mounted) return;
       setState(() {
         _verseController.text = promise.reference;
         _promiseTextController.text = promise.content;

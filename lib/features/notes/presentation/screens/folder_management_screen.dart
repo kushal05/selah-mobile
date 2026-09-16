@@ -319,7 +319,7 @@ class _FolderManagementScreenState
   Future<void> _showCreateFolderDialog(
       BuildContext context, String? parentId) async {
     final result = await CreateFolderDialog.show(context, parentId: parentId);
-    if (result == true && parentId != null) {
+    if (result == true && parentId != null && mounted) {
       // Expand parent folder to show new subfolder
       setState(() {
         _expandedFolders.add(parentId);

@@ -302,7 +302,9 @@ class _QuickPrayerSheetState extends ConsumerState<_QuickPrayerSheet> {
       context: context,
       initialTime: TimeOfDay.now(),
     );
-    if (picked == null) return;
+    // The sheet can be dismissed while the picker is up (a pop, or the app
+    // being killed and restored), and setState on a disposed State throws.
+    if (picked == null || !mounted) return;
     final now = DateTime.now();
     setState(() => _reminder =
         DateTime(now.year, now.month, now.day, picked.hour, picked.minute));

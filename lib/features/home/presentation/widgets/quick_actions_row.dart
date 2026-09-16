@@ -205,7 +205,9 @@ Future<void> showQuickActionsFolder(
     // reading bright. The blur already separates the panel from the page, so
     // the scrim only has to hint that the rest is inactive.
     barrierColor: Colors.black.withValues(alpha: 0.06),
-    builder: (dialogContext) => _QuickActionsFolder(actions: actions),
+    // See the note on _QuickActionsFolder.opener.
+    builder: (dialogContext) =>
+        _QuickActionsFolder(actions: actions, opener: context),
   );
 }
 
@@ -213,7 +215,18 @@ Future<void> showQuickActionsFolder(
 /// a grid, over a dimmed background.
 class _QuickActionsFolder extends StatelessWidget {
   final List<QuickActionSpec> actions;
-  const _QuickActionsFolder({required this.actions});
+
+  /// The context that opened the folder.
+  ///
+  /// Actions run against this rather than the dialog's own context. This is
+  /// defensive, not a bug fix: `pop()` starts the route's exit animation and
+  /// does not deactivate its elements synchronously, so the tile's own
+  /// context is in fact still usable at that moment — two attempts to write a
+  /// failing test for it both passed with the tile context in place. The
+  /// opener simply cannot go stale, which makes the ordering irrelevant.
+  final BuildContext opener;
+
+  const _QuickActionsFolder({required this.actions, required this.opener});
 
   @override
   Widget build(BuildContext context) {
@@ -288,9 +301,9 @@ class _QuickActionsFolder extends StatelessWidget {
                           icon: a.icon,
                           label: a.label,
                           color: a.color,
-                          onTap: (context) {
-                            Navigator.of(context).pop();
-                            a.onTap(context);
+                          onTap: (tileContext) {
+                            Navigator.of(tileContext).pop();
+                            a.onTap(opener);
                           },
                         ),
                       ),

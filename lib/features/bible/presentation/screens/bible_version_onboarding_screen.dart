@@ -103,6 +103,9 @@ class _BibleVersionOnboardingScreenState
     await repo.upsertFromServer(_available);
     await repo.setDefault(_defaultSelection);
 
+    // Downloads run in a loop after awaits; the screen can be left at any
+    // point, and setState on a disposed State throws.
+    if (!mounted) return;
     for (final code in ordered) {
       final info = _available.firstWhere((v) => v.code == code);
       setState(() => _progress[code] = 0.0);

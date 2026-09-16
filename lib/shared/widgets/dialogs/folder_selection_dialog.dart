@@ -476,6 +476,7 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
       );
 
       // Select the newly created folder
+      if (!mounted) return;
       setState(() {
         _selectedFolderId = folder.id;
         _isCreatingFolder = false;
@@ -561,6 +562,7 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
       await folderRepository.deleteFolder(folder.id);
 
       // Clear selection if deleted folder was selected
+      if (!mounted) return;
       if (_selectedFolderId == folder.id ||
           descendants.any((d) => d.id == _selectedFolderId)) {
         setState(() {
@@ -607,6 +609,7 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
       await folderRepository.deleteFolder(folder.id);
 
       // Clear selection if deleted folder was selected
+      if (!mounted) return;
       if (_selectedFolderId == folder.id ||
           descendants.any((d) => d.id == _selectedFolderId)) {
         setState(() {
