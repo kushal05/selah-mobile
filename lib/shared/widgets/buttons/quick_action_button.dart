@@ -11,12 +11,20 @@ class QuickActionButton extends StatefulWidget {
   final Color color;
   final void Function(BuildContext) onTap;
 
+  /// Overrides the tile's natural width.
+  ///
+  /// The folder lays four of these across a fixed panel, so it sizes them to
+  /// the space rather than letting four fixed-width tiles decide how little
+  /// gutter is left over.
+  final double? width;
+
   const QuickActionButton({
     super.key,
     required this.icon,
     required this.label,
     required this.color,
     required this.onTap,
+    this.width,
   });
 
   @override
@@ -62,7 +70,7 @@ class _QuickActionButtonState extends State<QuickActionButton> {
         scale: _pressed ? context.pressScale(AppTheme.pressedScaleSmall) : 1.0,
         duration: context.motion(AppTheme.durationFast),
         child: Container(
-          width: AppTheme.quickActionWidth,
+          width: widget.width ?? AppTheme.quickActionWidth,
           padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing8, vertical: AppTheme.spacing14),
           decoration: BoxDecoration(
             color: bgColor,

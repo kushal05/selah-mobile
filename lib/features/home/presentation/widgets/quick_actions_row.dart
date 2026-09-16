@@ -244,12 +244,23 @@ class _QuickActionsFolder extends StatelessWidget {
 
   const _QuickActionsFolder({required this.actions, required this.opener});
 
+  /// Below this a tile is narrower than the icon it holds, so the grid drops
+  /// a column instead.
+  static const _minTileWidth = 64.0;
+
+  Widget _tile(QuickActionSpec action, double width) => QuickActionButton(
+        icon: action.icon,
+        label: action.label,
+        color: action.color,
+        width: width,
+        onTap: (tileContext) {
+          Navigator.of(tileContext).pop();
+          action.onTap(opener);
+        },
+      );
+
   @override
   Widget build(BuildContext context) {
-    // Four columns, so seven actions fill two rows the way a folder does.
-    const columns = 4;
-    final rows = (actions.length / columns).ceil();
-
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -273,8 +284,16 @@ class _QuickActionsFolder extends StatelessWidget {
                   ? context.raisedSurface.withValues(alpha: 0.74)
                   : Colors.white.withValues(alpha: 0.82),
               borderRadius: AppTheme.borderRadius3XL,
+              // A hairline, not an outline. A 70% white edge drew a hard
+              // bright line around the panel in dark mode — the frame read
+              // louder than the actions inside it. Glass wants its edge
+              // implied; in light mode white on white said nothing at all,
+              // so that side takes a faint ink edge to separate the panel
+              // from the page instead.
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.7),
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white.withValues(alpha: 0.10)
+                    : context.decorativeInk.withValues(alpha: 0.12),
               ),
             ),
             child: Column(
@@ -296,35 +315,66 @@ class _QuickActionsFolder extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            // Sized to its rows, not to a fraction of the screen, so the
-            // panel ends just below the last one.
-            ...List.generate(rows, (r) {
-              final start = r * columns;
-              final slice =
-                  actions.skip(start).take(columns).toList(growable: false);
-              return Padding(
-                padding: EdgeInsets.only(bottom: r == rows - 1 ? 0 : 14),
-                child: Row(
-                  mainAxisAlignment: slice.length == columns
-                      ? MainAxisAlignment.spaceBetween
-                      : MainAxisAlignment.start,
-                  children: [
-                    for (final a in slice)
-                      Padding(
-                        padding: EdgeInsets.only(
-                            right: slice.length == columns ? 0 : 12),
-                        child: QuickActionButton(
-                          icon: a.icon,
-                          label: a.label,
-                          color: a.color,
-                          onTap: (tileContext) {
-                            Navigator.of(tileContext).pop();
-                            a.onTap(opener);
-                          },
+            // A grid, not two rows spaced by hand.
+            //
+            // Four 80pt tiles in a 330pt panel left 2.7pt between them, so
+            // they read as one block; and because the full row used
+            // spaceBetween while the short row used start, the same column
+            // landed in two different places. Sizing the tiles to the panel
+            // is what gives the gutter somewhere to come from, and one
+            // column width drives both rows.
+            //
+            // Height is still the rows' own, not a fraction of the screen,
+            // so the panel ends just below the last one.
+            LayoutBuilder(builder: (context, constraints) {
+              const gap = 10.0;
+              const runGap = 14.0;
+              // Four columns puts seven actions in two rows, the way a
+              // folder opens. On a narrow phone a fourth column would
+              // squeeze the tile narrower than the icon inside it, so it
+              // drops to three rather than overflow.
+              final columns =
+                  (constraints.maxWidth - gap * 3) / 4 >= _minTileWidth
+                      ? 4
+                      : 3;
+              final tileWidth =
+                  (constraints.maxWidth - gap * (columns - 1)) / columns;
+              final rows = (actions.length / columns).ceil();
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var r = 0; r < rows; r++)
+                    Padding(
+                      padding:
+                          EdgeInsets.only(bottom: r == rows - 1 ? 0 : runGap),
+                      // Equal heights across a row: "Songs" on one line
+                      // beside "New Promise" on two left a notch in the
+                      // bottom edge. IntrinsicHeight is what does the work —
+                      // it gives the row a tight height for the tallest tile,
+                      // which the others then fill. stretch says so out loud
+                      // rather than leaning on Column's default of filling
+                      // whatever height it is offered.
+                      child: IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (var c = 0; c < columns; c++)
+                              Padding(
+                                padding: EdgeInsets.only(
+                                    right: c == columns - 1 ? 0 : gap),
+                                // The last row is short. Empty columns hold
+                                // its tiles under the ones above rather than
+                                // letting them spread.
+                                child: r * columns + c < actions.length
+                                    ? _tile(actions[r * columns + c], tileWidth)
+                                    : SizedBox(width: tileWidth),
+                              ),
+                          ],
                         ),
                       ),
-                  ],
-                ),
+                    ),
+                ],
               );
             }),
               ],
