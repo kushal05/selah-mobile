@@ -338,12 +338,11 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
 
   Widget _buildTrashTile(_TrashItem item) {
     final daysLeft = 30 - ((TestClock.now() - item.trashedAt) / (24 * 60 * 60 * 1000)).floor();
-    final theme = Theme.of(context);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: ListTile(
-        leading: Icon(item.icon, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+        leading: Icon(item.icon, color: context.mutedText),
         title: Text(
           item.title,
           maxLines: 1,

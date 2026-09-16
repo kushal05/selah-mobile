@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/database_provider.dart';
+import '../../../../core/theme/theme_colors.dart';
 
 /// Collapsible panel that shows other notes referencing the current note.
 /// Drop into the bottom of a note detail screen. Hidden when there are no
@@ -82,7 +83,7 @@ class _BacklinkTile extends StatelessWidget {
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
         style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+          color: context.mutedText,
         ),
       ),
       onTap: () => context.push('/notes/$noteId'),

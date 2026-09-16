@@ -451,6 +451,59 @@ def scan_fill_as_foreground():
     return findings
 
 
+# A foreground token faded by alpha is not the same thing as a muted colour.
+#
+# The Bible reference picker drew its BOOK / CHAPTER / VERSE labels in
+# cs.onSurface.withValues(alpha: 0.6) and its hints at 0.4. Composited on the
+# dark panel those measure 5.90:1 and 3.34:1, and on white 4.88:1 and 2.59:1 —
+# the token the audit had verified, destroyed by the alpha applied to it.
+# onSurfaceVariant is the per-theme muted colour that is actually tuned for
+# this, at 7.08:1 and 5.60:1.
+#
+# The threshold is 0.7 because that is where a faded onSurface stops failing
+# on the light ground. Anything at or above it is left alone.
+FADE_RE = re.compile(
+    r'\b(?:cs|colorScheme|theme\.colorScheme|Theme\.of\(context\)\.colorScheme)'
+    r'\.(onSurface|onSurfaceVariant|onBackground)'
+    r'\.withValues\(alpha: (0\.\d+)\)')
+FADE_FLOOR = 0.7
+# Constructors that paint a shape rather than a glyph.
+FILL_CTORS = {'BoxDecoration', 'ShapeDecoration', 'BoxShadow', 'ColoredBox',
+              'Divider', 'VerticalDivider', 'CircleAvatar'}
+
+
+def scan_faded_foregrounds():
+    """Foreground tokens dimmed by alpha where text or a glyph is drawn."""
+    findings = []
+    for path in sorted(LIB.rglob('*.dart')):
+        src = path.read_text(encoding='utf-8')
+        for m in FADE_RE.finditer(src):
+            if float(m.group(2)) >= FADE_FLOOR:
+                continue
+            ctor, arg = _enclosing(src, m.start())
+            # Flag unless this is plainly a fill. The default has to be this
+            # way round for two reasons. onSurface names a foreground role —
+            # it is the colour of what sits *on* the surface — so a fill built
+            # from it is the unusual case, and a surfaceContainer token is the
+            # right one there. And the bug this rule exists for assigned the
+            # faded colour to a local first:
+            #
+            #     final color = isEnabled
+            #         ? cs.onSurface.withValues(alpha: 0.6)   <- not inside
+            #         : ...                                      any ctor
+            #
+            # which is in no constructor at all, so a rule that only flagged
+            # recognised foreground positions walked straight past it.
+            if arg in BACKGROUND_ARGS:
+                continue
+            if ctor in FILL_CTORS:
+                continue
+            line = src[:m.start()].count('\n') + 1
+            findings.append((str(path.relative_to(LIB.parent)), line,
+                             m.group(1), m.group(2), ctor or 'assignment'))
+    return findings
+
+
 def scan_literals():
     """Foreground colour literals below 4.5:1 on either theme's ground.
 
@@ -539,6 +592,18 @@ def main():
               'text — use context.mutedText for secondary text, '
               'context.primaryText for body, context.decorativeInk for a '
               'decorative glyph.')
+        return 1
+
+    faded = scan_faded_foregrounds()
+    if faded:
+        print('\ncontrast_audit: FOREGROUND TOKENS DIMMED BY ALPHA')
+        for path, line, name, alpha, ctor in faded:
+            print(f'  {name}.withValues(alpha: {alpha}) in {ctor:10} '
+                  f'{path}:{line}')
+        print(f'\ncontrast_audit: {len(faded)} faded foreground(s). Fading a '
+              'verified token undoes the verification — use '
+              'context.mutedText, which is the per-theme muted colour tuned '
+              'for secondary text.')
         return 1
 
     literals = scan_literals()

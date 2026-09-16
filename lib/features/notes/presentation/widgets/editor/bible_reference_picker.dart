@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../../core/theme/theme_colors.dart';
 import '../../../../bible/domain/models/bible_version_info.dart';
 import '../../../../bible/presentation/providers/bible_providers.dart';
 import '../../../../bible/domain/models/bible_books.dart';
@@ -328,7 +329,11 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
             children: [
               IconButton(
                 tooltip: l10n(context).close,
-                icon: const Icon(Icons.close, size: AppTheme.iconBase),
+                // Explicit, not inherited: with no colour here the icon
+                // took the ambient IconTheme and came out near-black on the
+                // dark panel — the close control was invisible.
+                icon: Icon(Icons.close,
+                    size: AppTheme.iconBase, color: context.primaryText),
                 onPressed: () => Navigator.of(context).pop(),
               ),
               Expanded(
@@ -402,11 +407,16 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
         (tab == _PickerTab.chapter && _selectedBook != null) ||
         (tab == _PickerTab.verse && _selectedChapter != null);
 
+    // Fading onSurface is not the same as a muted colour. At 0.6 the BOOK /
+    // CHAPTER / VERSE labels measured 5.90:1 on the dark panel and at 0.3 the
+    // disabled ones 2.45:1; mutedText is the per-theme token tuned for this
+    // and reaches 7.08:1. decorativeInk carries the disabled state, which is
+    // a glyph-level 3:1 job rather than a text one.
     final color = isActive
         ? cs.primary
         : isEnabled
-            ? cs.onSurface.withValues(alpha: 0.6)
-            : cs.onSurface.withValues(alpha: 0.3);
+            ? context.mutedText
+            : context.decorativeInk;
 
     return Expanded(
       child: Semantics(
@@ -427,12 +437,19 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
             children: [
               Icon(icon, size: AppTheme.iconSM, color: color),
               const SizedBox(width: AppTheme.spacing4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                  color: color,
+              // Flexible: three tabs share the width evenly, and the longest
+              // label plus its icon ran 2.1px past its third. The label
+              // yields rather than the row overflowing.
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                    color: color,
+                  ),
                 ),
               ),
             ],
@@ -476,9 +493,17 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
     '3 John': '3Jo', 'Jude': 'Jud', 'Revelation': 'Rev',
   };
 
+  /// The book chips' palette, taken from the app's own accents.
+  ///
+  /// It used to be eight raw hex values, which have no tuned foreground in
+  /// either theme — so the label was the swatch itself faded to 70% on a tint
+  /// of the same hue. Same hue, similar lightness: the book names measured
+  /// 2.15:1 to 4.19:1 on the dark panel, which is what made them look washed
+  /// out. These six each have an accentOnDark/onLight pair, so the label can
+  /// carry the chip's colour and still be read.
   static const _chipColors = [
-    Color(0xFF6366F1), Color(0xFF10B981), Color(0xFFF59E0B), Color(0xFFEF4444),
-    Color(0xFF8B5CF6), Color(0xFF06B6D4), Color(0xFFF97316), Color(0xFF84CC16),
+    AppTheme.brandBlue, AppTheme.emerald, AppTheme.orange,
+    AppTheme.rosePink, AppTheme.brandPurple, AppTheme.teal,
   ];
 
   Widget _buildBookGrid(ColorScheme cs) {
@@ -508,6 +533,7 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
     int indexOffset,
     ColorScheme cs,
   ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -516,7 +542,7 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: cs.onSurface.withValues(alpha: 0.5),
+            color: context.mutedText,
             letterSpacing: 0.5,
           ),
         ),
@@ -541,12 +567,17 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
               labelStyle: TextStyle(
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? color.withValues(alpha: 0.9) : color.withValues(alpha: 0.7),
+                // Full strength. Selection is carried by weight, the border
+                // and a stronger ground — dimming the label to say "not
+                // selected" costs legibility on every chip but one.
+                color: AppTheme.accentOnTintFor(
+                    color, Theme.of(context).brightness),
               ),
-              backgroundColor: color.withValues(alpha: 0.08),
-              selectedColor: color.withValues(alpha: 0.38),
+              backgroundColor: color.withValues(alpha: isDark ? 0.12 : 0.10),
+              selectedColor: color.withValues(alpha: isDark ? 0.34 : 0.28),
               side: BorderSide(
-                color: isSelected ? color.withValues(alpha: 0.7) : color.withValues(alpha: 0.25),
+                color: color.withValues(
+                    alpha: isSelected ? 0.8 : (isDark ? 0.45 : 0.30)),
                 width: isSelected ? 1.8 : 1.0,
               ),
               visualDensity: VisualDensity.compact,
@@ -574,7 +605,7 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: cs.onSurface.withValues(alpha: 0.6),
+              color: context.mutedText,
             ),
           ),
         ),
@@ -642,7 +673,7 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: cs.onSurface.withValues(alpha: 0.6),
+                  color: context.mutedText,
                 ),
               ),
               if (hasSelection)
@@ -680,7 +711,7 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
             l10n(context).tapOnceForSingleVerseTapAnotherForRange,
             style: TextStyle(
               fontSize: 12,
-              color: cs.onSurface.withValues(alpha: 0.4),
+              color: context.mutedText,
             ),
           ),
         ),
@@ -775,7 +806,7 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
                         Icon(Icons.translate,
                             size: AppTheme.iconMD,
                             color:
-                                cs.onSurface.withValues(alpha: 0.6)),
+                                context.mutedText),
                         const SizedBox(width: AppTheme.spacing8),
                         Expanded(
                           child: Text(
@@ -792,14 +823,14 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color:
-                                cs.onSurface.withValues(alpha: 0.5),
+                                context.mutedText,
                           ),
                         ),
                         const SizedBox(width: AppTheme.spacing4),
                         Icon(Icons.chevron_right,
                             size: AppTheme.iconMD,
                             color:
-                                cs.onSurface.withValues(alpha: 0.4)),
+                                context.mutedText),
                       ],
                     ),
                   );
@@ -895,7 +926,7 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
                 style: TextStyle(
                   fontSize: 13,
                   fontStyle: FontStyle.italic,
-                  color: cs.onSurface.withValues(alpha: 0.7),
+                  color: context.mutedText,
                   height: 1.4,
                 ),
                 maxLines: 4,

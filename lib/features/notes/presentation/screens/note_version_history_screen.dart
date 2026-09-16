@@ -22,8 +22,6 @@ class NoteVersionHistoryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final revisionsAsync = ref.watch(noteRevisionsProvider(noteId));
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -39,12 +37,12 @@ class NoteVersionHistoryScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.history,
-                      size: 48, color: cs.onSurface.withValues(alpha: 0.3)),
+                      size: 48, color: context.mutedText),
                   const SizedBox(height: 12),
                   Text(
                     l10n(context).noRevisionsYet,
                     style: TextStyle(
-                      color: cs.onSurface.withValues(alpha: 0.5),
+                      color: context.mutedText,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -52,7 +50,7 @@ class NoteVersionHistoryScreen extends ConsumerWidget {
                     l10n(context).revisionsAreCreatedEachTimeYouSave,
                     style: TextStyle(
                       fontSize: 13,
-                      color: cs.onSurface.withValues(alpha: 0.4),
+                      color: context.mutedText,
                     ),
                   ),
                 ],
@@ -175,7 +173,7 @@ class _RevisionTile extends ConsumerWidget {
                             '${revision.blockCount} blocks',
                             style: TextStyle(
                               fontSize: 13,
-                              color: cs.onSurface.withValues(alpha: 0.5),
+                              color: context.mutedText,
                             ),
                           ),
                         ],
@@ -192,7 +190,7 @@ class _RevisionTile extends ConsumerWidget {
                         _formatTimestamp(dateTime),
                         style: TextStyle(
                           fontSize: 13,
-                          color: cs.onSurface.withValues(alpha: 0.5),
+                          color: context.mutedText,
                         ),
                       ),
                     ],
@@ -204,7 +202,7 @@ class _RevisionTile extends ConsumerWidget {
                 child: Icon(
                   Icons.chevron_right,
                   size: 18,
-                  color: cs.onSurface.withValues(alpha: 0.3),
+                  color: context.mutedText,
                 ),
               ),
             ],

@@ -42,19 +42,19 @@ class TagManagementScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.label_outline,
-                      size: 48, color: cs.onSurface.withValues(alpha: 0.3)),
+                      size: 48, color: context.mutedText),
                   const SizedBox(height: AppTheme.spacing12),
                   Text(
                     l10n(context).noTagsYet,
                     style: AppTheme.headingSmall.copyWith(
-                      color: cs.onSurface.withValues(alpha: 0.5),
+                      color: context.mutedText,
                     ),
                   ),
                   const SizedBox(height: AppTheme.spacing4),
                   Text(
                     l10n(context).tagsAddedToNotesAndSongsWillAppearHere,
                     style: AppTheme.bodySmallStyle.copyWith(
-                      color: cs.onSurface.withValues(alpha: 0.4),
+                      color: context.mutedText,
                     ),
                   ),
                 ],
@@ -99,8 +99,6 @@ class _TagTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
 
     return ListTile(
       leading: Icon(Icons.label_outline,
@@ -109,11 +107,11 @@ class _TagTile extends ConsumerWidget {
       subtitle: Text(
         '$usageCount ${usageCount == 1 ? 'use' : 'uses'}',
         style: AppTheme.caption.copyWith(
-            color: cs.onSurface.withValues(alpha: 0.5)),
+            color: context.mutedText),
       ),
       trailing: PopupMenuButton<String>(
         icon: Icon(Icons.more_vert,
-            color: cs.onSurface.withValues(alpha: 0.5)),
+            color: context.mutedText),
         onSelected: (action) =>
             _handleAction(context, ref, action),
         itemBuilder: (context) => [

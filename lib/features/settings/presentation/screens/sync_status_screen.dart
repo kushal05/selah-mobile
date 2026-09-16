@@ -474,7 +474,7 @@ class SyncStatusScreen extends ConsumerWidget {
         size: 20,
         color: progress.isSyncing && count > 0
             ? Theme.of(context).colorScheme.primary
-            : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+            : context.mutedText,
       ),
       title: Text(cat.label, style: const TextStyle(fontSize: 16)),
       trailing: trailing,
@@ -646,7 +646,7 @@ class _DiagRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+          Icon(icon, size: 18, color: context.mutedText),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

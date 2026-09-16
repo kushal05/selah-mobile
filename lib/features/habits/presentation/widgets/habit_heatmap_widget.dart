@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../data/habit_log_repository.dart';
+import '../../../../core/theme/theme_colors.dart';
 
 /// A 3-month calendar heatmap showing daily habit completions.
 ///
@@ -46,7 +47,7 @@ class HabitHeatmapWidget extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: theme.textTheme.labelSmall?.copyWith(
                       fontSize: 12,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                      color: context.mutedText,
                     ),
                   ),
                 ),
@@ -88,7 +89,6 @@ class _DayCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Container(
       width: 10,
       height: 10,
@@ -96,7 +96,9 @@ class _DayCell extends StatelessWidget {
       decoration: BoxDecoration(
         color: done
             ? color.withValues(alpha: 0.85)
-            : theme.colorScheme.onSurface.withValues(alpha: 0.07),
+            // An empty cell is a ground, not a mark — subtleFill is the
+            // token for exactly this.
+            : context.subtleFill,
         borderRadius: BorderRadius.circular(AppTheme.radiusXS),
         border: isToday
             ? Border.all(color: color.withValues(alpha: 0.6), width: 1)

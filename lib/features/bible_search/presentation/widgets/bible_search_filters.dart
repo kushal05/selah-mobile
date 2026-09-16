@@ -6,6 +6,7 @@ import '../../../bible/domain/models/bible_books.dart';
 import '../../../notes/presentation/widgets/editor/bible_reference_picker.dart';
 import '../../domain/models/bible_search_result.dart';
 import '../../../../l10n/l10n.dart';
+import '../../../../core/theme/theme_colors.dart';
 
 /// A horizontal row of filter chips for Bible verse search with multi-select.
 ///
@@ -123,6 +124,7 @@ class BibleSearchFiltersBar extends StatelessWidget {
               // Testament chips
               for (final t in filters.testaments)
                 _dismissChip(
+                  context: context,
                   label: t == 0 ? 'Old Testament' : 'New Testament',
                   cs: cs,
                   onDeleted: () {
@@ -134,6 +136,7 @@ class BibleSearchFiltersBar extends StatelessWidget {
               // Book chips
               for (final bookId in filters.bookIds)
                 _dismissChip(
+                  context: context,
                   label: _resolveBookName(bookId) ?? 'Book $bookId',
                   cs: cs,
                   onDeleted: () {
@@ -145,6 +148,7 @@ class BibleSearchFiltersBar extends StatelessWidget {
               // Translation chips
               for (final t in filters.translations)
                 _dismissChip(
+                  context: context,
                   label: _translationName(t),
                   cs: cs,
                   onDeleted: () {
@@ -161,6 +165,7 @@ class BibleSearchFiltersBar extends StatelessWidget {
   }
 
   Widget _dismissChip({
+    required BuildContext context,
     required String label,
     required ColorScheme cs,
     required VoidCallback onDeleted,
@@ -171,7 +176,7 @@ class BibleSearchFiltersBar extends StatelessWidget {
         style: TextStyle(fontSize: 13, color: cs.onSurface),
       ),
       deleteIcon: Icon(Icons.close,
-          size: 14, color: cs.onSurface.withValues(alpha: 0.6)),
+          size: 14, color: context.mutedText),
       onDeleted: onDeleted,
       visualDensity: VisualDensity.compact,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,

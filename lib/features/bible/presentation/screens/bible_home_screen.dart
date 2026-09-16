@@ -197,14 +197,14 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
           child: Row(
             children: [
               Icon(Icons.bookmark, size: 14,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                  color: context.mutedText),
               const SizedBox(width: 4),
               Text(
                 l10n(context).bookmarks,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  color: context.mutedText,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -273,7 +273,7 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: cs.onSurface.withValues(alpha: 0.5),
+            color: context.mutedText,
             letterSpacing: 0.5,
           ),
         ),

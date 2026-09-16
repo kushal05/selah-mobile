@@ -286,7 +286,7 @@ class NoteDetailScreen extends ConsumerWidget {
                   size: 20,
                   color: isChecked
                       ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      : context.mutedText,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -295,7 +295,7 @@ class NoteDetailScreen extends ConsumerWidget {
                     style: theme.textTheme.bodyLarge?.copyWith(
                       decoration: isChecked ? TextDecoration.lineThrough : null,
                       color: isChecked
-                          ? theme.colorScheme.onSurface.withValues(alpha: 0.6)
+                          ? context.mutedText
                           : null,
                     ),
                   ),

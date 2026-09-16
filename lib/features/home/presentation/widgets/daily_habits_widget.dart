@@ -6,6 +6,7 @@ import '../../../../core/navigation/routes.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../providers/habit_providers.dart';
 import '../../../../l10n/l10n.dart';
+import '../../../../core/theme/theme_colors.dart';
 
 /// Home-screen card showing today's three habit check-ins with streak counts.
 class DailyHabitsWidget extends ConsumerWidget {
@@ -152,7 +153,7 @@ class _HabitTile extends ConsumerWidget {
                 Icon(
                   icon,
                   size: 18,
-                  color: isDone ? color : theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                  color: isDone ? color : context.mutedText,
                 ),
                 const Spacer(),
                 if (isDone)
@@ -160,7 +161,7 @@ class _HabitTile extends ConsumerWidget {
                 else
                   Icon(Icons.radio_button_unchecked_rounded,
                       size: 16,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.25)),
+                      color: context.mutedText),
               ],
             ),
             const SizedBox(height: AppTheme.spacing8),
@@ -170,7 +171,7 @@ class _HabitTile extends ConsumerWidget {
                 fontWeight: FontWeight.w600,
                 color: isDone
                     ? color.withValues(alpha: 0.9)
-                    : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    : context.mutedText,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -182,7 +183,7 @@ class _HabitTile extends ConsumerWidget {
                     size: 11,
                     color: streak > 0
                         ? const Color(0xFFEF4444)
-                        : theme.colorScheme.onSurface.withValues(alpha: 0.25)),
+                        : context.mutedText),
                 const SizedBox(width: 2),
                 Text(
                   streak > 0 ? '$streak day${streak == 1 ? '' : 's'}' : '—',
@@ -190,7 +191,7 @@ class _HabitTile extends ConsumerWidget {
                     fontSize: 12,
                     color: streak > 0
                         ? const Color(0xFFEF4444)
-                        : theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                        : context.mutedText,
                   ),
                 ),
               ],

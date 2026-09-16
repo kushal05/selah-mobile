@@ -895,7 +895,6 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   /// Builds the collapsible folder section header
   Widget _buildCollapsibleFolderHeader(BuildContext context, AsyncValue<List<dynamic>> foldersAsync) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
     final folderCount = foldersAsync.when(
       data: (folders) => folders.length,
@@ -927,7 +926,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                 child: Icon(
                   Icons.chevron_right_rounded,
                   size: 20,
-                  color: colorScheme.onSurface.withValues(alpha: 0.5),
+                  color: context.mutedText,
                 ),
               ),
               const SizedBox(width: 8),
@@ -1814,7 +1813,6 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   /// Builds the trash section showing trashed notes with restore/delete actions
   Widget _buildTrashSection(BuildContext context) {
     final trashedNotesAsync = ref.watch(trashedNotesStreamProvider);
-    final colorScheme = Theme.of(context).colorScheme;
 
     return trashedNotesAsync.when(
       loading: () => const ListTileSkeletonList(count: 8, hasLeading: false),
@@ -1830,7 +1828,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                   Icon(
                     Icons.delete_outline,
                     size: 64,
-                    color: colorScheme.onSurface.withValues(alpha: 0.3),
+                    color: context.mutedText,
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -1980,7 +1978,6 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   /// Builds empty state for notes section
   Widget _buildEmptyNotesState(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
     return Center(
       child: Padding(
@@ -1991,7 +1988,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
             Icon(
               Icons.note_add_rounded,
               size: 64,
-              color: colorScheme.onSurface.withValues(alpha: 0.3),
+              color: context.mutedText,
             ),
             const SizedBox(height: 16),
             Text(

@@ -77,7 +77,7 @@ class HabitStatsCard extends ConsumerWidget {
                   child: Icon(icon, size: 18,
                       color: isDone
                           ? color
-                          : theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                          : context.mutedText),
                 ),
                 const SizedBox(width: AppTheme.spacing12),
                 Expanded(
@@ -162,7 +162,7 @@ class HabitStatsCard extends ConsumerWidget {
                   icon: Icons.local_fire_department_rounded,
                   iconColor: streak > 0
                       ? const Color(0xFFEF4444)
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                      : context.mutedText,
                   label: streak > 0
                       ? '$streak day${streak == 1 ? '' : 's'}'
                       : '0 days',
@@ -174,7 +174,7 @@ class HabitStatsCard extends ConsumerWidget {
                   icon: Icons.emoji_events_rounded,
                   iconColor: best > 0
                       ? const Color(0xFFF59E0B)
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                      : context.mutedText,
                   label: best > 0 ? '$best day${best == 1 ? '' : 's'}' : '—',
                   sublabel: l10n(context).bestStreak,
                   theme: theme,
@@ -248,7 +248,7 @@ class _StatChip extends StatelessWidget {
                       style: theme.textTheme.labelSmall?.copyWith(
                         fontSize: 12,
                         color:
-                            theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                            context.mutedText,
                       )),
                 ],
               ),

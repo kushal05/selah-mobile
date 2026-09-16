@@ -6,6 +6,7 @@ import '../providers/weekly_digest_provider.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../shared/widgets/error_state.dart';
 import '../../../../shared/utils/date_format.dart';
+import '../../../../core/theme/theme_colors.dart';
 
 /// Shows a 7-day summary of user activity (prayers, notes, Bible, people).
 /// Read-only — purely derived from existing data, so no writes / oplog.
@@ -54,7 +55,7 @@ class _DigestBody extends StatelessWidget {
           Text(
             _formatRange(digest.windowStart, digest.windowEnd),
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              color: context.mutedText,
             ),
           ),
           const SizedBox(height: 16),
@@ -80,7 +81,7 @@ class _DigestBody extends StatelessWidget {
               l10n(context).pulledFromYourLocalActivityNothingLeavesTheD,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                color: context.mutedText,
               ),
             ),
           ),
@@ -178,7 +179,7 @@ class _StatTile extends StatelessWidget {
               Text(
                 sub!,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  color: context.mutedText,
                 ),
               ),
           ],
@@ -266,7 +267,7 @@ class _EmptyState extends StatelessWidget {
               l10n(context).logAPrayerCaptureANoteOrOpenTheBibleToSeeYou,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                color: context.mutedText,
               ),
             ),
           ],
