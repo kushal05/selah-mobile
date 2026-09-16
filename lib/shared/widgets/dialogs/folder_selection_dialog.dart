@@ -263,7 +263,7 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
                 const SizedBox(height: 8),
                 Text(
                   'No ${_entityLabelLower}s yet',
-                  style: TextStyle(color: context.subtleFill),
+                  style: TextStyle(color: context.mutedText),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -369,7 +369,7 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
               child: Text(
                 'Creating $_entityLabelLower in "$parentName"',
                 style: TextStyle(
-                  color: context.subtleFill,
+                  color: context.mutedText,
                   fontSize: 13,
                 ),
               ),

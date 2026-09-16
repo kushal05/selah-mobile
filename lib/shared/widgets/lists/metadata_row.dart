@@ -54,13 +54,13 @@ class MetadataItem extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: context.subtleFill),
+        Icon(icon, size: 16, color: context.mutedText),
         const SizedBox(width: 4),
         Text(
           text,
           style: TextStyle(
             fontSize: 16,
-            color: context.subtleFill,
+            color: context.mutedText,
           ),
         ),
       ],

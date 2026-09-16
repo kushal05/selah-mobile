@@ -28,7 +28,7 @@ class SearchSection extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: context.subtleFill,
+              color: context.mutedText,
               letterSpacing: 0.5,
             ),
           ),

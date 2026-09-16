@@ -50,7 +50,7 @@ class LinkedCard extends StatelessWidget {
                     subtitle,
                     style: TextStyle(
                       fontSize: 16,
-                      color: context.subtleFill,
+                      color: context.mutedText,
                     ),
                   ),
                 ],
