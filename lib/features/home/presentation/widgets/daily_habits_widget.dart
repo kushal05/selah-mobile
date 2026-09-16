@@ -28,7 +28,14 @@ class DailyHabitsWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final todayAsync = ref.watch(todayHabitKeysProvider);
-    final completedKeys = todayAsync.valueOrNull ?? {};
+    // Nullable on purpose. `?? {}` rendered "nothing done yet" for three
+    // different situations — loaded-and-empty, still loading, and failed to
+    // load — and only one of those is true. The other two are a claim about
+    // the user's day that we cannot make, and worse: toggleToday re-reads the
+    // database rather than trusting this, so tapping a habit that is really
+    // completed but drawn as not-done soft-deletes the completion. A tap
+    // meant to record something destroys it.
+    final completedKeys = todayAsync.valueOrNull;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -70,9 +77,38 @@ class DailyHabitsWidget extends ConsumerWidget {
             ],
           ),
         ),
+        // A failed read leaves every tile inert, which on its own is a row of
+        // controls that do nothing and say nothing. Name it, and offer the
+        // retry — otherwise the fix above trades a destructive tap for a
+        // silent one.
+        if (todayAsync.hasError)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppTheme.spacing8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n(context).habitsCouldntBeLoaded,
+                    style: AppTheme.caption
+                        .copyWith(color: context.dangerText),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => ref.invalidate(todayHabitKeysProvider),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(l10n(context).retry),
+                ),
+              ],
+            ),
+          ),
         Row(
           children: _habits.map((habit) {
-            final isDone = completedKeys.contains(habit.key);
+            // null = we do not know yet, which is not the same as "no".
+            final isDone = completedKeys?.contains(habit.key);
             return Expanded(
               child: Padding(
                 padding: EdgeInsets.only(
@@ -95,7 +131,9 @@ class DailyHabitsWidget extends ConsumerWidget {
 
 class _HabitTile extends ConsumerWidget {
   final HabitType habit;
-  final bool isDone;
+
+  /// Whether the habit is done today, or null while that is unknown.
+  final bool? isDone;
   final IconData icon;
   final Color color;
 
@@ -112,13 +150,29 @@ class _HabitTile extends ConsumerWidget {
     final streakAsync = ref.watch(habitStreakProvider(habit));
     final streak = streakAsync.valueOrNull ?? 0;
 
+    final known = isDone != null;
+    // Styling decisions take the "not done" look while unknown — the tile is
+    // inert then, so it cannot mislead a tap; only the status glyph below
+    // distinguishes the two, by declining to show either mark.
+    final done = isDone == true;
+
     return Semantics(
-      button: true,
-      label: isDone
-          ? '${habit.label}, done today. Mark not done'
-          : '${habit.label}, not done. Mark done',
+      button: known,
+      // Never announce a state we do not have. Saying "not done, mark done"
+      // while the read is still in flight invites exactly the tap that
+      // destroys the completion.
+      label: known
+          ? (isDone!
+              ? '${habit.label}, done today. Mark not done'
+              : '${habit.label}, not done. Mark done')
+          : '${habit.label}, loading',
       child: GestureDetector(
-      onTap: () async {
+      // Inert until the state is known, for the same reason.
+      onTap: !known
+          ? null
+          : () async {
+        final messenger = ScaffoldMessenger.of(context);
+        final failed = l10n(context).habitCouldntBeUpdated;
         try {
           await ref.read(habitLogRepositoryProvider).toggleToday(habit);
           // todayHabitKeysProvider is a StreamProvider with readsFrom:{habitLogs}
@@ -126,7 +180,13 @@ class _HabitTile extends ConsumerWidget {
           // Streak is a FutureProvider so must be explicitly refreshed.
           ref.invalidate(habitStreakProvider(habit));
         } catch (_) {
-          // Best-effort — streak/check state will remain unchanged on failure
+          // Say so. Swallowing this left the tile unchanged with no
+          // explanation, which reads as a tap that missed — so the user taps
+          // again, against a write that is failing.
+          messenger.showSnackBar(SnackBar(
+            content: Text(failed),
+            behavior: SnackBarBehavior.floating,
+          ));
         }
       },
       child: AnimatedContainer(
@@ -136,12 +196,12 @@ class _HabitTile extends ConsumerWidget {
           vertical: AppTheme.spacing12,
         ),
         decoration: BoxDecoration(
-          color: isDone
+          color: done
               ? color.withValues(alpha: 0.12)
               : theme.colorScheme.surfaceContainerHigh,
           borderRadius: AppTheme.borderRadiusLG,
           border: Border.all(
-            color: isDone ? color.withValues(alpha: 0.4) : Colors.transparent,
+            color: done ? color.withValues(alpha: 0.4) : Colors.transparent,
             width: 1.5,
           ),
         ),
@@ -153,10 +213,15 @@ class _HabitTile extends ConsumerWidget {
                 Icon(
                   icon,
                   size: 18,
-                  color: isDone ? color : context.mutedText,
+                  color: done ? color : context.mutedText,
                 ),
                 const Spacer(),
-                if (isDone)
+                // Three states, not two: neither mark is shown until we know
+                // which is true.
+                if (!known)
+                  Icon(Icons.more_horiz_rounded,
+                      size: 16, color: context.decorativeInk)
+                else if (done)
                   Icon(Icons.check_circle_rounded, size: 16, color: color)
                 else
                   Icon(Icons.radio_button_unchecked_rounded,
@@ -169,7 +234,7 @@ class _HabitTile extends ConsumerWidget {
               habit.label,
               style: theme.textTheme.labelSmall?.copyWith(
                 fontWeight: FontWeight.w600,
-                color: isDone
+                color: done
                     ? color.withValues(alpha: 0.9)
                     : context.mutedText,
               ),

@@ -999,5 +999,13 @@
   "bibleDownloadFailed": "Download failed. Check your connection and try again.",
   "@bibleDownloadFailed": {
     "description": "Shown in the Bible reference picker when no translation is installed."
+  },
+  "habitsCouldntBeLoaded": "Today's habits couldn't be loaded",
+  "@habitsCouldntBeLoaded": {
+    "description": "Shown on the home screen habits widget."
+  },
+  "habitCouldntBeUpdated": "Couldn't update that habit. Try again.",
+  "@habitCouldntBeUpdated": {
+    "description": "Shown on the home screen habits widget."
   }
 }
