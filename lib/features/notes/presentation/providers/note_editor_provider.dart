@@ -15,7 +15,9 @@ import '../../domain/models/editor_operation.dart';
 import '../../domain/models/note.dart';
 import '../../domain/models/note_section.dart';
 import '../../domain/models/text_span_format.dart';
+import '../../domain/services/inline_tag_parser.dart';
 import '../widgets/editor/formatted_text_controller.dart';
+import '../../../../core/sync/providers/sync_providers.dart';
 import 'database_provider.dart';
 
 /// UI state for the editor (ephemeral)
@@ -322,8 +324,22 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
       final note = await repository.getNoteById(noteId);
 
       if (note != null) {
-        final tagIds = await repository.getTagsForNote(noteId);
-        state = NoteEditorState.fromNote(note, tagIds: tagIds);
+        final stored = await repository.getTagsForNote(noteId);
+        state = NoteEditorState.fromNote(note, tagIds: stored);
+
+        // Subtract what the content already implies, so state.tagIds holds
+        // only the tags chosen by hand. Without this, a tag derived from
+        // `#faith` would come back as a manual one on the next open and then
+        // deleting the text would no longer remove it.
+        final derived = <String>{
+          ...await _resolveTagNames(_inlineTagNames(), create: false),
+          ..._verseTagIds(),
+        };
+        if (derived.isNotEmpty) {
+          state = state.copyWith(
+            tagIds: stored.where((id) => !derived.contains(id)).toList(),
+          );
+        }
         _initializeBlockControllers();
       } else {
         state = state.copyWith(
@@ -1878,8 +1894,10 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
         await repository.createNote(note);
         if (_disposed) return;
 
-        if (state.tagIds.isNotEmpty) {
-          await repository.setTagsForNote(noteId, state.tagIds);
+        final effectiveTags = await _effectiveTagIds();
+        if (_disposed) return;
+        if (effectiveTags.isNotEmpty) {
+          await repository.setTagsForNote(noteId, effectiveTags);
           if (_disposed) return;
         }
 
@@ -1902,7 +1920,9 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
 
         await repository.updateNote(updatedNote);
         if (_disposed) return;
-        await repository.setTagsForNote(updatedNote.id, state.tagIds);
+        final effectiveTags = await _effectiveTagIds();
+        if (_disposed) return;
+        await repository.setTagsForNote(updatedNote.id, effectiveTags);
         if (_disposed) return;
 
         state = state.copyWith(
@@ -1924,6 +1944,69 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
         error: 'Failed to save: $e',
       );
     }
+  }
+
+  // ==================== Derived tags ====================
+
+  /// Tag names written as `#word` anywhere in the note's text.
+  Set<String> _inlineTagNames() {
+    final names = <String>{};
+    for (final block in state.document.blocks) {
+      if (block.type == BlockType.bibleReference) continue;
+      names.addAll(InlineTagParser.names(block.content));
+    }
+    return names;
+  }
+
+  /// Tag ids put on the note's Bible reference blocks.
+  Set<String> _verseTagIds() {
+    final ids = <String>{};
+    for (final block in state.document.blocks) {
+      if (block.type != BlockType.bibleReference) continue;
+      try {
+        final ref = BibleReference.fromJson(
+          jsonDecode(block.content) as Map<String, dynamic>,
+        );
+        ids.addAll(ref.tagIds);
+      } catch (_) {
+        // A block whose JSON will not parse is already rendered as an empty
+        // reference; it contributes no tags rather than failing the save.
+      }
+    }
+    return ids;
+  }
+
+  /// Resolves `#word` names to tag ids, creating tags that do not exist yet.
+  ///
+  /// [create] is false while loading, where the point is to recognise tags
+  /// that already exist — opening a note should not write new ones.
+  Future<Set<String>> _resolveTagNames(
+    Set<String> names, {
+    required bool create,
+  }) async {
+    if (names.isEmpty) return const {};
+    final repo = _ref.read(tagRepositoryProvider);
+    final userId = _ref.read(currentUserIdProvider);
+    final ids = <String>{};
+    for (final name in names) {
+      final tag = create
+          ? await repo.getOrCreateTag(name, userId)
+          : await repo.getTagByName(name, userId);
+      if (tag != null) ids.add(tag.id);
+    }
+    return ids;
+  }
+
+  /// What the note's tags should be: the ones chosen by hand, plus the ones
+  /// the note's own content implies.
+  ///
+  /// Derived tags are recomputed from the document every save rather than
+  /// remembered, which is what makes deleting `#faith` remove the tag: the
+  /// name is simply no longer there to derive. A tag that is also manual, or
+  /// also on a verse, survives the text going away.
+  Future<List<String>> _effectiveTagIds() async {
+    final inline = await _resolveTagNames(_inlineTagNames(), create: true);
+    return <String>{...state.tagIds, ...inline, ..._verseTagIds()}.toList();
   }
 
   // ==================== Bible Reference Operations ====================
@@ -2110,6 +2193,9 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
       insertedAt: DateTime.now().millisecondsSinceEpoch,
       display: const BibleVerseDisplay(),
       pending: false,
+      // Carried over. This builds a fresh reference, so without it correcting
+      // a chapter number would silently drop the tags on that verse.
+      tagIds: _referenceTagIds(block.content),
     );
 
     final updatedBlock = block.copyWith(
@@ -2123,6 +2209,58 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     );
     _scheduleSave();
   }
+
+  /// Tag ids on the reference encoded in [blockContent], or empty if it will
+  /// not parse.
+  List<String> _referenceTagIds(String blockContent) {
+    try {
+      return BibleReference.fromJson(
+        jsonDecode(blockContent) as Map<String, dynamic>,
+      ).tagIds;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Replaces the tags on a Bible reference block.
+  ///
+  /// Rides the same debounced save as every other block edit, so a verse tag
+  /// reaches the note's tags through the usual path rather than a second one.
+  void updateBibleReferenceTags({
+    required String blockId,
+    required List<String> tagIds,
+  }) {
+    final block = state.document.getBlockById(blockId);
+    if (block == null || block.type != BlockType.bibleReference) return;
+
+    final BibleReference existing;
+    try {
+      existing = BibleReference.fromJson(
+        jsonDecode(block.content) as Map<String, dynamic>,
+      );
+    } catch (_) {
+      // Nothing to attach tags to; leave the block exactly as it is rather
+      // than replacing it with an empty reference.
+      return;
+    }
+
+    final updated = existing.copyWith(tagIds: tagIds);
+    if (updated == existing) return;
+
+    state = state.copyWith(
+      document: state.document.updateBlock(
+        blockId,
+        block.copyWith(content: jsonEncode(updated.toJson())),
+      ),
+      isDirty: true,
+    );
+    _scheduleSave();
+  }
+
+  /// The tags this note would be saved with. Exposed so the lifecycle can be
+  /// asserted without driving a full save through the database.
+  @visibleForTesting
+  Future<List<String>> effectiveTagIds() => _effectiveTagIds();
 
   // ==================== Section Operations ====================
 
