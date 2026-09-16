@@ -2,7 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/sync/models/note_block_model.dart' show BlockType;
+import '../../../../core/sync/models/note_block_model.dart'
+    show BlockType, NoteBlockModel;
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../domain/models/bible_reference.dart';
 import 'bible_providers.dart';
@@ -24,14 +25,34 @@ typedef VerseKey = ({int bookId, int chapter, int verse});
 /// A verse tagged from two different notes carries both tags, which is what
 /// "shown as a union" means: the reading view answers "what have I called this
 /// verse", not "what did that one note call it".
-final verseTagsProvider = StreamProvider<Map<VerseKey, Set<String>>>((ref) {
+/// Identifies a set of blocks by what this index actually depends on.
+///
+/// Drift re-runs a watched query on any write to the table, so typing in an
+/// unrelated note re-emitted the whole Bible-reference list — measured at one
+/// emission per keystroke-pause save. The rows are identical in that case, and
+/// comparing this is far cheaper than decoding every block's JSON again.
+String _signature(List<NoteBlockModel> blocks) {
+  final parts = [
+    for (final b in blocks) '${b.id}\u0001${b.content['text']}',
+  ]..sort();
+  return parts.join('\u0000');
+}
+
+/// autoDispose: this is a whole-library scan, and it should stop costing
+/// anything the moment the reader is closed. Without it the subscription
+/// outlived the screen and kept re-indexing for the rest of the session.
+final verseTagsProvider =
+    StreamProvider.autoDispose<Map<VerseKey, Set<String>>>((ref) {
   final blockRepo = ref.watch(noteBlockRepositoryProvider);
   final lookup = ref.watch(verseLookupServiceProvider);
   // The Bible database supplies book-name resolution; with none open there is
   // nothing to key against.
   final isOpen = ref.watch(bibleDatabaseServiceProvider).isOpen;
 
-  return blockRepo.watchBlocksOfType(BlockType.bibleReference).map((blocks) {
+  return blockRepo
+      .watchBlocksOfType(BlockType.bibleReference)
+      .distinct((a, b) => _signature(a) == _signature(b))
+      .map((blocks) {
     final index = <VerseKey, Set<String>>{};
     if (!isOpen) return index;
 
@@ -67,8 +88,8 @@ final verseTagsProvider = StreamProvider<Map<VerseKey, Set<String>>>((ref) {
 });
 
 /// Tags on the verses of one chapter, ready for the reader to look up per row.
-final chapterVerseTagsProvider = Provider.family<Map<int, Set<String>>,
-    ({int bookId, int chapter})>((ref, params) {
+final chapterVerseTagsProvider = Provider.autoDispose
+    .family<Map<int, Set<String>>, ({int bookId, int chapter})>((ref, params) {
   final all = ref.watch(verseTagsProvider).valueOrNull;
   if (all == null) return const {};
 

@@ -100,6 +100,25 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     // Seeded, not forced: the user can clear it like any other filter.
     if (widget.initialTagId != null) _filterTagIds.add(widget.initialTagId!);
   }
+
+  /// The active tag filter, so the arriving-from-a-verse-tag path can be
+  /// asserted without driving the whole screen's data layer.
+  @visibleForTesting
+  Set<String> get debugFilterTagIds => _filterTagIds;
+
+  @override
+  void didUpdateWidget(NotesHomeScreen old) {
+    super.didUpdateWidget(old);
+    // Arriving from a second verse tag rebuilds this screen with a new id
+    // rather than creating it again, so initState does not run and the list
+    // would keep showing the first tag's notes.
+    final tagId = widget.initialTagId;
+    if (tagId == null || tagId == old.initialTagId) return;
+    setState(() {
+      if (old.initialTagId != null) _filterTagIds.remove(old.initialTagId);
+      _filterTagIds.add(tagId);
+    });
+  }
   String? _filterPreacherId;
   DateTimeRange? _filterDateRange;
   List<domain.Note>? _filteredNotes;

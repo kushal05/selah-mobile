@@ -16,6 +16,7 @@ import 'package:notify/core/theme/app_theme.dart';
 import 'package:notify/features/bible/domain/models/bible_highlight_entity.dart';
 import 'package:notify/features/bible/domain/models/bible_verse_entity.dart';
 import 'package:notify/features/bible/presentation/widgets/chapter_verse_list.dart';
+import 'package:notify/features/notes/presentation/screens/notes_home_screen.dart';
 
 TagModel tag(String id, String name) =>
     TagModel.create(id: id, userId: 'u', name: name);
@@ -146,5 +147,37 @@ void main() {
     await pumpList(tester);
 
     expect(find.byIcon(Icons.local_offer_outlined), findsNothing);
+  });
+
+  testWidgets('a second verse tag replaces the first in the notes filter',
+      (tester) async {
+    // Arriving from another verse tag rebuilds the notes screen with a new id
+    // rather than creating it again, so initState does not run — the list
+    // would keep showing the first tag's notes.
+    Widget app(String tagId) => ProviderScope(
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: NotesHomeScreen(initialTagId: tagId),
+          ),
+        );
+
+    await tester.pumpWidget(app('tag-a'));
+    // The screen's full build wants the whole notes data layer, which this
+    // test does not stand up — didUpdateWidget runs before build, so the
+    // transition is still observable. Swallow the render failure rather than
+    // pretend the screen rendered.
+    tester.takeException();
+    final state = tester.state(find.byType(NotesHomeScreen));
+
+    await tester.pumpWidget(app('tag-b'));
+    tester.takeException();
+
+    expect(identical(state, tester.state(find.byType(NotesHomeScreen))), isTrue,
+        reason: 'the premise: the same State is reused');
+    expect(
+      (state as dynamic).debugFilterTagIds,
+      {'tag-b'},
+      reason: 'the second tag never reached the filter',
+    );
   });
 }
