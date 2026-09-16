@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/theme/app_theme.dart';
 import '../../../domain/models/text_span_format.dart';
+import '../../../domain/services/inline_tag_parser.dart';
 
 /// Custom TextEditingController that renders formatted text directly
 /// This ensures cursor position matches the visual text layout
@@ -26,67 +28,84 @@ class FormattedTextEditingController extends TextEditingController {
     required bool withComposing,
   }) {
     final effectiveStyle = style ?? const TextStyle();
+    final tags = InlineTagParser.parse(text);
 
-    if (_formats.isEmpty || text.isEmpty) {
+    if ((_formats.isEmpty && tags.isEmpty) || text.isEmpty) {
       return TextSpan(text: text, style: effectiveStyle);
     }
 
-    // Filter out invalid formats and clamp indices to text bounds
     final validFormats = _formats
         .where((f) => f.start < text.length && f.end > 0 && f.start < f.end)
         .toList();
 
-    if (validFormats.isEmpty) {
+    if (validFormats.isEmpty && tags.isEmpty) {
       return TextSpan(text: text, style: effectiveStyle);
     }
 
-    // Sort formats by start position
-    validFormats.sort((a, b) => a.start.compareTo(b.start));
-
-    final spans = <TextSpan>[];
-    int currentIndex = 0;
-
-    for (final format in validFormats) {
-      // Clamp format indices to valid range
-      final startIndex = format.start.clamp(0, text.length);
-      final endIndex = format.end.clamp(0, text.length);
-
-      // Skip if invalid range after clamping
-      if (startIndex >= endIndex) continue;
-
-      // Skip if this format is entirely before current position (already processed)
-      if (endIndex <= currentIndex) continue;
-
-      // Adjust start to avoid overlapping with already processed text
-      final effectiveStart = startIndex < currentIndex ? currentIndex : startIndex;
-
-      // Add unstyled text before this format (if any gap exists)
-      if (effectiveStart > currentIndex) {
-        spans.add(TextSpan(
-          text: text.substring(currentIndex, effectiveStart),
-          style: effectiveStyle,
-        ));
-      }
-
-      // Add styled text (only the non-overlapping portion)
-      spans.add(TextSpan(
-        text: text.substring(effectiveStart, endIndex),
-        style: _applyFormat(effectiveStyle, format),
-      ));
-
-      currentIndex = endIndex;
+    // Cut the text at every point where the styling changes, then emit one run
+    // per gap.
+    //
+    // The previous version walked the format list and skipped any range that
+    // started before the last one ended. That was fine when the only ranges
+    // were the formats themselves, but a tag sitting inside a bold run is an
+    // overlap by construction, and skipping meant one of the two silently lost
+    // — a #tag inside bold text would not be tinted, or the bold would stop at
+    // the tag. Splitting on boundaries lets a character carry both.
+    final boundaries = <int>{0, text.length};
+    for (final f in validFormats) {
+      boundaries.add(f.start.clamp(0, text.length));
+      boundaries.add(f.end.clamp(0, text.length));
+    }
+    for (final t in tags) {
+      boundaries.add(t.start.clamp(0, text.length));
+      boundaries.add(t.end.clamp(0, text.length));
     }
 
-    // Add remaining unstyled text
-    if (currentIndex < text.length) {
-      spans.add(TextSpan(
-        text: text.substring(currentIndex),
-        style: effectiveStyle,
-      ));
+    final cuts = boundaries.toList()..sort();
+    final spans = <TextSpan>[];
+
+    for (var i = 0; i < cuts.length - 1; i++) {
+      final start = cuts[i];
+      final end = cuts[i + 1];
+      if (start >= end) continue;
+
+      var runStyle = effectiveStyle;
+      for (final f in validFormats) {
+        if (f.start <= start && f.end >= end) {
+          runStyle = _applyFormat(runStyle, f);
+        }
+      }
+      final isTag = tags.any((t) => t.start <= start && t.end >= end);
+      if (isTag) runStyle = _applyTagTint(runStyle, context);
+
+      spans.add(TextSpan(text: text.substring(start, end), style: runStyle));
     }
 
     return TextSpan(
-      children: spans.isEmpty ? [TextSpan(text: text, style: effectiveStyle)] : spans,
+      children: spans.isEmpty
+          ? [TextSpan(text: text, style: effectiveStyle)]
+          : spans,
+    );
+  }
+
+  /// A #tag reads as a tag while you are still typing it.
+  ///
+  /// A background tint rather than a rounded chip: a chip needs a WidgetSpan,
+  /// and a widget inside an editable TextField breaks caret placement,
+  /// selection and backspace. This is ordinary text that happens to be
+  /// painted, so editing stays exactly correct.
+  static TextStyle _applyTagTint(TextStyle style, BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final existing = style.fontWeight ?? FontWeight.normal;
+    return style.copyWith(
+      backgroundColor: AppTheme.brandPurple
+          .withValues(alpha: brightness == Brightness.dark ? 0.26 : 0.14),
+      color: AppTheme.inkOnTintFor(AppTheme.brandPurple, brightness),
+      // Nudge the weight up, never down. Setting w600 outright made a #tag
+      // inside a bold run *lighter* than the words around it.
+      fontWeight: existing.value >= FontWeight.w600.value
+          ? existing
+          : FontWeight.w600,
     );
   }
 
