@@ -236,7 +236,21 @@ class _FocusCarouselState extends State<_FocusCarousel> {
           });
         }
         // Reduce Motion: no unrequested movement.
-        if (MediaQuery.of(context).disableAnimations) _stopAutoScroll();
+        //
+        // TickerMode is the second gate. The tab shell is an indexedStack, so
+        // Home stays mounted while the reader is on Notes or Bible, and
+        // go_router mutes an inactive branch's tickers (route.dart:1697) —
+        // but a Timer is not a ticker. Without this the carousel woke every
+        // six seconds for the life of the app to start an animation that
+        // could not run. Measured: the position does not move while inactive,
+        // so this is wasted work rather than a visible fault.
+        final visible = TickerMode.valuesOf(context).enabled &&
+            !MediaQuery.of(context).disableAnimations;
+        if (!visible) {
+          _stopAutoScroll();
+        } else if (_autoScroll == null) {
+          _startAutoScroll();
+        }
         return Column(
           children: [
             NotificationListener<ScrollNotification>(
