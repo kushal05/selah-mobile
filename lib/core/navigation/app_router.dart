@@ -482,7 +482,9 @@ StatefulShellBranch _notesBranch() {
     routes: [
       GoRoute(
         path: Routes.notesHome,
-        builder: (_, _) => const NotesHomeScreen(),
+        builder: (context, state) => NotesHomeScreen(
+          initialTagId: state.uri.queryParameters['tagId'],
+        ),
         routes: [
           GoRoute(
             path: 'new',

@@ -46,7 +46,14 @@ enum NotesSortOption {
 
 /// Notes list screen showing folders and notes in a split layout
 class NotesHomeScreen extends ConsumerStatefulWidget {
-  const NotesHomeScreen({super.key});
+  /// Opens with this tag already applied to the filter.
+  ///
+  /// Set when arriving from a verse tag in the Bible reader, so tapping the
+  /// tag lands on the notes that carry it rather than on an unfiltered list
+  /// the user then has to narrow by hand.
+  final String? initialTagId;
+
+  const NotesHomeScreen({super.key, this.initialTagId});
 
   @override
   ConsumerState<NotesHomeScreen> createState() => _NotesHomeScreenState();
@@ -86,6 +93,13 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   // Filter state
   bool _isFilterActive = true;
   final Set<String> _filterTagIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    // Seeded, not forced: the user can clear it like any other filter.
+    if (widget.initialTagId != null) _filterTagIds.add(widget.initialTagId!);
+  }
   String? _filterPreacherId;
   DateTimeRange? _filterDateRange;
   List<domain.Note>? _filteredNotes;

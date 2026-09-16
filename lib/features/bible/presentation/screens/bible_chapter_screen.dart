@@ -9,6 +9,7 @@ import '../../../../shared/widgets/dialogs/reading_text_size_sheet.dart';
 import '../../domain/models/bible_highlight_entity.dart';
 import '../../domain/models/bible_verse_entity.dart';
 import '../providers/bible_chapter_providers.dart';
+import '../providers/verse_tag_providers.dart';
 import '../providers/bible_providers.dart';
 import '../widgets/chapter_verse_list.dart';
 import '../widgets/highlight_bottom_sheet.dart';
@@ -313,6 +314,11 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
 
   // ── Bookmarks ────────────────────────────────────────────────────────
 
+  /// Opens the notes carrying [tagId].
+  void _openNotesWithTag(String tagId) {
+    context.push('${Routes.notesHome}?tagId=$tagId');
+  }
+
   Future<void> _toggleBookmark(String bookName) async {
     try {
       await ref.read(bibleBookmarkRepositoryProvider).toggleBookmark(
@@ -341,6 +347,9 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     final book = ref.watch(bibleRepositoryProvider).getBookById(_bookId);
     final bookName = book?.name ?? 'Book $_bookId';
     final translations = ref.watch(bibleTranslationsProvider);
+    final verseTags = ref.watch(
+      chapterVerseTagsProvider((bookId: _bookId, chapter: _chapter)),
+    );
     final highlightsAsync = ref.watch(
       chapterHighlightsProvider((bookId: _bookId, chapter: _chapter)),
     );
@@ -432,10 +441,12 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
           children: [
             _isParallel
                 ? _buildParallelView(
-                    theme, primaryVerses, highlights, translations)
+                    theme, primaryVerses, highlights, translations, verseTags)
                 : ChapterVerseList(
                     verses: primaryVerses,
                     highlights: highlights,
+                    verseTags: verseTags,
+                    onTagTap: _openNotesWithTag,
                     scrollController: _primaryScrollController,
                     scrollToVerse: widget.scrollToVerse,
                     onVerseTap: (verse) =>
@@ -475,6 +486,7 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     List<BibleVerseEntity> primaryVerses,
     List<BibleHighlightEntity> highlights,
     List<String> translations,
+    Map<int, Set<String>> verseTags,
   ) {
     final secondaryVerses = ref.watch(bibleVersesProvider(
       (
@@ -500,6 +512,8 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
                 child: ChapterVerseList(
                   verses: primaryVerses,
                   highlights: highlights,
+                  verseTags: verseTags,
+                  onTagTap: _openNotesWithTag,
                   scrollController: _primaryScrollController,
                   onVerseTap: (verse) =>
                       _showHighlightSheet(verse, highlights),
@@ -529,6 +543,10 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
                 child: ChapterVerseList(
                   verses: secondaryVerses,
                   highlights: highlights,
+                  // The tags belong to the verse, not to a translation, so
+                  // the primary column carries them; showing them in both
+                  // would put two controls on screen for one thing.
+                  showVerseTags: false,
                   scrollController: _secondaryScrollController,
                   onVerseTap: (verse) =>
                       _showHighlightSheet(verse, highlights),
