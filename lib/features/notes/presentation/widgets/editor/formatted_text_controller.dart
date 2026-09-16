@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../core/theme/app_theme.dart';
 import '../../../domain/models/text_span_format.dart';
 import '../../../domain/services/inline_tag_parser.dart';
+import '../tagged_text.dart';
 
 /// Custom TextEditingController that renders formatted text directly
 /// This ensures cursor position matches the visual text layout
@@ -88,26 +88,10 @@ class FormattedTextEditingController extends TextEditingController {
     );
   }
 
-  /// A #tag reads as a tag while you are still typing it.
-  ///
-  /// A background tint rather than a rounded chip: a chip needs a WidgetSpan,
-  /// and a widget inside an editable TextField breaks caret placement,
-  /// selection and backspace. This is ordinary text that happens to be
-  /// painted, so editing stays exactly correct.
-  static TextStyle _applyTagTint(TextStyle style, BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final existing = style.fontWeight ?? FontWeight.normal;
-    return style.copyWith(
-      backgroundColor: AppTheme.brandPurple
-          .withValues(alpha: brightness == Brightness.dark ? 0.26 : 0.14),
-      color: AppTheme.inkOnTintFor(AppTheme.brandPurple, brightness),
-      // Nudge the weight up, never down. Setting w600 outright made a #tag
-      // inside a bold run *lighter* than the words around it.
-      fontWeight: existing.value >= FontWeight.w600.value
-          ? existing
-          : FontWeight.w600,
-    );
-  }
+  /// Delegates to [inlineTagStyle] so the editor and the read-only detail
+  /// screen cannot drift apart about what a tag looks like.
+  static TextStyle _applyTagTint(TextStyle style, BuildContext context) =>
+      inlineTagStyle(style, Theme.of(context).brightness);
 
   static TextStyle _applyFormat(TextStyle style, TextSpanFormat format) {
     return style.copyWith(
