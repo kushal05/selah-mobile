@@ -3,6 +3,59 @@
 All notable changes to Selah. Dates are release dates; the build number in
 parentheses matches `version:` in `pubspec.yaml`.
 
+## 0.2.4+32 — 17 September 2026
+
+**If you are on build 30 or 31, this is the one that will install.** Those two
+were signed with the wrong key and Android refused them; this is signed with
+the same key as 29 and earlier.
+
+### Tags
+
+- **Write `#faith` in a note and it becomes a tag.** The word is tinted purple
+  as you type, and reads the same way when you open the note later. Delete the
+  text and the tag goes with it.
+- **Tag a verse.** Expand a Bible reference in a note and there is a tag
+  control in its bottom-right corner. The tag applies to the whole reference
+  and is added to the note's tags too.
+- **Verse tags show while you read.** A tagged verse carries its tags at the
+  bottom right in the Bible reader, from every note that tagged it. Tap one to
+  see the notes that carry it.
+- **`Faith` and `faith` are now one tag.** Tags are lowercase, and existing
+  ones are folded together the first time you open this build. Tags on
+  prayers and promises used to be silently lost when two tags were merged;
+  they are carried over now, and a merge reaches your other devices.
+
+### The app no longer tells you things it does not know
+
+- **Your habits.** A tap on a habit whose state had not loaded yet deleted the
+  completion it could not see — the tap that was meant to record it destroyed
+  it instead. Both places this appeared are fixed, and a habit whose state is
+  unknown no longer looks "not done".
+- **Bookmarking a chapter** had the same fault: a tap before the bookmark
+  loaded removed it.
+- **Highlights, bookmarks and streaks** now say when they could not be loaded,
+  instead of showing an empty page, a missing strip, or "0 days" — each of
+  which reads as "your data is gone".
+- **Home** no longer says "No active prayers" while it is still reading.
+
+### Bible
+
+- **No Bible downloaded?** The verse picker now offers the download in its
+  first step, instead of letting you pick a book, chapter and verse before
+  coming up empty. Bible search does the same.
+- **Opening a chapter with no Bible installed used to crash the screen.**
+- **Highlights are saved properly.** Saving, editing and removing one was
+  never waited on, so a failure was silent — the highlight simply did not
+  appear, or would not delete.
+- **The reference picker is legible in dark mode.** Its close button was
+  near-invisible, and the book names sat at 2:1 contrast.
+
+### Elsewhere
+
+- Quick Actions show a bar underneath so it is clear the row scrolls, the
+  folder lays out as a proper grid, and the tiles share one height.
+- More dark-mode contrast fixes across notes, settings, trash and search.
+
 ## 0.2.3+31 — 16 September 2026
 
 - **The "update available" prompt no longer vanishes on its own.** It appeared
