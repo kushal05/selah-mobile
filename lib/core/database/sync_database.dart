@@ -1612,15 +1612,23 @@ class SyncDatabase extends _$SyncDatabase {
         }
       }
 
-      final storedName = group.first.read<String>('name');
-      final normalised = storedName.trim().toLowerCase();
-      if (storedName != normalised) {
-        await customStatement(
-          'UPDATE sync_tags SET name = ?, updated_at = ?, '
-          'version = version + 1 WHERE id = ?',
-          [normalised, now, survivor],
-        );
-      }
+    }
+
+    // Lowercase everything else, trashed tags included. They are left out of
+    // the merging above — a tag in the bin has no relations to re-point — but
+    // restoring one later should not bring a capital letter back with it.
+    final remaining = await customSelect(
+      'SELECT id, name FROM sync_tags WHERE deleted = 0',
+    ).get();
+    for (final row in remaining) {
+      final stored = row.read<String>('name');
+      final normalised = stored.trim().toLowerCase();
+      if (stored == normalised) continue;
+      await customStatement(
+        'UPDATE sync_tags SET name = ?, updated_at = ?, '
+        'version = version + 1 WHERE id = ?',
+        [normalised, now, row.read<String>('id')],
+      );
     }
   }
 

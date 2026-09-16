@@ -1846,7 +1846,16 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     _saveTimer = Timer(_saveDebounce, _save);
   }
 
-  Future<void> _save() async {
+  /// [finalising] means the user is done with this note for now — they left
+  /// the screen or the app went to the background — as opposed to the 300ms
+  /// autosave that fires while they are still working.
+  ///
+  /// It is what decides whether a `#word` may *create* a tag. An autosave
+  /// fires a third of a second after the last keystroke, which is a perfectly
+  /// ordinary pause in the middle of typing a word, so creating on autosave
+  /// turned "#faith" into four tags — f, fa, fai, faith — and every pause
+  /// while thinking left another one behind forever.
+  Future<void> _save({bool finalising = false}) async {
     if (!state.isDirty || state.isSaving) return;
 
     // Mark as saving and clear dirty flag upfront.
@@ -1894,7 +1903,7 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
         await repository.createNote(note);
         if (_disposed) return;
 
-        final effectiveTags = await _effectiveTagIds();
+        final effectiveTags = await _effectiveTagIds(create: finalising);
         if (_disposed) return;
         if (effectiveTags.isNotEmpty) {
           await repository.setTagsForNote(noteId, effectiveTags);
@@ -1920,7 +1929,7 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
 
         await repository.updateNote(updatedNote);
         if (_disposed) return;
-        final effectiveTags = await _effectiveTagIds();
+        final effectiveTags = await _effectiveTagIds(create: finalising);
         if (_disposed) return;
         await repository.setTagsForNote(updatedNote.id, effectiveTags);
         if (_disposed) return;
@@ -2004,8 +2013,8 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
   /// remembered, which is what makes deleting `#faith` remove the tag: the
   /// name is simply no longer there to derive. A tag that is also manual, or
   /// also on a verse, survives the text going away.
-  Future<List<String>> _effectiveTagIds() async {
-    final inline = await _resolveTagNames(_inlineTagNames(), create: true);
+  Future<List<String>> _effectiveTagIds({required bool create}) async {
+    final inline = await _resolveTagNames(_inlineTagNames(), create: create);
     return <String>{...state.tagIds, ...inline, ..._verseTagIds()}.toList();
   }
 
@@ -2260,7 +2269,8 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
   /// The tags this note would be saved with. Exposed so the lifecycle can be
   /// asserted without driving a full save through the database.
   @visibleForTesting
-  Future<List<String>> effectiveTagIds() => _effectiveTagIds();
+  Future<List<String>> effectiveTagIds({bool create = true}) =>
+      _effectiveTagIds(create: create);
 
   // ==================== Section Operations ====================
 
@@ -2360,7 +2370,7 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
   /// Force save immediately (for app lifecycle events)
   Future<void> forceSave() async {
     _saveTimer?.cancel();
-    await _save();
+    await _save(finalising: true);
   }
 
   @override

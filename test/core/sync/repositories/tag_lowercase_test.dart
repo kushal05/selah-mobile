@@ -159,6 +159,27 @@ void main() {
       expect(await liveTagNames(), ['господь']);
     });
 
+    test('a tag in the bin is lowercased too', () async {
+      // Trashed tags are left out of the merging — a tag in the bin has no
+      // relations to re-point — but restoring one should not bring a capital
+      // letter back with it.
+      await db.customStatement(
+        'INSERT INTO sync_tags (id, user_id, name, updated_at, version, '
+        'deleted, trashed_at, created_at) VALUES (?, ?, ?, 0, 1, 0, ?, 0)',
+        ['t-binned', _userId, 'Faith', 12345],
+      );
+
+      await db.foldTagsToLowercase();
+
+      final row = await db
+          .customSelect('SELECT name, trashed_at FROM sync_tags '
+              "WHERE id = 't-binned'")
+          .getSingle();
+      expect(row.read<String>('name'), 'faith');
+      expect(row.read<int?>('trashed_at'), 12345,
+          reason: 'it should still be in the bin');
+    });
+
     test('running twice changes nothing the second time', () async {
       await seedTag('keep', 'Faith', createdAt: 100);
       await seedTag('fold', 'faith', createdAt: 200);

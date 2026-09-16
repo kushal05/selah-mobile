@@ -165,4 +165,51 @@ void main() {
 
     expect(await effectiveNames(n), isEmpty);
   });
+
+  group('when a tag is created', () {
+    Future<List<String>> allTagNames() async {
+      final tags =
+          await container.read(tagRepositoryProvider).getAllTags(_userId);
+      return tags.map((t) => t.name).toList();
+    }
+
+    test('typing does not create a tag for every half-typed word', () async {
+      // The autosave fires a third of a second after the last keystroke,
+      // which is an ordinary pause in the middle of a word. Creating then
+      // turned "#faith" into four tags — f, fa, fai, faith — and left them
+      // there forever.
+      final n = editor();
+      final id = n.state.document.blocks.first.id;
+
+      for (final partial in ['#f', '#fa', '#fai', '#faith']) {
+        n.updateBlockContent(id, partial);
+        await n.effectiveTagIds(create: false); // what an autosave does
+      }
+
+      expect(await allTagNames(), isEmpty);
+    });
+
+    test('leaving the note creates it', () async {
+      final n = editor();
+      n.updateBlockContent(n.state.document.blocks.first.id, '#faith');
+
+      await n.effectiveTagIds(create: true); // what forceSave does
+
+      expect(await allTagNames(), ['faith']);
+    });
+
+    test('an autosave still attaches a tag that already exists', () async {
+      final repo = container.read(tagRepositoryProvider);
+      await repo.getOrCreateTag('faith', _userId);
+
+      final n = editor();
+      n.updateBlockContent(n.state.document.blocks.first.id, '#faith');
+
+      final ids = await n.effectiveTagIds(create: false);
+
+      expect(ids, hasLength(1),
+          reason: 'an existing tag should attach without waiting');
+      expect(await allTagNames(), ['faith']);
+    });
+  });
 }
