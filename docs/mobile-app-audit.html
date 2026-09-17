@@ -1,0 +1,1607 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+  :root { color-scheme: light dark; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+</style>
+<title>Selah Mobile Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ground:      #F6F5F9;
+    --surface:     #FFFFFF;
+    --surface-2:   #EFEDF4;
+    --ink:         #191722;
+    --ink-2:       #4A4757;
+    --ink-3:       #7B7789;
+    --rule:        #DEDAE7;
+    --rule-soft:   #E9E6EF;
+    --accent:      #5B3DF5;
+    --accent-soft: #EDE9FF;
+    --sev-high:    #C0334B;
+    --sev-med:     #B0700A;
+    --sev-low:     #2F6FA8;
+    --sev-good:    #1F8A5B;
+    --sev-high-bg: #FBEBEE;
+    --sev-med-bg:  #FAF1E1;
+    --sev-low-bg:  #E9F1F9;
+    --sev-good-bg: #E6F4EC;
+
+    --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --f-body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+    --maxw: 940px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #131219;
+      --surface:     #1C1A24;
+      --surface-2:   #252232;
+      --ink:         #EDEBF3;
+      --ink-2:       #B0ACBF;
+      --ink-3:       #807C91;
+      --rule:        #322E3F;
+      --rule-soft:   #272334;
+      --accent:      #A593FF;
+      --accent-soft: #241F3D;
+      --sev-high:    #E05068;
+      --sev-med:     #BE8318;
+      --sev-low:     #3E8ACB;
+      --sev-good:    #23A06D;
+      --sev-high-bg: #2E1A20;
+      --sev-med-bg:  #2A2213;
+      --sev-low-bg:  #16212E;
+      --sev-good-bg: #14261D;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:      #131219;
+    --surface:     #1C1A24;
+    --surface-2:   #252232;
+    --ink:         #EDEBF3;
+    --ink-2:       #B0ACBF;
+    --ink-3:       #807C91;
+    --rule:        #322E3F;
+    --rule-soft:   #272334;
+    --accent:      #A593FF;
+    --accent-soft: #241F3D;
+    --sev-high:    #E05068;
+    --sev-med:     #BE8318;
+    --sev-low:     #3E8ACB;
+    --sev-good:    #23A06D;
+    --sev-high-bg: #2E1A20;
+    --sev-med-bg:  #2A2213;
+    --sev-low-bg:  #16212E;
+    --sev-good-bg: #14261D;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 15px;
+    line-height: 1.6;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 0 72px;
+  }
+
+  /* ---------- masthead ---------- */
+  .mast {
+    padding-block: 44px 28px;
+    border-bottom: 2px solid var(--ink);
+  }
+  .eyebrow {
+    font-family: var(--f-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin: 0 0 14px;
+  }
+  h1 {
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: clamp(30px, 6.5vw, 46px);
+    line-height: 1.05;
+    letter-spacing: -0.022em;
+    margin: 0 0 16px;
+    text-wrap: balance;
+  }
+  .standfirst {
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--ink-2);
+    max-width: 62ch;
+    margin: 0;
+  }
+  .standfirst strong { color: var(--ink); font-weight: 600; }
+
+  /* ---------- verified facts strip ---------- */
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin-block: 28px 0;
+  }
+  .fact { background: var(--surface); padding: 16px 18px; }
+  .fact .n {
+    font-family: var(--f-display);
+    font-size: 27px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    display: block;
+    line-height: 1.15;
+  }
+  .fact .k {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    display: block;
+    margin-top: 5px;
+  }
+  .fact.ok .n { color: var(--sev-good); }
+
+  .runnote {
+    font-family: var(--f-mono);
+    font-size: 11.5px;
+    color: var(--ink-3);
+    margin: 10px 0 0;
+  }
+
+  /* ---------- section headings ---------- */
+  section { margin-top: 52px; }
+  h2 {
+    font-family: var(--f-display);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink);
+    margin: 0 0 6px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--ink);
+  }
+  .sublede {
+    color: var(--ink-2);
+    font-size: 14.5px;
+    margin: 14px 0 22px;
+    max-width: 66ch;
+  }
+
+  /* ---------- passing evidence ---------- */
+  /* Hairline grid: the rules are the 1px gaps showing the container
+     through, so they align across columns no matter how the cell text
+     wraps. Ten items at minmax(340px) gives exactly two full columns at
+     page width and one on a phone — no orphan cell in the last row. */
+  .passes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .passes li {
+    background: var(--surface);
+    padding: 13px 16px;
+    display: grid;
+    /* Fixed metric column so the descriptions start on the same x in
+       every cell — "0" and "122/125" would otherwise ragged the text. */
+    grid-template-columns: 64px 1fr;
+    gap: 11px;
+    align-items: baseline;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--ink-2);
+    min-width: 0;
+  }
+  .passes .v {
+    font-family: var(--f-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sev-good);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .passes li > span:last-child { min-width: 0; }
+  code, .mono {
+    font-family: var(--f-mono);
+    font-size: 0.875em;
+  }
+  code {
+    background: var(--surface-2);
+    padding: 1.5px 5px;
+    border-radius: 3px;
+    color: var(--ink);
+    word-break: break-word;
+  }
+
+  /* ---------- severity ledger ---------- */
+  .ledger {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 26px;
+  }
+  .tally {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 7px 13px 7px 11px;
+    border: 1px solid var(--rule);
+    background: var(--surface);
+  }
+  .tally .dot {
+    width: 9px; height: 9px;
+    flex: none;
+    align-self: center;
+  }
+  .tally .c {
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: 17px;
+    font-variant-numeric: tabular-nums;
+  }
+  .tally .l {
+    font-family: var(--f-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+
+  /* ---------- findings ---------- */
+  .find {
+    display: grid;
+    grid-template-columns: 4px 1fr;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: none;
+    margin-bottom: 14px;
+  }
+  .find > .stripe { background: var(--ink-3); }
+  .find .body { padding: 18px 20px 19px; min-width: 0; }
+
+  .find-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 9px;
+  }
+  .fno {
+    font-family: var(--f-display);
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-3);
+    flex: none;
+    letter-spacing: 0.02em;
+  }
+  .badge {
+    font-family: var(--f-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    padding: 3px 7px;
+    flex: none;
+  }
+  .find h3 {
+    font-family: var(--f-display);
+    font-size: 16.5px;
+    font-weight: 600;
+    letter-spacing: -0.012em;
+    margin: 0;
+    line-height: 1.3;
+    color: var(--ink);
+  }
+  .tag {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-left: auto;
+    flex: none;
+  }
+  .find p { margin: 0 0 11px; color: var(--ink-2); font-size: 14.5px; }
+  .find p:last-child { margin-bottom: 0; }
+  .find .fix {
+    color: var(--ink);
+    border-top: 1px dashed var(--rule);
+    padding-top: 11px;
+    font-size: 14px;
+  }
+  .find .fix b {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-weight: 500;
+    display: block;
+    margin-bottom: 3px;
+  }
+  .loc {
+    font-family: var(--f-mono);
+    font-size: 11.5px;
+    color: var(--ink-3);
+    margin: 0 0 11px;
+    word-break: break-all;
+  }
+
+  .sev-high .stripe { background: var(--sev-high); }
+  .sev-high .badge  { background: var(--sev-high-bg); color: var(--sev-high); }
+  .sev-med  .stripe { background: var(--sev-med); }
+  .sev-med  .badge  { background: var(--sev-med-bg); color: var(--sev-med); }
+  .sev-low  .stripe { background: var(--sev-low); }
+  .sev-low  .badge  { background: var(--sev-low-bg); color: var(--sev-low); }
+
+  pre {
+    font-family: var(--f-mono);
+    font-size: 12px;
+    line-height: 1.6;
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    padding: 12px 14px;
+    overflow-x: auto;
+    margin: 0 0 11px;
+    color: var(--ink);
+  }
+  .cmt { color: var(--ink-3); }
+
+  /* ---------- charts ---------- */
+  figure { margin: 0 0 30px; }
+  figcaption {
+    font-family: var(--f-mono);
+    font-size: 11px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 16px;
+  }
+
+  .bars { display: grid; gap: 7px; }
+  .bar-row {
+    display: grid;
+    grid-template-columns: minmax(0, 190px) 1fr;
+    gap: 12px;
+    align-items: center;
+  }
+  .bar-lab {
+    font-family: var(--f-mono);
+    font-size: 11.5px;
+    color: var(--ink-2);
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bar-track { display: flex; align-items: center; gap: 9px; min-width: 0; }
+  .bar-fill {
+    height: 13px;
+    background: var(--accent);
+    border-radius: 0 3px 3px 0;
+    flex: none;
+  }
+  .bar-val {
+    font-family: var(--f-mono);
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-2);
+  }
+
+  .cov {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+    gap: 6px;
+  }
+  .cov-cell {
+    border: 1px solid var(--rule);
+    padding: 9px 11px;
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .cov-cell .m {
+    font-family: var(--f-mono);
+    font-size: 11px;
+    font-weight: 600;
+    flex: none;
+  }
+  .cov-cell .f {
+    font-family: var(--f-mono);
+    font-size: 12px;
+    color: var(--ink-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cov-cell.yes { border-color: var(--sev-good); background: var(--sev-good-bg); }
+  .cov-cell.yes .m { color: var(--sev-good); }
+  .cov-cell.yes .f { color: var(--ink); }
+  .cov-cell.no .m { color: var(--sev-high); }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-family: var(--f-mono);
+    font-size: 11px;
+    color: var(--ink-2);
+    margin-top: 12px;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; display: block; }
+
+  /* ---------- work plan ---------- */
+  .plan-sum {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 30px;
+  }
+
+  .phase { margin-bottom: 34px; }
+  .phase-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 10px;
+    padding-bottom: 8px;
+    margin-bottom: 2px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .phase-head .pid {
+    font-family: var(--f-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+  }
+  .phase-head h3 {
+    font-family: var(--f-display);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0;
+    color: var(--ink);
+  }
+  .phase-head .pnote {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-left: auto;
+  }
+
+  .task {
+    display: grid;
+    grid-template-columns: 18px 46px 1fr;
+    gap: 12px;
+    padding: 15px 0 14px;
+    border-bottom: 1px solid var(--rule-soft);
+    align-items: start;
+  }
+  .task .box {
+    width: 13px; height: 13px;
+    border: 1.5px solid var(--ink-3);
+    border-radius: 2px;
+    margin-top: 4px;
+  }
+  .task .tid {
+    font-family: var(--f-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+  }
+  .task .main { min-width: 0; }
+  .task .tt {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.4;
+    margin-bottom: 5px;
+  }
+  .task .td {
+    font-size: 14px;
+    color: var(--ink-2);
+    margin: 0 0 9px;
+  }
+  .task .tf {
+    font-family: var(--f-mono);
+    font-size: 11px;
+    color: var(--ink-3);
+    margin: 0 0 9px;
+    word-break: break-word;
+  }
+  .task .flag {
+    font-size: 13.5px;
+    color: var(--ink-2);
+    border-left: 2px solid var(--sev-med);
+    padding: 2px 0 2px 11px;
+    margin: 0 0 9px;
+  }
+  .task .flag b {
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--sev-med);
+    display: block;
+    font-weight: 600;
+  }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 3px 7px;
+    border: 1px solid var(--rule);
+    color: var(--ink-2);
+    white-space: nowrap;
+  }
+  .chip.r-low  { border-color: var(--sev-good); color: var(--sev-good); }
+  .chip.r-med  { border-color: var(--sev-med);  color: var(--sev-med); }
+  .chip.r-high { border-color: var(--sev-high); color: var(--sev-high); }
+  .chip.cov    { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+
+  .task.parked { opacity: 0.72; }
+  .task.parked .box {
+    border-style: solid;
+    border-color: var(--rule);
+    background: repeating-linear-gradient(135deg, var(--rule) 0 2px, transparent 2px 4px);
+  }
+  .task.parked .tt { color: var(--ink-2); }
+
+  footer {
+    margin-top: 54px;
+    padding-top: 20px;
+    border-top: 1px solid var(--rule);
+    font-family: var(--f-mono);
+    font-size: 11.5px;
+    color: var(--ink-3);
+    line-height: 1.75;
+  }
+
+  @media (max-width: 560px) {
+    .bar-row { grid-template-columns: 1fr; gap: 3px; }
+    .bar-lab { text-align: left; }
+    .task { grid-template-columns: 14px 40px 1fr; gap: 9px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+
+  <header class="mast">
+    <p class="eyebrow">Static audit · notify/ · 2026-09-17</p>
+    <h1>Selah Mobile Audit</h1>
+    <p class="standfirst">
+      The Flutter client is in <strong>good structural health</strong> — the analyzer is clean,
+      all 362 tests pass, and the expensive JSON work already runs off the UI isolate. What's
+      left are not lint-visible defects. They are <strong>two credential-at-rest exposures</strong>,
+      <strong>one sync path that scales linearly in database transactions</strong>, and a
+      cluster of rebuild costs concentrated in a single screen.
+    </p>
+
+    <div class="facts">
+      <div class="fact ok"><span class="n">0</span><span class="k">Analyzer issues</span></div>
+      <div class="fact ok"><span class="n">362</span><span class="k">Tests passing</span></div>
+      <div class="fact"><span class="n">457</span><span class="k">Dart files</span></div>
+      <div class="fact"><span class="n">110,778</span><span class="k">Lines (non-generated)</span></div>
+      <div class="fact"><span class="n">32</span><span class="k">Drift schema version</span></div>
+    </div>
+    <p class="runnote">flutter analyze — no issues found (90.1s) · flutter test — 362 passed, 0 failed</p>
+  </header>
+
+  <section>
+    <h2>What already holds up</h2>
+    <p class="sublede">
+      Worth stating plainly, because it changes where effort should go: the usual suspects in a
+      Flutter codebase this size are already handled, so none of the findings below are cleanup debt.
+    </p>
+    <ul class="passes">
+      <li><span class="v">0</span><span><code>TODO</code>, <code>FIXME</code> or <code>HACK</code> markers across all 457 files</span></li>
+      <li><span class="v">0</span><span>empty or swallowing <code>catch</code> blocks</span></li>
+      <li><span class="v">0</span><span><code>use_build_context_synchronously</code> suppressions, against 168 explicit <code>mounted</code> guards</span></li>
+      <li><span class="v">0</span><span>deprecated <code>withOpacity()</code> calls left — all 444 sites migrated to <code>withValues()</code></span></li>
+      <li><span class="v">8</span><span>isolate boundaries keeping sync, note-snapshot and export JSON off the UI thread</span></li>
+      <li><span class="v">76</span><span>SQLite indexes declared across 48 Drift tables</span></li>
+      <li><span class="v">122/125</span><span><code>IconButton</code>s carrying a tooltip</span></li>
+      <li><span class="v">1,271</span><span>localisation call sites across 117 files, against a 928-key ARB catalogue</span></li>
+      <li><span class="v">25 MB</span><span>kept out of the install — <code>pubspec</code> ships only <code>assets/images/</code>, Bible DB downloads at runtime</span></li>
+      <li><span class="v">✓</span><span>startup staged deliberately — Bible DB init is fire-and-forget, search isolate pre-warms post-frame</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Findings</h2>
+
+    <div class="ledger">
+      <span class="tally"><i class="dot" style="background:var(--sev-high)"></i><span class="c">3</span><span class="l">High</span></span>
+      <span class="tally"><i class="dot" style="background:var(--sev-med)"></i><span class="c">7</span><span class="l">Medium</span></span>
+      <span class="tally"><i class="dot" style="background:var(--sev-low)"></i><span class="c">6</span><span class="l">Low</span></span>
+    </div>
+
+    <!-- ===== HIGH ===== -->
+
+    <article class="find sev-high">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="find-head">
+          <span class="fno">01</span>
+          <span class="badge">High</span>
+          <h3>Refresh tokens sit in plaintext SharedPreferences, and Android backs them up</h3>
+          <span class="tag">Security</span>
+        </div>
+        <p class="loc">lib/core/sync/services/auth_service.dart:113 · android/app/src/main/AndroidManifest.xml</p>
+        <p>
+          <code>saveToken()</code> writes the whole <code>AuthToken</code> — access <em>and</em> refresh token —
+          as <code>jsonEncode</code>d text into <code>SharedPreferences</code>.
+          <code>flutter_secure_storage</code> is not in <code>pubspec.yaml</code>, so nothing reaches
+          Keychain or Keystore.
+        </p>
+        <p>
+          The manifest sets neither <code>android:allowBackup</code> nor <code>dataExtractionRules</code>,
+          so it defaults to <code>true</code>. The backing XML — refresh token included — is swept into
+          Android auto-backup and into <code>adb backup</code>. A refresh token is a long-lived credential:
+          whoever holds it can mint access tokens until it is explicitly revoked server-side.
+        </p>
+        <p class="fix"><b>Fix</b>
+          Move the token pair to <code>flutter_secure_storage</code>, and set
+          <code>android:allowBackup="false"</code> (or exclude the prefs file via
+          <code>dataExtractionRules</code>). Migrate existing users by reading the old key once,
+          re-writing it securely, then deleting it.
+        </p>
+      </div>
+    </article>
+
+    <article class="find sev-high">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="find-head">
+          <span class="fno">02</span>
+          <span class="badge">High</span>
+          <h3>The local database is unencrypted, and it holds the most sensitive content in the app</h3>
+          <span class="tag">Security</span>
+        </div>
+        <p class="loc">lib/core/database/sync_database.dart · pubspec.yaml</p>
+        <p>
+          There is no SQLCipher dependency and no <code>PRAGMA key</code> anywhere in the database layer.
+          Every note, prayer, prayer log, person record and Bible bookmark is stored as plaintext SQLite.
+        </p>
+        <p>
+          This app's data is unusually personal — private prayers, named people, spiritual journaling.
+          It inherits the same <code>allowBackup</code> problem as the token above, so the entire corpus
+          leaves the device in backups. This is a product-risk call as much as a technical one.
+        </p>
+        <p class="fix"><b>Fix</b>
+          At minimum, close the backup escape hatch alongside finding 01. If the threat model includes a
+          lost or shared device, encrypt at rest with <code>sqlcipher_flutter_libs</code> and a
+          Keystore-held key — plan it as a migration, since it rewrites the database file.
+        </p>
+      </div>
+    </article>
+
+    <article class="find sev-high">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="find-head">
+          <span class="fno">03</span>
+          <span class="badge">High</span>
+          <h3>Sync pull opens one database transaction per remote operation</h3>
+          <span class="tag">Performance</span>
+        </div>
+        <p class="loc">lib/core/sync/engine/sync_engine.dart:566 → _applyRemoteOperation</p>
+        <p>
+          The pull loop awaits <code>_applyRemoteOperation()</code> once per operation, and that method
+          opens its own <code>_db.transaction()</code> wrapping a version-check <code>SELECT</code>
+          plus an upsert. There are <strong>zero</strong> <code>batch()</code> calls in the 2,666-line
+          sync engine.
+        </p>
+        <pre>for (final remoteOp in response.operations) {
+  final resolution = await _applyRemoteOperation(remoteOp);   <span class="cmt">// 1 txn each</span>
+  ...
+}</pre>
+        <p>
+          Each transaction carries its own journal write and fsync. A first login or device restore
+          that pulls several thousand operations pays that cost several thousand times, serially —
+          this is the dominant term in first-run time, and it degrades exactly when the user's
+          impression of the app is being formed.
+        </p>
+        <p class="fix"><b>Fix</b>
+          Wrap each pulled page in one outer <code>transaction()</code>, and collapse the per-entity
+          upserts into a Drift <code>batch()</code>. Keep the per-op version check, but read the
+          existing versions for the page in a single indexed query first rather than one round-trip
+          per operation.
+        </p>
+      </div>
+    </article>
+
+    <!-- ===== MEDIUM ===== -->
+
+    <article class="find sev-med">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="find-head">
+          <span class="fno">04</span>
+          <span class="badge">Medium</span>
+          <h3>The folder tree builds every row eagerly, then hands the list to <code>ListView.builder</code></h3>
+          <span class="tag">Performance</span>
+        </div>
+        <p class="loc">lib/features/notes/presentation/screens/notes_home_screen.dart:621–652</p>
+        <p>
+          <code>folderWidgets</code> is a fully-materialised <code>List&lt;Widget&gt;</code> — every
+          <code>FolderRow</code> in the tree is constructed — and the builder only indexes into it.
+          That removes the lazy construction <code>ListView.builder</code> exists for, and
+          <code>shrinkWrap: true</code> then forces all of them through layout as well.
+        </p>
+        <pre>final folderWidgets = &lt;Widget&gt;[ ... ];        <span class="cmt">// all rows built here</span>
+return ListView.builder(
+  shrinkWrap: true,
+  itemCount: folderWidgets.length,
+  itemBuilder: (context, index) =&gt; folderWidgets[index],   <span class="cmt">// no laziness left</span>
+);</pre>
+        <p>
+          The grouping, the per-parent sort and the recursive <code>computeTotal()</code> roll-up all
+          run in the same <code>build()</code>, so the whole tree is recomputed on every rebuild of
+          the screen — including ones triggered by unrelated state such as the sort menu.
+        </p>
+        <p class="fix"><b>Fix</b>
+          Flatten the tree to a <code>List&lt;_FolderNode&gt;</code> (data, not widgets) and build rows
+          inside <code>itemBuilder</code>. Memoise the flatten + roll-up in a provider keyed on the
+          folder list so it recomputes only when folders actually change.
+        </p>
+      </div>
+    </article>
+
+    <article class="find sev-med">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="find-head">
+          <span class="fno">05</span>
+          <span class="badge">Medium</span>
+          <h3>The notes list re-allocates lookup maps and re-sorts the full collection inside <code>build()</code></h3>
+          <span class="tag">Performance</span>
+        </div>
+        <p class="loc">lib/features/notes/presentation/screens/notes_home_screen.dart:716–761</p>
+        <p>
+          <code>_buildNotesSection()</code> watches <code>notesStreamProvider</code>,
+          <code>peopleStreamProvider</code> and <code>foldersStreamProvider</code>, then rebuilds a
+          full person-id→name map and folder-id→name map, filters the note list, and calls
+          <code>_sortNotes()</code> over all of it — every single rebuild, on the UI thread.
+        </p>
+        <p>
+          With a few hundred notes this is invisible. It scales with the user's whole corpus, and it
+          is paid on each keystroke in the filter field, each folder tap, and each sort toggle —
+          the interactions where dropped frames are most noticeable.
+        </p>
+        <p class="fix"><b>Fix</b>
+          Move the maps and the filter/sort into derived providers so Riverpod caches them, and have
+          the widget watch the already-sorted result. <code>.select()</code> is used well elsewhere
+          in this codebase (see <code>overview_grid.dart</code>) — the same approach applies here.
+        </p>
+      </div>
+    </article>
+
+    <article class="find sev-med">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="find-head">
+          <span class="fno">06</span>
+          <span class="badge">Medium</span>
+          <h3>Large accessibility font sizes have no ceiling anywhere in the app</h3>
+          <span class="tag">Accessibility</span>
+        </div>
+        <p class="loc">app-wide — 0 occurrences of textScaler / textScaleFactor</p>
+        <p>
+          There is no <code>textScaler</code> clamp in the widget tree, against
+          <strong>395</strong> fixed-pixel height constraints in <code>features/</code> and
+          <code>shared/</code>, and exactly <strong>one</strong> <code>FittedBox</code> in the codebase.
+        </p>
+        <p>
+          At the 200% system font setting both platforms offer, text grows but those containers do
+          not, so rows overflow. The codebase already knows it is height-sensitive — the comment in
+          <code>main.dart</code> notes that six layouts are sized as a fraction of screen height.
+          That sensitivity applies to type scale just as much as to rotation.
+        </p>
+        <p class="fix"><b>Fix</b>
+          Clamp globally in <code>MaterialApp.builder</code> with
+          <code>MediaQuery.withClampedTextScaling(maxScaleFactor: 1.6, ...)</code>, then walk the
+          worst offenders — list rows, stat tiles, the bottom bar — and replace fixed heights with
+          <code>minHeight</code> constraints.
+        </p>
+      </div>
+    </article>
+
+    <article class="find sev-med">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="find-head">
+          <span class="fno">07</span>
+          <span class="badge">Medium</span>
+          <h3>Reactive queries are almost entirely unbounded</h3>
+          <span class="tag">Performance</span>
+        </div>
+        <p class="loc">lib/core/sync/repositories/ · 44 watch() vs 7 limit()</p>
+        <p>
+          The repository layer exposes 44 <code>.watch()</code> streams and applies
+          <code>.limit()</code> in only 7 places. Providers such as <code>notesStreamProvider</code>
+          therefore hydrate the user's entire table into memory, and re-emit the whole list whenever
+          any single row changes.
+        </p>
+        <p>
+          Every write — including one arriving from sync — re-runs the query, re-materialises the
+          list, and rebuilds each screen watching it. Cost is proportional to total corpus size
+          rather than to what is on screen.
+        </p>
+        <p class="fix"><b>Fix</b>
+          Page the list-backing streams (a <code>limit</code> tied to the scroll position), and for
+          counts use a <code>COUNT(*)</code> watch instead of watching rows and calling
+          <code>.length</code>.
+        </p>
+      </div>
+    </article>
+
+    <article class="find sev-med">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="find-head">
+          <span class="fno">08</span>
+          <span class="badge">Medium</span>
+          <h3>Nine of seventeen features have no test touching them</h3>
+          <span class="tag">Coverage</span>
+        </div>
+        <p class="loc">test/ — 27 files, 7,345 lines against 110,778 lines of source</p>
+        <p>
+          The risky core is well covered: the sync engine has e2e, stress, conflict-resolution and
+          field-merge suites. The feature layer is where the gap is —
+          <code>bible</code>, <code>bible_search</code>, <code>feedback</code>, <code>friends</code>,
+          <code>groups</code>, <code>search</code>, <code>social</code>, <code>songs</code> and
+          <code>tags</code> are referenced by no test at all.
+        </p>
+        <p>
+          Test code is 6.6% of source by line. Several untested features are the newest ones, which
+          is the inverse of where coverage is most useful.
+        </p>
+        <p class="fix"><b>Fix</b>
+          Extend the existing <code>screen_smoke_test.dart</code> pattern to the nine uncovered
+          features first — it is cheap and catches the provider-wiring breakages that refactors in
+          <code>sync_providers.dart</code> cause.
+        </p>
+      </div>
+    </article>
+
+    <article class="find sev-med">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="find-head">
+          <span class="fno">09</span>
+          <span class="badge">Medium</span>
+          <h3>Folder roll-up recursion is untyped and has no cycle guard</h3>
+          <span class="tag">Correctness</span>
+        </div>
+        <p class="loc">lib/features/notes/presentation/screens/notes_home_screen.dart:608, 663</p>
+        <p>
+          <code>computeTotal(dynamic folder)</code> and <code>_buildFolderTreeItems(dynamic folder, …)</code>
+          recurse through the parent/child map with no visited set and no static typing. Folder
+          hierarchy is unlimited-depth and <code>parentId</code> arrives from sync.
+        </p>
+        <p>
+          Two devices reparenting folders concurrently can converge on a cycle
+          (A→B, B→A) that neither device ever wrote locally. This code then recurses until the stack
+          overflows, taking down the Notes tab with no path to recovery in-app. <code>dynamic</code>
+          also means the analyzer cannot catch a shape mismatch here, which is why this is invisible
+          to the clean analyzer run.
+        </p>
+        <p class="fix"><b>Fix</b>
+          Type both parameters as <code>FolderModel</code>, and thread a
+          <code>Set&lt;String&gt; visited</code> through the recursion that drops any folder already
+          seen on the current path.
+        </p>
+      </div>
+    </article>
+
+    <article class="find sev-med">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="find-head">
+          <span class="fno">10</span>
+          <span class="badge">Medium</span>
+          <h3>Seventeen files exceed 800 lines, concentrated in screens that mix four concerns</h3>
+          <span class="tag">Maintainability</span>
+        </div>
+        <p class="loc">17 files &gt; 800 LOC · 41 files &gt; 500 LOC</p>
+        <p>
+          <code>notes_home_screen.dart</code> (2,016 lines) holds the folder tree, the notes list,
+          smart collections, filtering, sorting, multi-select and the trash view in one
+          <code>State</code> class with 356 app-wide <code>setState</code> call sites feeding into it.
+          <code>group_detail_screen.dart</code> (2,008) defines just 6 private methods across that span.
+        </p>
+        <p>
+          The consequence is the one already visible above: because everything shares one
+          <code>build()</code>, unrelated state changes trigger the expensive tree and list work.
+          Splitting the file is what makes findings 04 and 05 straightforward rather than delicate.
+        </p>
+        <p class="fix"><b>Fix</b>
+          Extract each section into its own <code>ConsumerWidget</code> so rebuilds scope naturally.
+          Start with the two sections named in findings 04 and 05 — the refactor and the performance
+          fix are the same edit.
+        </p>
+      </div>
+    </article>
+
+    <!-- ===== LOW ===== -->
+
+    <article class="find sev-low">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="find-head">
+          <span class="fno">11</span>
+          <span class="badge">Low</span>
+          <h3>Three <code>TextEditingController</code>s leak on every add-verse sheet</h3>
+          <span class="tag">Memory</span>
+        </div>
+        <p class="loc">lib/features/bible/presentation/screens/memorization_screen.dart:87–89</p>
+        <p>
+          <code>_showAddSheet()</code> creates <code>reference</code>, <code>text</code> and
+          <code>version</code> controllers, awaits the modal sheet, and never disposes them — the
+          host is a <code>ConsumerWidget</code>, so there is no <code>dispose()</code> to fall back on.
+          Each open-and-close leaks three controllers with their listener lists.
+          It is the only such site in the app; the analogous
+          <code>join_group_dialog.dart</code> disposes correctly.
+        </p>
+        <p class="fix"><b>Fix</b>
+          Wrap the <code>await showModalBottomSheet(...)</code> in <code>try/finally</code> and
+          dispose all three in the <code>finally</code>.
+        </p>
+      </div>
+    </article>
+
+    <article class="find sev-low">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="find-head">
+          <span class="fno">12</span>
+          <span class="badge">Low</span>
+          <h3>Thirty-seven UI files still carry hardcoded strings, and only English ships</h3>
+          <span class="tag">i18n</span>
+        </div>
+        <p class="loc">37 files under features/ and shared/ with no l10n reference · lib/l10n/ contains only app_en.arb</p>
+        <p>
+          Adoption is strong (1,271 call sites), which makes the holdouts conspicuous — including
+          user-visible section headers such as <code>headerTitle = 'ALL NOTES'</code> in
+          <code>notes_home_screen.dart:768</code>. Mixed-language UI is worse than uniformly
+          untranslated UI, so these become visible the moment a second locale ships.
+        </p>
+        <p class="fix"><b>Fix</b>
+          Sweep the 37 files into the ARB before adding any locale. The
+          <code>l10n(context)</code> helper already exists for exactly this.
+        </p>
+      </div>
+    </article>
+
+    <article class="find sev-low">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="find-head">
+          <span class="fno">13</span>
+          <span class="badge">Low</span>
+          <h3>Legacy <code>/people/…</code> routes are still the ones the app navigates to</h3>
+          <span class="tag">Navigation</span>
+        </div>
+        <p class="loc">lib/core/navigation/nav_actions.dart:12 · lib/features/people/presentation/screens/people_list_screen.dart:47, 122 · lib/core/navigation/routes.dart:150</p>
+        <p>
+          <code>openPerson()</code> calls <code>router.go('/people/$id')</code> and the list screen
+          pushes <code>/people/new</code> and <code>/people/{id}</code>, all of which exist only as
+          backward-compatibility redirects into the Social tab. Every such navigation pays a redirect
+          hop and enters the Social branch's stack from outside it, so the back behaviour is the
+          redirect's rather than the tab's.
+        </p>
+        <p>
+          <code>routes.dart</code> already marks these <code>@deprecated Use socialPeople instead</code>
+          — the constant is annotated, but the app's own navigation never moved across.
+        </p>
+        <p class="fix"><b>Fix</b>
+          Point these three call sites at the canonical <code>Routes.socialPeople…</code> constants,
+          as the group routes already do. The redirects can then stay purely for external deep links.
+        </p>
+      </div>
+    </article>
+
+    <article class="find sev-low">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="find-head">
+          <span class="fno">14</span>
+          <span class="badge">Low</span>
+          <h3>Custom tap targets bypass the accessibility affordances <code>IconButton</code> gets for free</h3>
+          <span class="tag">Accessibility</span>
+        </div>
+        <p class="loc">57 GestureDetector · 52 InkWell · 51 Semantics references</p>
+        <p>
+          <code>IconButton</code> usage is near-exemplary at 122 tooltips out of 125. But 109 custom
+          tap targets sit outside that discipline, with only 51 <code>Semantics</code> references in
+          the whole app to cover them. A bare <code>GestureDetector</code> announces nothing to
+          TalkBack or VoiceOver and has no minimum touch size.
+        </p>
+        <p class="fix"><b>Fix</b>
+          Audit the <code>GestureDetector</code> sites that act as buttons: wrap in
+          <code>Semantics(button: true, label: …)</code>, or switch to <code>InkWell</code> inside a
+          48×48 target.
+        </p>
+      </div>
+    </article>
+
+    <article class="find sev-low">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="find-head">
+          <span class="fno">15</span>
+          <span class="badge">Low</span>
+          <h3>Debug logging ships in release paths</h3>
+          <span class="tag">Hygiene</span>
+        </div>
+        <p class="loc">71 print / debugPrint call sites outside generated code</p>
+        <p>
+          <code>debugPrint</code> is not compiled out of release builds. Several sites log sync and
+          auth state, which both leaks detail into device logs and costs string interpolation on
+          paths that run often.
+        </p>
+        <p class="fix"><b>Fix</b>
+          Route them through the existing <code>SyncLogger</code>, or gate on
+          <code>kDebugMode</code>. The infrastructure is already there — this is just the call sites
+          that never adopted it.
+        </p>
+      </div>
+    </article>
+
+    <article class="find sev-low">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="find-head">
+          <span class="fno">16</span>
+          <span class="badge">Low</span>
+          <h3>A 25 MB <code>bible.db</code> sits in <code>assets/</code> but is not bundled</h3>
+          <span class="tag">Hygiene</span>
+        </div>
+        <p class="loc">assets/bible.db — 25,329,664 bytes · pubspec.yaml declares only assets/images/</p>
+        <p>
+          The <code>pubspec</code> asset list correctly ships only <code>assets/images/</code>, so
+          this file is <em>not</em> inflating the install — the runtime download path is doing its
+          job. It is dead weight in the working tree, and it is one accidental
+          <code>- assets/</code> line away from adding 25 MB to every download.
+        </p>
+        <p class="fix"><b>Fix</b>
+          Move it out of <code>assets/</code> (it is generator output — <code>tools/</code> is its
+          home) so the directory name stops implying it is bundled.
+        </p>
+      </div>
+    </article>
+
+  </section>
+
+  <section>
+    <h2>Where the weight sits</h2>
+    <p class="sublede">
+      The two charts below are the shape behind findings 08 and 10 — test coverage concentrated away
+      from the newest features, and file size concentrated in a few screens.
+    </p>
+
+    <figure>
+      <figcaption>Largest source files, lines (generated and localisation files excluded)</figcaption>
+      <div class="bars">
+        <div class="bar-row"><span class="bar-lab">sync_engine.dart</span><span class="bar-track"><span class="bar-fill" style="width:100%"></span><span class="bar-val">2,666</span></span></div>
+        <div class="bar-row"><span class="bar-lab">note_editor_provider.dart</span><span class="bar-track"><span class="bar-fill" style="width:84.5%"></span><span class="bar-val">2,252</span></span></div>
+        <div class="bar-row"><span class="bar-lab">notes_home_screen.dart</span><span class="bar-track"><span class="bar-fill" style="width:75.6%"></span><span class="bar-val">2,016</span></span></div>
+        <div class="bar-row"><span class="bar-lab">group_detail_screen.dart</span><span class="bar-track"><span class="bar-fill" style="width:75.3%"></span><span class="bar-val">2,008</span></span></div>
+        <div class="bar-row"><span class="bar-lab">prayer_detail_screen.dart</span><span class="bar-track"><span class="bar-fill" style="width:72.1%"></span><span class="bar-val">1,923</span></span></div>
+        <div class="bar-row"><span class="bar-lab">sync_database.dart</span><span class="bar-track"><span class="bar-fill" style="width:60.8%"></span><span class="bar-val">1,620</span></span></div>
+        <div class="bar-row"><span class="bar-lab">sync_providers.dart</span><span class="bar-track"><span class="bar-fill" style="width:54.2%"></span><span class="bar-val">1,445</span></span></div>
+        <div class="bar-row"><span class="bar-lab">app_theme.dart</span><span class="bar-track"><span class="bar-fill" style="width:48.5%"></span><span class="bar-val">1,294</span></span></div>
+      </div>
+    </figure>
+
+    <figure>
+      <figcaption>Test coverage by feature — files in test/ referencing each feature</figcaption>
+      <div class="cov">
+        <div class="cov-cell yes"><span class="m">2</span><span class="f">home</span></div>
+        <div class="cov-cell yes"><span class="m">2</span><span class="f">notes</span></div>
+        <div class="cov-cell yes"><span class="m">2</span><span class="f">prayers</span></div>
+        <div class="cov-cell yes"><span class="m">1</span><span class="f">auth</span></div>
+        <div class="cov-cell yes"><span class="m">1</span><span class="f">habits</span></div>
+        <div class="cov-cell yes"><span class="m">1</span><span class="f">people</span></div>
+        <div class="cov-cell yes"><span class="m">1</span><span class="f">promises</span></div>
+        <div class="cov-cell yes"><span class="m">1</span><span class="f">settings</span></div>
+        <div class="cov-cell no"><span class="m">0</span><span class="f">bible</span></div>
+        <div class="cov-cell no"><span class="m">0</span><span class="f">bible_search</span></div>
+        <div class="cov-cell no"><span class="m">0</span><span class="f">feedback</span></div>
+        <div class="cov-cell no"><span class="m">0</span><span class="f">friends</span></div>
+        <div class="cov-cell no"><span class="m">0</span><span class="f">groups</span></div>
+        <div class="cov-cell no"><span class="m">0</span><span class="f">search</span></div>
+        <div class="cov-cell no"><span class="m">0</span><span class="f">social</span></div>
+        <div class="cov-cell no"><span class="m">0</span><span class="f">songs</span></div>
+        <div class="cov-cell no"><span class="m">0</span><span class="f">tags</span></div>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--sev-good)"></i>Covered — 8 features</span>
+        <span><i style="background:var(--sev-high)"></i>No test reference — 9 features</span>
+      </div>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Work plan — for review</h2>
+    <p class="sublede">
+      Every one of the 16 findings maps to exactly one task below. Nothing here has been
+      implemented — this is the proposal. Phases A–E are bounded and verifiable against the
+      existing 362-test suite. Phase F is structural and wants an explicit decision, because
+      those three touch the screen with the most state while feature test coverage is thinnest.
+    </p>
+
+    <div class="plan-sum">
+      <span class="tally"><i class="dot" style="background:var(--sev-good)"></i><span class="c">13</span><span class="l">Ready to start</span></span>
+      <span class="tally"><i class="dot" style="background:var(--sev-med)"></i><span class="c">3</span><span class="l">Need your call</span></span>
+      <span class="tally"><i class="dot" style="background:var(--ink-3)"></i><span class="c">1</span><span class="l">Parked</span></span>
+    </div>
+
+    <!-- PHASE A -->
+    <div class="phase">
+      <div class="phase-head">
+        <span class="pid">A</span>
+        <h3>Close the credential exposure</h3>
+        <span class="pnote">~half a day</span>
+      </div>
+
+      <div class="task">
+        <span class="box"></span>
+        <span class="tid">T01</span>
+        <div class="main">
+          <div class="tt">Turn off Android backup and add extraction rules</div>
+          <p class="td">
+            Set <code>android:allowBackup="false"</code> and declare
+            <code>dataExtractionRules</code>. This single change closes the export path for both
+            the refresh token and the entire unencrypted notes database — it is the highest
+            risk-to-effort ratio in the whole list.
+          </p>
+          <p class="tf">android/app/src/main/AndroidManifest.xml (+ new xml/data_extraction_rules.xml)</p>
+          <div class="chips">
+            <span class="chip cov">Covers 01 · 02</span>
+            <span class="chip">Minutes</span>
+            <span class="chip r-low">Low risk</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="task">
+        <span class="box"></span>
+        <span class="tid">T02</span>
+        <div class="main">
+          <div class="tt">Move the token pair into <code>flutter_secure_storage</code></div>
+          <p class="td">
+            Store the access and refresh tokens in Keychain / Keystore instead of
+            <code>SharedPreferences</code>, with a read-once migration so existing installs are not
+            signed out on upgrade.
+          </p>
+          <p class="flag"><b>Design wrinkle worth knowing before you approve</b>
+            <code>AuthService</code> is constructed synchronously from a <code>SharedPreferences</code>
+            instance resolved in <code>main()</code>, and <code>_loadToken()</code> runs in its
+            constructor. Secure storage is async-only, so this needs the token read hoisted into the
+            existing <code>Future.wait</code> in <code>main()</code> and passed in — not a drop-in
+            swap of the storage call.
+          </p>
+          <p class="tf">pubspec.yaml · lib/core/sync/services/auth_service.dart · lib/main.dart · lib/core/sync/providers/sync_providers.dart</p>
+          <div class="chips">
+            <span class="chip cov">Covers 01</span>
+            <span class="chip">Half a day</span>
+            <span class="chip r-med">Medium risk — auth path</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE B -->
+    <div class="phase">
+      <div class="phase-head">
+        <span class="pid">B</span>
+        <h3>Remove the crash class</h3>
+        <span class="pnote">~2 hours</span>
+      </div>
+
+      <div class="task">
+        <span class="box"></span>
+        <span class="tid">T03</span>
+        <div class="main">
+          <div class="tt">Add a cycle guard and real types to the folder recursion</div>
+          <p class="td">
+            Type both <code>dynamic</code> parameters as <code>FolderModel</code> and thread a
+            <code>Set&lt;String&gt; visited</code> through <code>computeTotal()</code> and
+            <code>_buildFolderTreeItems()</code>, dropping any folder already seen on the current
+            path. Ships with a unit test that builds an A→B→A cycle and asserts the tree still
+            renders.
+          </p>
+          <p class="tf">lib/features/notes/presentation/screens/notes_home_screen.dart:608, 663</p>
+          <div class="chips">
+            <span class="chip cov">Covers 09</span>
+            <span class="chip">2 hours</span>
+            <span class="chip r-low">Low risk</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE C -->
+    <div class="phase">
+      <div class="phase-head">
+        <span class="pid">C</span>
+        <h3>Performance</h3>
+        <span class="pnote">~3 days</span>
+      </div>
+
+      <div class="task">
+        <span class="box"></span>
+        <span class="tid">T04</span>
+        <div class="main">
+          <div class="tt">Batch the sync pull apply loop</div>
+          <p class="td">
+            Wrap each pulled page in one outer <code>transaction()</code>, read the existing versions
+            for the page in a single indexed query instead of one round-trip per operation, and
+            collapse the upserts into a Drift <code>batch()</code>. The per-op version guard stays
+            exactly as it is.
+          </p>
+          <p class="flag"><b>Why this one is worth the care</b>
+            It is the largest single win available — first-login and restore time scales linearly in
+            transactions today. It is also the most critical code in the app. It does have real
+            cover: <code>sync_engine_e2e_test</code>, <code>sync_engine_stress_test</code> and
+            <code>conflict_resolver_test</code> all exercise this path, so a regression should surface.
+          </p>
+          <p class="tf">lib/core/sync/engine/sync_engine.dart:566 → _applyRemoteOperation</p>
+          <div class="chips">
+            <span class="chip cov">Covers 03</span>
+            <span class="chip">1–2 days</span>
+            <span class="chip r-med">Medium risk — critical path</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="task">
+        <span class="box"></span>
+        <span class="tid">T05</span>
+        <div class="main">
+          <div class="tt">Make the folder tree actually lazy</div>
+          <p class="td">
+            Flatten the tree into a <code>List&lt;_FolderNode&gt;</code> of data rather than widgets,
+            build rows inside <code>itemBuilder</code>, and memoise the flatten plus the roll-up in a
+            provider keyed on the folder list so it recomputes only when folders change.
+          </p>
+          <p class="tf">lib/features/notes/presentation/screens/notes_home_screen.dart:621–652</p>
+          <div class="chips">
+            <span class="chip cov">Covers 04</span>
+            <span class="chip">Half a day</span>
+            <span class="chip r-low">Low risk</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="task">
+        <span class="box"></span>
+        <span class="tid">T06</span>
+        <div class="main">
+          <div class="tt">Lift the notes filter, sort and lookup maps into providers</div>
+          <p class="td">
+            Move the person-id and folder-id maps and the filter/sort pipeline out of
+            <code>build()</code> into derived providers so Riverpod caches them, and have the widget
+            watch the already-sorted result. Follows the <code>.select()</code> pattern already used
+            well in <code>overview_grid.dart</code>.
+          </p>
+          <p class="tf">lib/features/notes/presentation/screens/notes_home_screen.dart:716–761 · notes providers</p>
+          <div class="chips">
+            <span class="chip cov">Covers 05</span>
+            <span class="chip">1 day</span>
+            <span class="chip r-med">Medium risk</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE D -->
+    <div class="phase">
+      <div class="phase-head">
+        <span class="pid">D</span>
+        <h3>Accessibility</h3>
+        <span class="pnote">~1 day</span>
+      </div>
+
+      <div class="task">
+        <span class="box"></span>
+        <span class="tid">T07</span>
+        <div class="main">
+          <div class="tt">Clamp <code>textScaler</code> globally</div>
+          <p class="td">
+            Add <code>MediaQuery.withClampedTextScaling(maxScaleFactor: 1.6, ...)</code> in
+            <code>MaterialApp.builder</code>. One line stops the overflow class immediately; the
+            per-screen cleanup of the 395 fixed heights can then proceed incrementally rather than
+            as a blocking prerequisite.
+          </p>
+          <p class="tf">lib/main.dart</p>
+          <div class="chips">
+            <span class="chip cov">Covers 06</span>
+            <span class="chip">1 hour + follow-up</span>
+            <span class="chip r-low">Low risk</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="task">
+        <span class="box"></span>
+        <span class="tid">T08</span>
+        <div class="main">
+          <div class="tt">Give custom tap targets semantics and a 48×48 hit area</div>
+          <p class="td">
+            Audit the 57 <code>GestureDetector</code> sites that behave as buttons; wrap in
+            <code>Semantics(button: true, label: …)</code> or switch to <code>InkWell</code> inside a
+            48×48 target. <code>IconButton</code> usage is already near-exemplary at 122 of 125, so
+            this is about bringing the custom ones up to that same bar.
+          </p>
+          <p class="tf">~57 sites across lib/features/ and lib/shared/</p>
+          <div class="chips">
+            <span class="chip cov">Covers 14</span>
+            <span class="chip">1 day</span>
+            <span class="chip r-low">Low risk</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE E -->
+    <div class="phase">
+      <div class="phase-head">
+        <span class="pid">E</span>
+        <h3>Hygiene</h3>
+        <span class="pnote">~2 days</span>
+      </div>
+
+      <div class="task">
+        <span class="box"></span>
+        <span class="tid">T09</span>
+        <div class="main">
+          <div class="tt">Dispose the three leaked controllers</div>
+          <p class="td">
+            Wrap the <code>await showModalBottomSheet(...)</code> in <code>try/finally</code> and
+            dispose <code>reference</code>, <code>text</code> and <code>version</code> in the
+            <code>finally</code>.
+          </p>
+          <p class="tf">lib/features/bible/presentation/screens/memorization_screen.dart:87–89</p>
+          <div class="chips">
+            <span class="chip cov">Covers 11</span>
+            <span class="chip">10 minutes</span>
+            <span class="chip r-low">Low risk</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="task">
+        <span class="box"></span>
+        <span class="tid">T10</span>
+        <div class="main">
+          <div class="tt">Sweep the 37 remaining files into the ARB</div>
+          <p class="td">
+            Replace the hardcoded literals — including visible headers such as
+            <code>'ALL NOTES'</code> — with <code>l10n(context)</code> keys. Worth doing before any
+            second locale ships, since mixed-language UI is worse than uniformly untranslated UI.
+          </p>
+          <p class="tf">37 files under lib/features/ and lib/shared/ · lib/l10n/app_en.arb</p>
+          <div class="chips">
+            <span class="chip cov">Covers 12</span>
+            <span class="chip">1 day</span>
+            <span class="chip r-low">Low risk</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="task">
+        <span class="box"></span>
+        <span class="tid">T11</span>
+        <div class="main">
+          <div class="tt">Point people navigation at the canonical routes</div>
+          <p class="td">
+            Switch the three call sites to <code>Routes.socialPeople…</code>, as the group routes
+            already do. The redirects stay in place purely for external deep links.
+          </p>
+          <p class="tf">lib/core/navigation/nav_actions.dart:12 · lib/features/people/presentation/screens/people_list_screen.dart:47, 122</p>
+          <div class="chips">
+            <span class="chip cov">Covers 13</span>
+            <span class="chip">30 minutes</span>
+            <span class="chip r-low">Low risk</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="task">
+        <span class="box"></span>
+        <span class="tid">T12</span>
+        <div class="main">
+          <div class="tt">Route debug logging through the existing logger</div>
+          <p class="td">
+            Move the 71 <code>print</code> / <code>debugPrint</code> sites onto
+            <code>SyncLogger</code> or gate them on <code>kDebugMode</code>, so sync and auth detail
+            stops reaching release device logs.
+          </p>
+          <p class="tf">71 call sites across lib/</p>
+          <div class="chips">
+            <span class="chip cov">Covers 15</span>
+            <span class="chip">Half a day</span>
+            <span class="chip r-low">Low risk</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="task">
+        <span class="box"></span>
+        <span class="tid">T13</span>
+        <div class="main">
+          <div class="tt">Move <code>bible.db</code> out of <code>assets/</code></div>
+          <p class="td">
+            Relocate the 25 MB generator output to <code>tools/</code> so the directory name stops
+            implying it is bundled, and one stray <code>- assets/</code> line can never add 25 MB to
+            every download.
+          </p>
+          <p class="tf">assets/bible.db → tools/</p>
+          <div class="chips">
+            <span class="chip cov">Covers 16</span>
+            <span class="chip">10 minutes</span>
+            <span class="chip r-low">Low risk</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE F -->
+    <div class="phase">
+      <div class="phase-head">
+        <span class="pid">F</span>
+        <h3>Structural — needs your decision</h3>
+        <span class="pnote">~6 days</span>
+      </div>
+
+      <div class="task">
+        <span class="box"></span>
+        <span class="tid">T14</span>
+        <div class="main">
+          <div class="tt">Split <code>notes_home_screen.dart</code> into per-section widgets</div>
+          <p class="td">
+            Extract the folder tree, notes list, smart collections, filter bar and trash view into
+            their own <code>ConsumerWidget</code>s so rebuilds scope naturally. This is the same edit
+            that makes T05 and T06 clean rather than delicate — doing those two first and this one
+            never is a legitimate choice, it just leaves them as patches on a 2,016-line file.
+          </p>
+          <p class="tf">lib/features/notes/presentation/screens/notes_home_screen.dart (2,016 lines)</p>
+          <div class="chips">
+            <span class="chip cov">Covers 10</span>
+            <span class="chip">2–3 days</span>
+            <span class="chip r-high">High risk — thin test cover here</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="task">
+        <span class="box"></span>
+        <span class="tid">T15</span>
+        <div class="main">
+          <div class="tt">Page the unbounded watch streams</div>
+          <p class="td">
+            Add a <code>limit</code> tied to scroll position on the list-backing streams, and swap
+            the count providers to a <code>COUNT(*)</code> watch rather than watching rows and taking
+            <code>.length</code>. Best done after T14, which supplies the provider structure it needs.
+          </p>
+          <p class="tf">lib/core/sync/repositories/ — 44 watch() sites</p>
+          <div class="chips">
+            <span class="chip cov">Covers 07</span>
+            <span class="chip">2–3 days</span>
+            <span class="chip r-high">High risk — broad surface</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="task">
+        <span class="box"></span>
+        <span class="tid">T16</span>
+        <div class="main">
+          <div class="tt">Smoke-test the nine uncovered features</div>
+          <p class="td">
+            Extend the existing <code>screen_smoke_test.dart</code> pattern to bible, bible_search,
+            feedback, friends, groups, search, social, songs and tags. Cheap, and it is what would
+            guard T14 and T15 — if you want those two, this should come first rather than last.
+          </p>
+          <p class="tf">test/features/ — new files following screen_smoke_test.dart</p>
+          <div class="chips">
+            <span class="chip cov">Covers 08</span>
+            <span class="chip">1–2 days</span>
+            <span class="chip r-low">Low risk</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PARKED -->
+    <div class="phase">
+      <div class="phase-head">
+        <span class="pid">—</span>
+        <h3>Parked</h3>
+        <span class="pnote">Decision 17 Sep 2026</span>
+      </div>
+
+      <div class="task parked">
+        <span class="box"></span>
+        <span class="tid">P01</span>
+        <div class="main">
+          <div class="tt">SQLCipher encryption for the local database</div>
+          <p class="td">
+            Parked by decision. T01 closes the backup extraction path, which is the vector that
+            applies without physical access to the device. What stays open is the lost-or-rooted
+            device case: notes, prayers and people remain readable on disk. Revisit if the threat
+            model changes — the work is a keyed <code>sqlcipher_flutter_libs</code> swap plus a
+            one-time migration that rewrites every user's database file, so it needs a verify and
+            rollback step.
+          </p>
+          <p class="tf">pubspec.yaml · lib/core/database/sync_database.dart · new migration</p>
+          <div class="chips">
+            <span class="chip cov">Covers 02 (remainder)</span>
+            <span class="chip">Parked</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Static audit of <span class="mono">d:\Work\PersonalNotify\notify</span> at Flutter analyzer-clean state, 17 September 2026.<br>
+    Evidence: <span class="mono">flutter analyze</span> (0 issues, 90.1s) · <span class="mono">flutter test</span> (362 passed) · source scan of 457 non-generated Dart files, 110,778 lines.<br>
+    Findings are from static reading only — no profiling run, no device trace. Performance claims describe algorithmic cost, not measured frame times.
+  </footer>
+
+</div>
+</body>
+</html>
