@@ -131,7 +131,7 @@ class _BibleVersionOnboardingScreenState
         if (mounted) {
           setState(() => _progress.remove(code));
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Download failed for ${info.name}.'),
+            content: Text(l10n(context).downloadFailedForVersion(info.name)),
             behavior: SnackBarBehavior.floating,
           ));
         }

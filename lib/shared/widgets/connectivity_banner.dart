@@ -7,11 +7,28 @@ import '../../../core/providers/motion_preferences.dart';
 import 'package:flutter/semantics.dart';
 import '../../core/theme/theme_colors.dart';
 
-/// Provider that streams connectivity state
-final connectivityProvider = StreamProvider<bool>((ref) {
-  return Connectivity().onConnectivityChanged.map(
-    (results) => results.any((r) => r != ConnectivityResult.none),
-  );
+/// Provider that streams connectivity state.
+///
+/// Seeded with the current state before listening for changes.
+/// `onConnectivityChanged` only fires on a *change*, so an app launched with
+/// no connection received nothing at all: the stream stayed empty, every
+/// reader fell through to its default, and the offline banner — the one thing
+/// that explains why saving is queuing up — never appeared until the network
+/// happened to toggle.
+final connectivityProvider = StreamProvider<bool>((ref) async* {
+  bool isOnline(List<ConnectivityResult> results) =>
+      results.any((r) => r != ConnectivityResult.none);
+
+  try {
+    yield isOnline(await Connectivity().checkConnectivity());
+  } catch (_) {
+    // A platform that cannot answer is assumed online: sync's own health
+    // check is the real gate, and claiming offline wrongly would suppress
+    // syncing entirely.
+    yield true;
+  }
+
+  yield* Connectivity().onConnectivityChanged.map(isOnline);
 });
 
 /// Animated banner shown when the device is offline.
@@ -68,12 +85,17 @@ class _OfflineBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: AppTheme.spacing8, horizontal: AppTheme.spacing16),
+      padding: const EdgeInsets.symmetric(
+        vertical: AppTheme.spacing8,
+        horizontal: AppTheme.spacing16,
+      ),
       decoration: BoxDecoration(
         color: Colors.amber.withValues(alpha: AppTheme.alphaLightMed),
         border: Border(
           bottom: BorderSide(
-            color: Colors.amber.shade600.withValues(alpha: AppTheme.alphaStrong),
+            color: Colors.amber.shade600.withValues(
+              alpha: AppTheme.alphaStrong,
+            ),
             width: 0.8,
           ),
         ),
@@ -81,14 +103,15 @@ class _OfflineBanner extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.wifi_off_rounded,
-              color: context.warningText, size: AppTheme.iconSM + 1),
+          Icon(
+            Icons.wifi_off_rounded,
+            color: context.warningText,
+            size: AppTheme.iconSM + 1,
+          ),
           const SizedBox(width: AppTheme.spacing8),
           Text(
             'You\'re offline. Changes will sync when reconnected.',
-            style: AppTheme.caption.copyWith(
-              color: context.warningText,
-            ),
+            style: AppTheme.caption.copyWith(color: context.warningText),
           ),
         ],
       ),

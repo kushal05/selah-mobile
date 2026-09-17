@@ -99,7 +99,8 @@ class PrayerLogModel implements SyncEntity {
   }) {
     final now = DateTime.now();
     final nowMs = now.millisecondsSinceEpoch;
-    final date = sessionDate ??
+    final date =
+        sessionDate ??
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     return PrayerLogModel(
       id: id,
@@ -116,9 +117,7 @@ class PrayerLogModel implements SyncEntity {
   }
 
   /// Create updated copy with incremented version
-  PrayerLogModel copyWithUpdate({
-    String? note,
-  }) {
+  PrayerLogModel copyWithUpdate({String? note}) {
     return PrayerLogModel(
       id: id,
       prayerId: prayerId,

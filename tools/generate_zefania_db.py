@@ -2,7 +2,7 @@
 """Zefania XML -> per-translation Bible .db generator.
 
 Produces a standalone per-version Bible SQLite database with the SAME schema as
-the bundled `assets/bible.db` (see `lib/features/bible/data/bible_schema_ddl.dart`,
+the downloadable `tools/build/bible.db` (see `lib/features/bible/data/bible_schema_ddl.dart`,
 schema_version 2). The output is the kind of file uploaded to S3 and merged into a
 user's `bible.db` via ATTACH + INSERT OR IGNORE in `BibleDatabaseService`.
 

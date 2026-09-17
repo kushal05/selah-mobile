@@ -6,6 +6,7 @@ import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
+import 'tables/failed_remote_ops_table.dart';
 import 'tables/folders_table.dart';
 import 'tables/sync_notes_table.dart';
 import 'tables/note_blocks_table.dart';
@@ -69,6 +70,7 @@ part 'sync_database.g.dart';
 /// MongoDB is an eventually consistent replica.
 @DriftDatabase(
   tables: [
+    FailedRemoteOps,
     Folders,
     SyncNotes,
     NoteBlocks,
@@ -139,7 +141,7 @@ class SyncDatabase extends _$SyncDatabase {
   SyncDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 32;
+  int get schemaVersion => 35;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -707,6 +709,77 @@ class SyncDatabase extends _$SyncDatabase {
                 'UPDATE entity_access SET accepted_at = created_at '
                 "WHERE access_type != 'user' AND accepted_at IS NULL",
               );
+            }
+          }
+
+          if (from < 33) {
+            // v33: Track remote operations whose apply keeps failing.
+            // The pull leaves the cursor alone on a retryable failure so the
+            // page is re-fetched rather than skipped; this bounds that so a
+            // permanently unapplyable operation cannot wedge sync forever.
+            await customStatement('''
+              CREATE TABLE IF NOT EXISTS failed_remote_ops (
+                op_id TEXT NOT NULL,
+                entity_type TEXT NOT NULL,
+                entity_id TEXT NOT NULL,
+                attempts INTEGER NOT NULL DEFAULT 0,
+                last_error TEXT NOT NULL DEFAULT '',
+                last_attempt_at INTEGER NOT NULL DEFAULT 0,
+                dead_lettered INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (op_id)
+              )
+            ''');
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_failed_remote_ops_dead '
+              'ON failed_remote_ops (dead_lettered)',
+            );
+          }
+
+          if (from < 34) {
+            // v34: Count push attempts per operation, so a rejected push can
+            // be retried and bounded instead of being dropped on the first
+            // failure.
+            final cols = await customSelect('PRAGMA table_info(oplog)').get();
+            final names = cols.map((r) => r.read<String>('name')).toSet();
+            if (!names.contains('push_attempts')) {
+              await customStatement(
+                'ALTER TABLE oplog ADD COLUMN push_attempts INTEGER NOT NULL '
+                'DEFAULT 0',
+              );
+            }
+            if (!names.contains('needs_rebase')) {
+              await customStatement(
+                'ALTER TABLE oplog ADD COLUMN needs_rebase INTEGER NOT NULL '
+                'DEFAULT 0',
+              );
+            }
+          }
+
+          if (from < 35) {
+            // v35: Per-field update timestamps for the multi-field entities
+            // that were still merging at record level, so two devices editing
+            // different fields of the same record both keep their change.
+            //
+            // Deliberately not every table: a junction row, an append-only
+            // log, or a record with one editable field gains nothing from
+            // per-field timestamps that `updated_at` does not already give.
+            for (final table in [
+              'people',
+              'promises',
+              'folders',
+              'songs',
+              'note_blocks',
+            ]) {
+              final cols = await customSelect(
+                'PRAGMA table_info($table)',
+              ).get();
+              final names = cols.map((r) => r.read<String>('name')).toSet();
+              if (!names.contains('field_updated_at')) {
+                await customStatement(
+                  'ALTER TABLE $table ADD COLUMN field_updated_at TEXT NOT '
+                  "NULL DEFAULT '{}'",
+                );
+              }
             }
           }
         },
@@ -1345,6 +1418,79 @@ class SyncDatabase extends _$SyncDatabase {
     );
   }
 
+  /// Counts another failed push for [opId] and returns the new total.
+  Future<int> incrementPushAttempts(String opId) async {
+    final row = await (select(
+      oplog,
+    )..where((o) => o.opId.equals(opId))).getSingleOrNull();
+    final attempts = (row?.pushAttempts ?? 0) + 1;
+    await (update(oplog)..where((o) => o.opId.equals(opId))).write(
+      OplogCompanion(pushAttempts: Value(attempts)),
+    );
+    return attempts;
+  }
+
+  /// Rewrites a queued operation's payload after it has been rebased.
+  ///
+  /// The oplog is append-only in spirit, but this operation has not been
+  /// accepted anywhere yet: it is still unsynced and is about to be pushed
+  /// again. Rewriting it in place keeps one operation per user edit, rather
+  /// than leaving a rejected twin behind for the user to wonder about.
+  Future<void> replaceOpPayload({
+    required String opId,
+    required String payloadJson,
+    required int entityVersion,
+  }) async {
+    await (update(oplog)..where((o) => o.opId.equals(opId))).write(
+      OplogCompanion(
+        payloadJson: Value(payloadJson),
+        entityVersion: Value(entityVersion),
+        pushAttempts: const Value(0),
+      ),
+    );
+  }
+
+  /// Flags [opId] as needing to be re-applied on top of the server's version.
+  Future<void> markOpNeedsRebase(String opId) async {
+    await (update(oplog)..where((o) => o.opId.equals(opId))).write(
+      const OplogCompanion(needsRebase: Value(true)),
+    );
+  }
+
+  /// Operations waiting to be rebased onto a newer server version.
+  Future<List<OplogData>> getOpsNeedingRebase() {
+    return (select(oplog)
+          ..where((o) => o.needsRebase.equals(true) & o.synced.equals(0))
+          ..orderBy([(o) => OrderingTerm.asc(o.timestamp)]))
+        .get();
+  }
+
+  /// Clears the rebase flag once the operation has been re-applied.
+  Future<void> clearNeedsRebase(String opId) async {
+    await (update(oplog)..where((o) => o.opId.equals(opId))).write(
+      const OplogCompanion(needsRebase: Value(false)),
+    );
+  }
+
+  /// Local changes the push gave up on, for the sync status screen.
+  Future<List<OplogData>> getQuarantinedOps() {
+    return (select(oplog)
+          ..where((o) => o.failedAt.isNotNull())
+          ..orderBy([(o) => OrderingTerm.desc(o.failedAt)]))
+        .get();
+  }
+
+  /// Puts a quarantined operation back in the queue for another try.
+  Future<void> requeueFailedOp(String opId) async {
+    await (update(oplog)..where((o) => o.opId.equals(opId))).write(
+      const OplogCompanion(
+        failedAt: Value(null),
+        failedReason: Value(null),
+        pushAttempts: Value(0),
+      ),
+    );
+  }
+
   /// Mark operations as synced
   Future<void> markOpsSynced(List<String> opIds) async {
     await (update(oplog)..where((o) => o.opId.isIn(opIds))).write(
@@ -1526,6 +1672,84 @@ class SyncDatabase extends _$SyncDatabase {
   }
 
   /// Get current sync state
+  /// Records that applying [opId] failed again, returning the new attempt
+  /// count. Called outside the pull's transaction so the tally survives the
+  /// rollback that the failure triggers.
+  Future<int> recordRemoteOpFailure({
+    required String opId,
+    required String entityType,
+    required String entityId,
+    required String error,
+    required int now,
+  }) async {
+    final existing = await (select(
+      failedRemoteOps,
+    )..where((f) => f.opId.equals(opId))).getSingleOrNull();
+    final attempts = (existing?.attempts ?? 0) + 1;
+
+    await into(failedRemoteOps).insertOnConflictUpdate(
+      FailedRemoteOpsCompanion.insert(
+        opId: opId,
+        entityType: entityType,
+        entityId: entityId,
+        attempts: Value(attempts),
+        // Bounded: a stack trace in a row the user may never read is not worth
+        // the space, and the full error is already in the log.
+        lastError: Value(
+          error.length > 500 ? '${error.substring(0, 500)}…' : error,
+        ),
+        lastAttemptAt: Value(now),
+      ),
+    );
+    return attempts;
+  }
+
+  /// Marks [opId] as given up on, so the next pull skips it and the cursor can
+  /// move past. The row stays so it can be reported and retried deliberately.
+  Future<void> deadLetterRemoteOp(String opId) async {
+    await (update(failedRemoteOps)..where((f) => f.opId.equals(opId))).write(
+      const FailedRemoteOpsCompanion(deadLettered: Value(true)),
+    );
+  }
+
+  /// Op ids the pull should skip rather than retry.
+  Future<Set<String>> getDeadLetteredOpIds() async {
+    final rows = await (select(
+      failedRemoteOps,
+    )..where((f) => f.deadLettered.equals(true))).get();
+    return rows.map((r) => r.opId).toSet();
+  }
+
+  /// Clears the failure record for [opId] once it finally applies.
+  Future<void> clearRemoteOpFailure(String opId) async {
+    await (delete(failedRemoteOps)..where((f) => f.opId.equals(opId))).go();
+  }
+
+  /// Clears the give-up flags on every inbound operation, so a following pull
+  /// will try them again.
+  ///
+  /// On its own this changes nothing: the cursor moved past these operations
+  /// when they were dead-lettered, so the server will not send them again. It
+  /// has to be paired with a cursor reset — see `SyncEngine.resetAndSync` —
+  /// which is why the UI presents retrying one of these as a full re-check.
+  Future<void> clearAllDeadLetters() async {
+    await (update(failedRemoteOps)..where((f) => f.deadLettered.equals(true)))
+        .write(
+          const FailedRemoteOpsCompanion(
+            deadLettered: Value(false),
+            attempts: Value(0),
+          ),
+        );
+  }
+
+  /// Everything the pull has given up on, for the sync status screen.
+  Future<List<FailedRemoteOp>> getDeadLetteredOps() {
+    return (select(failedRemoteOps)
+          ..where((f) => f.deadLettered.equals(true))
+          ..orderBy([(f) => OrderingTerm.desc(f.lastAttemptAt)]))
+        .get();
+  }
+
   Future<SyncStateData> getSyncState() async {
     return (select(syncState)..where((s) => s.id.equals(1))).getSingle();
   }
@@ -1565,6 +1789,13 @@ class SyncDatabase extends _$SyncDatabase {
 
     // Clear the oplog
     await delete(oplog).go();
+
+    // And the record of inbound operations sync gave up on. These are keyed by
+    // the server's opId, not by user, so leaving them behind would carry one
+    // account's give-up flags into the next login — an operation with a
+    // matching id would be skipped for a user it never belonged to — and the
+    // table would grow for the life of the install.
+    await delete(failedRemoteOps).go();
 
     // Reset sync state cursor so the next sync does a full pull
     await updateSyncState(

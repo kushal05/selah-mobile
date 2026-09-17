@@ -234,13 +234,23 @@ class _InMemorySyncApiClient implements SyncApiClient {
   }
 
   @override
-  Future<List<int>> pushOperations(List<OplogEntry> operations) async {
-    final timestamps = <int>[];
+  Future<List<PushOpResult>> pushOperations(List<OplogEntry> operations) async {
+    final results = <PushOpResult>[];
     for (final op in operations) {
-      timestamps.add(await pushOperation(op));
+      final rejection = rejectOpIds[op.opId];
+      if (rejection != null) {
+        results.add(PushOpResult(opId: op.opId, errorCode: rejection));
+        continue;
+      }
+      results.add(
+        PushOpResult(opId: op.opId, serverTimestamp: await pushOperation(op)),
+      );
     }
-    return timestamps;
+    return results;
   }
+
+  /// opId -> error code the fake server should answer with.
+  final Map<String, String> rejectOpIds = {};
 
   @override
   Future<PullResponse> pullOperations({String? cursor}) async {

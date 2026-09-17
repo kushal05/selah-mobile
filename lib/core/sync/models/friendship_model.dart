@@ -53,8 +53,9 @@ class FriendshipModel implements SyncEntity {
 
   /// Get initials for avatar display
   String get initials {
-    final name =
-        friendDisplayName.isNotEmpty ? friendDisplayName : friendUsername;
+    final name = friendDisplayName.isNotEmpty
+        ? friendDisplayName
+        : friendUsername;
     if (name.isEmpty) return '?';
     final parts = name.trim().split(' ');
     if (parts.length == 1) {

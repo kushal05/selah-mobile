@@ -93,11 +93,11 @@ class SyncService {
     required AuthService authService,
     required ApiInterceptor interceptor,
     required NoteBlockFtsService ftsService,
-  })  : _db = db,
-        _config = config,
-        _authService = authService,
-        _interceptor = interceptor,
-        _ftsService = ftsService;
+  }) : _db = db,
+       _config = config,
+       _authService = authService,
+       _interceptor = interceptor,
+       _ftsService = ftsService;
 
   /// Initialize the sync service
   Future<void> initialize() async {
@@ -139,6 +139,10 @@ class SyncService {
       },
     );
 
+    // Read connectivity before subscribing — the change stream says nothing
+    // about the state the app started in.
+    await _seedConnectivity();
+
     // Listen for connectivity changes
     _setupConnectivityListener();
 
@@ -149,13 +153,15 @@ class SyncService {
     // Listens only for INSERTs so that marking entries synced (UPDATE)
     // or garbage collection (DELETE) won't trigger unnecessary cycles.
     _oplogSubscription = _db
-        .tableUpdates(TableUpdateQuery.onTable(
-          _db.oplog,
-          limitUpdateKind: UpdateKind.insert,
-        ))
+        .tableUpdates(
+          TableUpdateQuery.onTable(
+            _db.oplog,
+            limitUpdateKind: UpdateKind.insert,
+          ),
+        )
         .listen((_) {
-      _debouncedSync();
-    });
+          _debouncedSync();
+        });
 
     _isInitialized = true;
     SyncLogger.info('Sync service initialized');
@@ -291,9 +297,34 @@ class SyncService {
   }
 
   /// Setup connectivity listener
+  /// Reads connectivity once before subscribing.
+  ///
+  /// `onConnectivityChanged` only fires on a change, so an app launched
+  /// offline left [_isOnline] at its optimistic default: sync stayed unpaused,
+  /// every trigger paid a failed health request, and the offline progress
+  /// event that drives the status icon was never emitted.
+  Future<void> _seedConnectivity() async {
+    try {
+      final results = await Connectivity().checkConnectivity();
+      _isOnline = results.any((r) => r != ConnectivityResult.none);
+      if (!_isOnline) {
+        _isSyncPaused = true;
+        _progressController.add(
+          SyncProgress.offline(await _syncEngine.getPendingOpsCount()),
+        );
+        SyncLogger.info('Started offline — sync paused until a connection');
+      }
+    } catch (e) {
+      // Leave the optimistic default; the engine's health check still gates
+      // any actual request.
+      SyncLogger.warning('Could not read initial connectivity: $e');
+    }
+  }
+
   void _setupConnectivityListener() {
-    _connectivitySubscription =
-        Connectivity().onConnectivityChanged.listen((results) {
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
+      results,
+    ) {
       final wasOnline = _isOnline;
       _isOnline = results.any((r) => r != ConnectivityResult.none);
 

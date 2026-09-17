@@ -104,6 +104,15 @@ abstract class Routes {
   static String prayerCollaborators(String prayerId) =>
       '/prayers/$prayerId/collaborators';
 
+  /// Generate the Social-tab detail route for a specific person.
+  ///
+  /// Navigate here rather than to the legacy `/people/:personId` below.
+  /// Unlike the legacy group and friend paths, which do have redirects
+  /// registered, no `/people` route is registered in the router at all — so
+  /// pushing one resolves to nothing. The constants are kept only so an old
+  /// stored path can still be recognised.
+  static String socialPerson(String personId) => '/social/people/$personId';
+
   // ───────────── Deep Link URL Builders ─────────────
 
   /// Base URL for deep links.
@@ -133,8 +142,12 @@ abstract class Routes {
 
   /// Build a shareable deep link URL for a Bible chapter.
   /// Uses the path-based format: /bible/{bookId}/{chapter}?t={translation}&v={verse}
-  static String bibleDeepLink(int bookId, int chapter,
-      {String? translation, int? verse}) {
+  static String bibleDeepLink(
+    int bookId,
+    int chapter, {
+    String? translation,
+    int? verse,
+  }) {
     var url = '$_deepLinkBase/bible/$bookId/$chapter';
     final params = <String>[];
     if (translation != null && translation != 'KJV') {
@@ -149,28 +162,37 @@ abstract class Routes {
 
   /// @deprecated Use socialPeople instead
   static const people = '/people';
+
   /// @deprecated Use socialPersonNew instead
   static const personNew = '/people/new';
+
   /// @deprecated Use socialPersonDetail instead
   static const personDetail = '/people/:personId';
+
   /// @deprecated Use socialPersonEdit instead
   static const personEdit = '/people/:personId/edit';
 
   /// @deprecated Use socialFriends instead
   static const friends = '/home/settings/friends';
+
   /// @deprecated Use socialFriendRequests instead
   static const friendRequests = '/home/settings/friends/requests';
+
   /// @deprecated Use socialFriendsSearch instead
   static const friendsSearch = '/home/settings/friends/search';
+
   /// @deprecated Use socialProfileSettings instead
   static const profileSettings = '/home/settings/friends/profile';
 
   /// @deprecated Use socialGroups instead
   static const groups = '/groups';
+
   /// @deprecated Use socialCreateGroup instead
   static const createGroup = '/groups/new';
+
   /// @deprecated Use socialGroupDetail instead
   static const groupDetail = '/groups/:groupId';
+
   /// @deprecated Use socialGroupMembers instead
   static const groupMembers = '/groups/:groupId/members';
 }

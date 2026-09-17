@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'field_timestamps.dart';
 import 'sync_entity.dart';
 import '../../testing/test_clock.dart';
 
@@ -71,6 +72,9 @@ class NoteBlockModel implements SyncEntity {
   /// Creation timestamp
   final int createdAt;
 
+  /// When each field last changed, for field-level merge.
+  final Map<String, int> fieldUpdatedAt;
+
   /// Note section this block belongs to ('main', 'personalApplication', 'prayer')
   final String section;
 
@@ -86,7 +90,11 @@ class NoteBlockModel implements SyncEntity {
     this.trashedAt,
     required this.createdAt,
     this.section = 'main',
+    this.fieldUpdatedAt = const {},
   });
+
+  /// The fields a merge may resolve independently.
+  static const mergeableFields = ['blockType', 'orderIndex', 'section'];
 
   @override
   bool get isDeleted => deleted == 1;
@@ -129,6 +137,7 @@ class NoteBlockModel implements SyncEntity {
       'deleted': deleted,
       if (trashedAt != null) 'trashedAt': trashedAt,
       'createdAt': createdAt,
+      'fieldUpdatedAt': fieldUpdatedAt,
       'section': section,
     };
   }
@@ -156,6 +165,7 @@ class NoteBlockModel implements SyncEntity {
       deleted: _parseDeleted(json['deleted']),
       trashedAt: json['trashedAt'] as int?,
       createdAt: json['createdAt'] as int,
+      fieldUpdatedAt: parseFieldTimestamps(json['fieldUpdatedAt']),
       section: json['section'] as String? ?? 'main',
     );
   }
@@ -181,6 +191,7 @@ class NoteBlockModel implements SyncEntity {
       deleted: 0,
       createdAt: now,
       section: section,
+      fieldUpdatedAt: {for (final f in mergeableFields) f: now},
     );
   }
 
@@ -207,18 +218,25 @@ class NoteBlockModel implements SyncEntity {
     int? orderIndex,
     String? section,
   }) {
+    final now = TestClock.now();
+    final stamped = Map<String, int>.from(fieldUpdatedAt);
+    if (blockType != null) stamped['blockType'] = now;
+    if (orderIndex != null) stamped['orderIndex'] = now;
+    if (section != null) stamped['section'] = now;
+
     return NoteBlockModel(
       id: id,
       noteId: noteId,
       blockType: blockType ?? this.blockType,
       content: content ?? this.content,
       orderIndex: orderIndex ?? this.orderIndex,
-      updatedAt: TestClock.now(),
+      updatedAt: now,
       version: version + 1,
       deleted: deleted,
       trashedAt: trashedAt,
       createdAt: createdAt,
       section: section ?? this.section,
+      fieldUpdatedAt: stamped,
     );
   }
 
@@ -236,6 +254,7 @@ class NoteBlockModel implements SyncEntity {
       trashedAt: trashedAt,
       createdAt: createdAt,
       section: section,
+      fieldUpdatedAt: fieldUpdatedAt,
     );
   }
 
@@ -254,6 +273,7 @@ class NoteBlockModel implements SyncEntity {
       trashedAt: now,
       createdAt: createdAt,
       section: section,
+      fieldUpdatedAt: fieldUpdatedAt,
     );
   }
 
@@ -271,6 +291,7 @@ class NoteBlockModel implements SyncEntity {
       trashedAt: null,
       createdAt: createdAt,
       section: section,
+      fieldUpdatedAt: fieldUpdatedAt,
     );
   }
 

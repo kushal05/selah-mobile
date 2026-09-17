@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/navigation/routes.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../shared/widgets/cards/person_card.dart';
@@ -44,7 +45,7 @@ class _PeopleListScreenState extends ConsumerState<PeopleListScreen> {
             ? null
             : FloatingActionButton(
                 heroTag: null,
-                onPressed: () => context.push('/people/new'),
+                onPressed: () => context.push(Routes.socialPersonNew),
                 backgroundColor: AppTheme.teal,
                 foregroundColor: AppTheme.onAccent(AppTheme.teal),
                 child: const Icon(Icons.add),
@@ -119,7 +120,7 @@ class _PeopleListScreenState extends ConsumerState<PeopleListScreen> {
                     child: PersonCard(
                       name: person.name,
                       relation: person.relation,
-                      onTap: () => context.push('/people/${person.id}'),
+                      onTap: () => context.push(Routes.socialPerson(person.id)),
                     ),
                   );
                 },

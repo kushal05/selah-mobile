@@ -494,7 +494,7 @@ class NoteDetailScreen extends ConsumerWidget {
     if (context.mounted && moved > 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Moved to ${result.targetFolderName}'),
+          content: Text(l10n(context).movedToTarget(result.targetFolderName)),
           behavior: SnackBarBehavior.floating,
         ),
       );

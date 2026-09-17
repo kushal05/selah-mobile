@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 
 import '../../database/sync_database.dart';
+import '../models/field_timestamps.dart';
 import '../models/folder_model.dart';
 import '../models/oplog_entry.dart';
 import 'base_sync_repository.dart';
@@ -497,6 +500,7 @@ class FolderRepository extends BaseSyncRepository<FolderModel> {
       deleted: row.deleted,
       trashedAt: row.trashedAt,
       createdAt: row.createdAt,
+      fieldUpdatedAt: parseFieldTimestamps(row.fieldUpdatedAt),
     );
   }
 
@@ -515,6 +519,7 @@ class FolderRepository extends BaseSyncRepository<FolderModel> {
       deleted: Value(model.deleted),
       trashedAt: Value(model.trashedAt),
       createdAt: Value(model.createdAt),
+      fieldUpdatedAt: Value(jsonEncode(model.fieldUpdatedAt)),
     );
   }
 

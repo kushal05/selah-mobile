@@ -45,6 +45,11 @@ class NoteBlocks extends Table {
   /// Creation timestamp (Unix milliseconds)
   IntColumn get createdAt => integer()();
 
+  /// Per-field update timestamps for field-level merge conflict resolution.
+  /// JSON map of {fieldName: timestampMs}. Empty for rows written before this
+  /// column existed, which fall back to entity-level merge.
+  TextColumn get fieldUpdatedAt => text().withDefault(const Constant('{}'))();
+
   /// Note section ('main', 'personalApplication', 'prayer')
   /// Defaults to 'main' for backward compatibility with existing blocks
   TextColumn get section => text().withDefault(const Constant('main'))();

@@ -603,7 +603,7 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Prayer shared to "${selected.name}"'),
+              content: Text(l10n(context).prayerSharedTo(selected.name)),
               behavior: SnackBarBehavior.floating,
             ),
           );

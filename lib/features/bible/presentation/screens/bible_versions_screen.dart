@@ -188,10 +188,13 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
   Future<void> _confirmDelete(
       BuildContext context, BibleVersionInfo info) async {
     final messenger = ScaffoldMessenger.of(context);
+    // Resolved before the await: every read of context after the dialog is a
+    // use across an async gap.
+    final failureMessage = l10n(context).failedToRemoveVersion(info.name);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Remove ${info.name}?'),
+        title: Text(l10n(context).removeVersionQuestion(info.name)),
         content: Text(
           'This will free up ~${info.approximateSizeMb} MB. '
           'Notes referencing ${info.code} verses will still show the '
@@ -228,7 +231,7 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(
-        content: Text('Failed to remove ${info.name}.'),
+        content: Text(failureMessage),
         behavior: SnackBarBehavior.floating,
       ));
     }

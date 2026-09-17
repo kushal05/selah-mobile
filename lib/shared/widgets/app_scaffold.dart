@@ -5,6 +5,7 @@ import '../../core/navigation/nav_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/tutorial/tutorial_providers.dart';
 import 'connectivity_banner.dart';
+import 'first_sync_banner.dart';
 import 'sync_degraded_banner.dart';
 import '../../../core/providers/motion_preferences.dart';
 import '../../core/theme/theme_colors.dart';
@@ -31,12 +32,15 @@ class AppScaffold extends ConsumerWidget {
     // nothing to overflow, so every tab keeps a slot and no More is shown.
     final needsMore = tabs.length > kPrimaryNavTabCount + 1;
     final primary = needsMore ? tabs.take(kPrimaryNavTabCount).toList() : tabs;
-    final overflow = needsMore ? tabs.skip(kPrimaryNavTabCount).toList() : const <NavTab>[];
+    final overflow = needsMore
+        ? tabs.skip(kPrimaryNavTabCount).toList()
+        : const <NavTab>[];
 
     // Position of the active branch among the primary tabs. If the active
     // branch lives in the overflow, More itself is the selected destination.
-    var selectedIndex =
-        primary.indexWhere((t) => t.branchIndex == shell.currentIndex);
+    var selectedIndex = primary.indexWhere(
+      (t) => t.branchIndex == shell.currentIndex,
+    );
     if (selectedIndex < 0) {
       selectedIndex = needsMore ? primary.length : 0;
     }
@@ -59,6 +63,8 @@ class AppScaffold extends ConsumerWidget {
         child: Column(
           children: [
             const ConnectivityBanner(),
+            // Only ever visible before the first pull lands; see the class doc.
+            const FirstSyncBanner(),
             const SyncDegradedBanner(),
             Expanded(child: shell),
           ],
@@ -98,9 +104,9 @@ void _showMoreSheet(
   required ValueChanged<int> onSelect,
 }) {
   showModalBottomSheet<void>(
-      // Defaults to false: a scroll-controlled sheet otherwise draws its
-      // top edge behind the notch or Dynamic Island.
-      useSafeArea: true,
+    // Defaults to false: a scroll-controlled sheet otherwise draws its
+    // top edge behind the notch or Dynamic Island.
+    useSafeArea: true,
     context: context,
     backgroundColor: context.cardSurface,
     shape: const RoundedRectangleBorder(
@@ -180,8 +186,11 @@ class _MoreRow extends StatelessWidget {
           color: selected ? accent.withValues(alpha: 0.08) : null,
           child: Row(
             children: [
-              Icon(selected ? tab.selectedIcon : tab.icon,
-                  size: AppTheme.iconXL, color: accent),
+              Icon(
+                selected ? tab.selectedIcon : tab.icon,
+                size: AppTheme.iconXL,
+                color: accent,
+              ),
               const SizedBox(width: 16),
               Expanded(
                 child: Text(
@@ -194,7 +203,11 @@ class _MoreRow extends StatelessWidget {
                 ),
               ),
               if (selected)
-                Icon(Icons.check_rounded, size: AppTheme.iconBase, color: accent),
+                Icon(
+                  Icons.check_rounded,
+                  size: AppTheme.iconBase,
+                  color: accent,
+                ),
             ],
           ),
         ),

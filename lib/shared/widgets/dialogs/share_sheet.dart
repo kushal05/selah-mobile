@@ -617,7 +617,7 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
       dense: true,
       contentPadding: EdgeInsets.zero,
       leading: const Icon(Icons.link),
-      title: Text('Link created ${_relativeTime(t.createdAt)}'),
+      title: Text(l10n(context).linkCreatedAgo(_relativeTime(t.createdAt))),
       subtitle: Text(l10n(context).viewOnlyCannotBeReCopied),
       trailing: IconButton(
         icon: const Icon(Icons.delete_outline),

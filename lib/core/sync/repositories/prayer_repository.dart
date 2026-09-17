@@ -86,6 +86,28 @@ class PrayerRepository extends BaseSyncRepository<PrayerModel> {
     return query.watch().map((rows) => rows.map(_toModel).toList());
   }
 
+  /// Watch how many prayers are active, without materialising them.
+  ///
+  /// The dashboard tile only ever showed a count, but watching the list to
+  /// take `.length` decoded every row into a model on every change. This is a
+  /// single COUNT(*) that re-runs on the same table updates.
+  Stream<int> watchActivePrayerCount(String userId) {
+    final count = _db.prayers.id.count();
+    final query = _db.selectOnly(_db.prayers)
+      ..addColumns([count])
+      ..where(_db.prayers.deleted.equals(0) &
+          _db.prayers.userId.equals(userId) &
+          _db.prayers.trashedAt.isNull() &
+          // Not `status = 'active'`. _toModel decodes the column with
+          // `orElse: () => PrayerStatus.active`, so a row carrying an
+          // unrecognised status — '', 'ACTIVE', or a value a newer server
+          // introduces — reads as Active everywhere else in the app. Matching
+          // the string exactly would make this tile the only place that
+          // disagreed, undercounting silently.
+          _db.prayers.status.isNotIn(const ['answered', 'archived']));
+    return query.map((row) => row.read(count) ?? 0).watchSingle();
+  }
+
   /// Watch prayers by status for a user
   Stream<List<PrayerModel>> watchPrayersByStatus(PrayerStatus status, String userId) {
     final query = _db.select(_db.prayers)

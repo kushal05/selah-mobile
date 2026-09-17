@@ -368,7 +368,7 @@ class _FolderManagementScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content:
-                Text('Moved "${folder.name}" to ${result.targetFolderName}'),
+                Text(l10n(context).movedFolderToTarget(folder.name, result.targetFolderName)),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -627,7 +627,7 @@ class _TrashFoldersSheet extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Restored "${folder.name}"'),
+            content: Text(l10n(context).restoredNamed(folder.name)),
             behavior: SnackBarBehavior.floating,
           ),
         );

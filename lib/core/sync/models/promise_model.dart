@@ -1,3 +1,4 @@
+import 'field_timestamps.dart';
 import 'sync_entity.dart';
 import '../../testing/test_clock.dart';
 
@@ -44,6 +45,9 @@ class PromiseModel implements SyncEntity {
   /// Creation timestamp
   final int createdAt;
 
+  /// When each field last changed, for field-level merge.
+  final Map<String, int> fieldUpdatedAt;
+
   const PromiseModel({
     required this.id,
     required this.userId,
@@ -58,7 +62,18 @@ class PromiseModel implements SyncEntity {
     required this.deleted,
     this.trashedAt,
     required this.createdAt,
+    this.fieldUpdatedAt = const {},
   });
+
+  /// The fields a merge may resolve independently.
+  static const mergeableFields = [
+    'reference',
+    'content',
+    'preview',
+    'notes',
+    'category',
+    'isFavorite',
+  ];
 
   @override
   bool get isDeleted => deleted == 1;
@@ -79,6 +94,7 @@ class PromiseModel implements SyncEntity {
       'deleted': deleted,
       if (trashedAt != null) 'trashedAt': trashedAt,
       'createdAt': createdAt,
+      'fieldUpdatedAt': fieldUpdatedAt,
     };
   }
 
@@ -97,6 +113,7 @@ class PromiseModel implements SyncEntity {
       deleted: _parseDeleted(json['deleted']),
       trashedAt: json['trashedAt'] as int?,
       createdAt: json['createdAt'] as int,
+      fieldUpdatedAt: parseFieldTimestamps(json['fieldUpdatedAt']),
     );
   }
 
@@ -125,6 +142,7 @@ class PromiseModel implements SyncEntity {
       version: 1,
       deleted: 0,
       createdAt: now,
+      fieldUpdatedAt: {for (final f in mergeableFields) f: now},
     );
   }
 
@@ -143,6 +161,14 @@ class PromiseModel implements SyncEntity {
     String? category,
     bool? isFavorite,
   }) {
+    final now = TestClock.now();
+    final stamped = Map<String, int>.from(fieldUpdatedAt);
+    if (reference != null) stamped['reference'] = now;
+    if (content != null) stamped['content'] = now;
+    if (preview != null) stamped['preview'] = now;
+    if (notes != null) stamped['notes'] = now;
+    if (category != null) stamped['category'] = now;
+    if (isFavorite != null) stamped['isFavorite'] = now;
     return PromiseModel(
       id: id,
       userId: userId,
@@ -152,11 +178,12 @@ class PromiseModel implements SyncEntity {
       notes: notes ?? this.notes,
       category: category ?? this.category,
       isFavorite: isFavorite ?? this.isFavorite,
-      updatedAt: TestClock.now(),
+      updatedAt: now,
       version: version + 1,
       deleted: deleted,
       trashedAt: trashedAt,
       createdAt: createdAt,
+      fieldUpdatedAt: stamped,
     );
   }
 
@@ -181,6 +208,7 @@ class PromiseModel implements SyncEntity {
       deleted: 1,
       trashedAt: trashedAt,
       createdAt: createdAt,
+      fieldUpdatedAt: fieldUpdatedAt,
     );
   }
 
@@ -201,6 +229,7 @@ class PromiseModel implements SyncEntity {
       deleted: deleted,
       trashedAt: now,
       createdAt: createdAt,
+      fieldUpdatedAt: fieldUpdatedAt,
     );
   }
 
@@ -220,6 +249,7 @@ class PromiseModel implements SyncEntity {
       deleted: deleted,
       trashedAt: null,
       createdAt: createdAt,
+      fieldUpdatedAt: fieldUpdatedAt,
     );
   }
 

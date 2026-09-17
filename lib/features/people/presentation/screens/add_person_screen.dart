@@ -138,7 +138,7 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
       controller: _nameController,
       decoration: InputDecoration(
         labelText: l10n(context).name,
-        hintText: 'Enter person\'s name',
+        hintText: l10n(context).enterPersonsName,
         floatingLabelBehavior: FloatingLabelBehavior.always,
         prefixIcon: Icon(Icons.person_outline, color: context.hintText),
         border: OutlineInputBorder(

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'field_timestamps.dart';
 import 'sync_entity.dart';
 import '../../testing/test_clock.dart';
 
@@ -15,9 +16,9 @@ class ChordLine {
   const ChordLine({required this.lineIndex, required this.rawChords});
 
   Map<String, dynamic> toJson() => {
-        'lineIndex': lineIndex,
-        'rawChords': rawChords,
-      };
+    'lineIndex': lineIndex,
+    'rawChords': rawChords,
+  };
 
   factory ChordLine.fromJson(Map<String, dynamic> json) {
     return ChordLine(
@@ -105,6 +106,9 @@ class SongModel implements SyncEntity {
   /// Creation timestamp
   final int createdAt;
 
+  /// When each field last changed, for field-level merge.
+  final Map<String, int> fieldUpdatedAt;
+
   const SongModel({
     required this.id,
     required this.userId,
@@ -126,7 +130,22 @@ class SongModel implements SyncEntity {
     required this.deleted,
     this.trashedAt,
     required this.createdAt,
+    this.fieldUpdatedAt = const {},
   });
+
+  /// The fields a merge may resolve independently.
+  static const mergeableFields = [
+    'title',
+    'folderId',
+    'lyrics',
+    'chords',
+    'scale',
+    'language',
+    'book',
+    'tags',
+    'notes',
+    'isFavorite',
+  ];
 
   @override
   bool get isDeleted => deleted == 1;
@@ -174,6 +193,7 @@ class SongModel implements SyncEntity {
       'deleted': deleted,
       if (trashedAt != null) 'trashedAt': trashedAt,
       'createdAt': createdAt,
+      'fieldUpdatedAt': fieldUpdatedAt,
     };
   }
 
@@ -199,6 +219,7 @@ class SongModel implements SyncEntity {
       deleted: _parseDeleted(json['deleted']),
       trashedAt: json['trashedAt'] as int?,
       createdAt: json['createdAt'] as int,
+      fieldUpdatedAt: parseFieldTimestamps(json['fieldUpdatedAt']),
     );
   }
 
@@ -233,8 +254,9 @@ class SongModel implements SyncEntity {
   }) {
     final now = TestClock.now();
     final preview = _generatePreview(lyrics);
-    final chordLinesJson =
-        chordLines.isEmpty ? '' : jsonEncode(chordLines.map((c) => c.toJson()).toList());
+    final chordLinesJson = chordLines.isEmpty
+        ? ''
+        : jsonEncode(chordLines.map((c) => c.toJson()).toList());
     final hasChords = chords.isNotEmpty || chordLinesJson.isNotEmpty;
 
     return SongModel(
@@ -257,6 +279,7 @@ class SongModel implements SyncEntity {
       version: 1,
       deleted: 0,
       createdAt: now,
+      fieldUpdatedAt: {for (final f in mergeableFields) f: now},
     );
   }
 
@@ -278,12 +301,25 @@ class SongModel implements SyncEntity {
     String? notes,
     bool? isFavorite,
   }) {
+    final now = TestClock.now();
+    final stamped = Map<String, int>.from(fieldUpdatedAt);
+    if (title != null) stamped['title'] = now;
+    if (folderId != null) stamped['folderId'] = now;
+    if (lyrics != null) stamped['lyrics'] = now;
+    if (chords != null) stamped['chords'] = now;
+    if (scale != null) stamped['scale'] = now;
+    if (language != null) stamped['language'] = now;
+    if (book != null) stamped['book'] = now;
+    if (tags != null) stamped['tags'] = now;
+    if (notes != null) stamped['notes'] = now;
+    if (isFavorite != null) stamped['isFavorite'] = now;
+
     final newLyrics = lyrics ?? this.lyrics;
     final newChords = chords ?? this.chords;
     final newChordLinesJson = chordLines != null
         ? (chordLines.isEmpty
-            ? ''
-            : jsonEncode(chordLines.map((c) => c.toJson()).toList()))
+              ? ''
+              : jsonEncode(chordLines.map((c) => c.toJson()).toList()))
         : chordLinesJson;
 
     return SongModel(
@@ -302,11 +338,12 @@ class SongModel implements SyncEntity {
       notes: notes ?? this.notes,
       hasChords: newChords.isNotEmpty || newChordLinesJson.isNotEmpty,
       isFavorite: isFavorite ?? this.isFavorite,
-      updatedAt: TestClock.now(),
+      updatedAt: now,
       version: version + 1,
       deleted: deleted,
       trashedAt: trashedAt,
       createdAt: createdAt,
+      fieldUpdatedAt: stamped,
     );
   }
 
@@ -338,6 +375,7 @@ class SongModel implements SyncEntity {
       deleted: 1,
       trashedAt: trashedAt,
       createdAt: createdAt,
+      fieldUpdatedAt: fieldUpdatedAt,
     );
   }
 
@@ -365,6 +403,7 @@ class SongModel implements SyncEntity {
       deleted: deleted,
       trashedAt: now,
       createdAt: createdAt,
+      fieldUpdatedAt: fieldUpdatedAt,
     );
   }
 
@@ -391,6 +430,7 @@ class SongModel implements SyncEntity {
       deleted: deleted,
       trashedAt: null,
       createdAt: createdAt,
+      fieldUpdatedAt: fieldUpdatedAt,
     );
   }
 

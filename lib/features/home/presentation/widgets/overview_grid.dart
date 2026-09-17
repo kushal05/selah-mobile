@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/domain/enums/prayer_enums.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/cards/overview_card.dart';
-import '../../../notes/presentation/providers/database_provider.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../core/navigation/tab_navigation.dart';
 
@@ -16,24 +14,15 @@ class OverviewGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
 
-    // Watch only counts via .select() to avoid rebuilding on every entity change
-    final activePrayersCount = ref.watch(prayersStreamProvider.select(
-      (async) => async.valueOrNull
-          ?.where((p) => p.status == PrayerStatus.active)
-          .length ?? 0,
-    ));
-
-    final notesCount = ref.watch(notesStreamProvider.select(
-      (async) => async.valueOrNull?.length ?? 0,
-    ));
-
-    final promisesCount = ref.watch(promisesStreamProvider.select(
-      (async) => async.valueOrNull?.length ?? 0,
-    ));
-
-    final peopleCount = ref.watch(peopleStreamProvider.select(
-      (async) => async.valueOrNull?.length ?? 0,
-    ));
+    // COUNT(*) providers rather than the full entity streams. `.select()` kept
+    // this widget from rebuilding, but the watches underneath still decoded
+    // every note, prayer, promise and person into a model on each change just
+    // to produce four numbers.
+    final activePrayersCount =
+        ref.watch(activePrayerCountProvider).valueOrNull ?? 0;
+    final notesCount = ref.watch(noteCountProvider).valueOrNull ?? 0;
+    final promisesCount = ref.watch(promiseCountProvider).valueOrNull ?? 0;
+    final peopleCount = ref.watch(personCountProvider).valueOrNull ?? 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

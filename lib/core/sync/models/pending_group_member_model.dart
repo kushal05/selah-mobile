@@ -78,9 +78,7 @@ class PendingGroupMemberModel implements SyncEntity {
   bool get isApproved => status == PendingMemberStatus.approved;
   bool get isRejected => status == PendingMemberStatus.rejected;
 
-  PendingGroupMemberModel copyWithUpdate({
-    PendingMemberStatus? status,
-  }) {
+  PendingGroupMemberModel copyWithUpdate({PendingMemberStatus? status}) {
     return PendingGroupMemberModel(
       id: id,
       groupId: groupId,
@@ -142,7 +140,9 @@ class PendingGroupMemberModel implements SyncEntity {
       groupId: json['groupId'] as String,
       requestingUserId: json['requestingUserId'] as String,
       requestingUsername: json['requestingUsername'] as String? ?? '',
-      status: PendingMemberStatus.fromString(json['status'] as String? ?? 'pending'),
+      status: PendingMemberStatus.fromString(
+        json['status'] as String? ?? 'pending',
+      ),
       userId: json['userId'] as String,
       updatedAt: json['updatedAt'] as int,
       version: json['version'] as int? ?? 1,

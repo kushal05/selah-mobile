@@ -17,7 +17,7 @@ class ChangelogScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: context.pageGround,
       appBar: AppBar(
-        title: const Text("What's New"),
+        title: Text(l10n(context).whatsNew),
         backgroundColor: context.pageGround,
         elevation: 0,
         scrolledUnderElevation: 0,

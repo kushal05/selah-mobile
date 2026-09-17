@@ -42,8 +42,7 @@ class MemorizationScreen extends ConsumerWidget {
                 Container(
                   margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                   child: ElevatedButton.icon(
-                    onPressed: () =>
-                        context.push('/bible/memorization/review'),
+                    onPressed: () => context.push('/bible/memorization/review'),
                     icon: const Icon(Icons.psychology_outlined),
                     label: Text(
                       'Review $dueCount due',
@@ -84,11 +83,6 @@ class MemorizationScreen extends ConsumerWidget {
   }
 
   Future<void> _showAddSheet(BuildContext context, WidgetRef ref) async {
-    final reference = TextEditingController();
-    final text = TextEditingController();
-    final version = TextEditingController();
-    final navigator = Navigator.of(context);
-
     await showModalBottomSheet<void>(
       // Defaults to false: a scroll-controlled sheet otherwise draws its
       // top edge behind the notch or Dynamic Island.
@@ -96,73 +90,18 @@ class MemorizationScreen extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (sheetCtx) => SafeArea(
-        // Keeps the sheet's last control clear of the gesture bar.
-        top: false,
-        child: Padding(
-        padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          bottom: MediaQuery.of(sheetCtx).viewInsets.bottom + 16,
-          top: 8,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              l10n(context).newMemoryVerse,
-              style: Theme.of(sheetCtx).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: reference,
-              decoration: InputDecoration(
-                labelText: l10n(context).referenceEGJohn316,
-                border: OutlineInputBorder(),
-              ),
-              autofocus: true,
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: version,
-              decoration: InputDecoration(
-                labelText: l10n(context).translationOptional,
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: text,
-              minLines: 3,
-              maxLines: 6,
-              decoration: InputDecoration(
-                labelText: l10n(context).verseText,
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () async {
-                if (reference.text.trim().isEmpty ||
-                    text.text.trim().isEmpty) {
-                  return;
-                }
-                final verse = MemoryVerse.create(
-                  id: const Uuid().v4(),
-                  reference: reference.text.trim(),
-                  text: text.text.trim(),
-                  version: version.text.trim(),
-                );
-                await ref.read(memoryVerseRepositoryProvider).upsert(verse);
-                ref.invalidate(dueMemoryVersesProvider);
-                navigator.pop();
-              },
-              child: Text(l10n(context).actionSave),
-            ),
-          ],
-        ),
-      )),
+      builder: (sheetCtx) => _AddVerseSheet(
+        onSave: (reference, text, version) async {
+          final verse = MemoryVerse.create(
+            id: const Uuid().v4(),
+            reference: reference,
+            text: text,
+            version: version,
+          );
+          await ref.read(memoryVerseRepositoryProvider).upsert(verse);
+          ref.invalidate(dueMemoryVersesProvider);
+        },
+      ),
     );
   }
 }
@@ -203,8 +142,9 @@ class _VerseCard extends StatelessWidget {
                         Text(
                           verse.version,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.5),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.5,
+                            ),
                           ),
                         ),
                     ],
@@ -219,15 +159,20 @@ class _VerseCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      Icon(Icons.schedule, size: 14,
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.5)),
+                      Icon(
+                        Icons.schedule,
+                        size: 14,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.5,
+                        ),
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         dueText,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.6),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -274,11 +219,16 @@ class _Empty extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.psychology_outlined,
-                size: 48, color: theme.disabledColor),
+            Icon(
+              Icons.psychology_outlined,
+              size: 48,
+              color: theme.disabledColor,
+            ),
             const SizedBox(height: 12),
-            Text(l10n(context).noMemoryVersesYet,
-                style: theme.textTheme.titleMedium),
+            Text(
+              l10n(context).noMemoryVersesYet,
+              style: theme.textTheme.titleMedium,
+            ),
             const SizedBox(height: 6),
             Text(
               l10n(context).addAVerseAndReviewItAcrossSpacedIntervals137,
@@ -292,6 +242,133 @@ class _Empty extends StatelessWidget {
               icon: const Icon(Icons.add),
               label: Text(l10n(context).addYourFirstVerse),
               onPressed: onAdd,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The add-a-verse sheet.
+///
+/// A StatefulWidget so the three TextEditingControllers belong to a State and
+/// are disposed when the sheet leaves the tree.
+///
+/// Creating them in the caller and disposing them in a `finally` after
+/// `await showModalBottomSheet(...)` does not work, though it looks like it
+/// should: that future resolves on the *first frame of the pop animation*,
+/// while the TextFields are still mounted, so they then read a disposed
+/// controller and the framework throws "A TextEditingController was used
+/// after being disposed". Owning them here ties their lifetime to the widget
+/// that actually uses them.
+class _AddVerseSheet extends StatefulWidget {
+  final Future<void> Function(String reference, String text, String version)
+  onSave;
+
+  const _AddVerseSheet({required this.onSave});
+
+  @override
+  State<_AddVerseSheet> createState() => _AddVerseSheetState();
+}
+
+class _AddVerseSheetState extends State<_AddVerseSheet> {
+  final _reference = TextEditingController();
+  final _text = TextEditingController();
+  final _version = TextEditingController();
+
+  @override
+  void dispose() {
+    _reference.dispose();
+    _text.dispose();
+    _version.dispose();
+    super.dispose();
+  }
+
+  /// Guards against a second tap landing while the first save is in flight.
+  /// Without it a double-tap inserts the verse twice and pops twice, and the
+  /// second pop takes MemorizationScreen down with the sheet.
+  bool _saving = false;
+
+  Future<void> _save() async {
+    if (_saving) return;
+    if (_reference.text.trim().isEmpty || _text.text.trim().isEmpty) return;
+
+    setState(() => _saving = true);
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final failureMessage = l10n(context).couldNotSaveVerse;
+    try {
+      await widget.onSave(
+        _reference.text.trim(),
+        _text.text.trim(),
+        _version.text.trim(),
+      );
+    } catch (e) {
+      // onPressed drops this future, so rethrowing here reached nobody: the
+      // sheet simply stayed open with the fields still filled, identical to
+      // not having tapped Save. Tell the reader instead, and leave their text
+      // in place so the retry costs them nothing.
+      if (!mounted) return;
+      setState(() => _saving = false);
+      messenger.showSnackBar(SnackBar(content: Text(failureMessage)));
+      return;
+    }
+    if (!mounted) return;
+    navigator.pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      // Keeps the sheet's last control clear of the gesture bar.
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+          top: 8,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              l10n(context).newMemoryVerse,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _reference,
+              decoration: InputDecoration(
+                labelText: l10n(context).referenceEGJohn316,
+                border: const OutlineInputBorder(),
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _version,
+              decoration: InputDecoration(
+                labelText: l10n(context).translationOptional,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _text,
+              minLines: 3,
+              maxLines: 6,
+              decoration: InputDecoration(
+                labelText: l10n(context).verseText,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _saving ? null : _save,
+              child: Text(l10n(context).actionSave),
             ),
           ],
         ),

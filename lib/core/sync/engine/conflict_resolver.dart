@@ -359,6 +359,26 @@ class ConflictResolver {
       return ConflictResolutionResult.noConflict(useRemote: true);
     }
 
+    // An operation this device itself produced, coming back.
+    //
+    // Same version, same timestamp and same origin device means there is
+    // nothing to resolve: this is the device meeting its own operation again,
+    // pulled back from the server or replayed after an interrupted sync. It
+    // was being reported as a conflict, so an ordinary sync on a single device
+    // announced conflicts it had never had.
+    //
+    // The device check is what keeps this narrow. Two *different* devices
+    // landing on the same version and timestamp is a real tie, and the
+    // tie-breaker below still owns that case.
+    if (remoteVersion == localVersion &&
+        remoteUpdatedAt == localUpdatedAt &&
+        remoteIsDelete == localIsDelete &&
+        localDeviceId != null &&
+        remoteDeviceId != null &&
+        localDeviceId == remoteDeviceId) {
+      return ConflictResolutionResult.noConflict(useRemote: false);
+    }
+
     // We have a conflict - need to resolve
     ConflictResolutionResult result;
 

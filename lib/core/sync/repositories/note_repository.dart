@@ -89,6 +89,21 @@ class NoteRepository extends BaseSyncRepository<NoteModel> {
     return query.watch().map((rows) => rows.map(_toModel).toList());
   }
 
+  /// Watch how many notes the user has, without materialising them.
+  ///
+  /// The dashboard tile only ever showed a count, but watching the list to
+  /// take `.length` decoded every row into a model on every change. This is a
+  /// single COUNT(*) that re-runs on the same table updates.
+  Stream<int> watchNoteCount(String userId) {
+    final count = _db.syncNotes.id.count();
+    final query = _db.selectOnly(_db.syncNotes)
+      ..addColumns([count])
+      ..where(_db.syncNotes.userId.equals(userId) &
+          _db.syncNotes.deleted.equals(0) &
+          _db.syncNotes.trashedAt.isNull());
+    return query.map((row) => row.read(count) ?? 0).watchSingle();
+  }
+
   /// Watch notes in a folder
   Stream<List<NoteModel>> watchNotesInFolder(String folderId) {
     final query = _db.select(_db.syncNotes)

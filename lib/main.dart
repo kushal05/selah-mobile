@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -27,6 +28,41 @@ import 'shared/widgets/maintenance_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // debugPrint is not stripped from release builds — it is print() with rate
+  // limiting, so every diagnostic in the app was reaching logcat and the iOS
+  // device console, where any log reader on the device can see it. Several of
+  // those lines carry sync and auth detail.
+  //
+  // It is a reassignable function pointer precisely so it can be silenced,
+  // which is cheaper and less error-prone than guarding 68 call sites and
+  // keeping future ones guarded. Diagnostics still reach DevTools through
+  // SyncLogger's dart:developer channel.
+  if (kReleaseMode) {
+    final consolePrint = debugPrint;
+    debugPrint = (String? message, {int? wrapWidth}) {};
+
+    // Framework errors keep their channel. FlutterError's default handler
+    // routes through debugPrint, so silencing it alone would send every
+    // uncaught framework exception nowhere — and this app has no crash
+    // reporter to catch them instead. A stack trace is diagnostic output,
+    // not user content, so it is the one thing worth still emitting.
+    //
+    // Restoring debugPrint around dumpErrorToConsole rather than formatting
+    // the error here keeps what that function does for us: it honours
+    // details.silent, and it collapses repeats into "Another exception was
+    // thrown: …" instead of dumping a full stack every frame for an error
+    // that recurs on every build.
+    FlutterError.onError = (FlutterErrorDetails details) {
+      final silenced = debugPrint;
+      debugPrint = consolePrint;
+      try {
+        FlutterError.dumpErrorToConsole(details);
+      } finally {
+        debugPrint = silenced;
+      }
+    };
+  }
 
   // Portrait only. Both platforms allowed rotation and nothing was designed
   // for it: rotated, a Dynamic Island takes ~59pt off a *side* rather than
@@ -64,8 +100,10 @@ void main() async {
   // init completes.
   // ignore: discarded_futures
   bibleDbService.init().catchError((Object e, StackTrace st) {
-    debugPrint('Bible DB initialization failed – Bible features will be '
-        'unavailable: $e\n$st');
+    debugPrint(
+      'Bible DB initialization failed – Bible features will be '
+      'unavailable: $e\n$st',
+    );
   });
 
   runApp(
@@ -235,36 +273,39 @@ class _SelahAppState extends ConsumerState<SelahApp>
     // Trigger one-time migration from AppDatabase → SyncDatabase
     final migration = ref.watch(notesMigrationProvider);
     if (migration is AsyncError) {
-      debugPrint('Notes migration failed: ${migration.error}\n'
-          '${migration.stackTrace}');
+      debugPrint(
+        'Notes migration failed: ${migration.error}\n'
+        '${migration.stackTrace}',
+      );
     }
 
     // Trigger one-time migration of inline promise tags/conditions → junction tables
     final promiseMigration = ref.watch(promiseInlineMigrationProvider);
     if (promiseMigration is AsyncError) {
-      debugPrint('Promise inline migration failed: ${promiseMigration.error}\n'
-          '${promiseMigration.stackTrace}');
+      debugPrint(
+        'Promise inline migration failed: ${promiseMigration.error}\n'
+        '${promiseMigration.stackTrace}',
+      );
     }
 
     // Purge trash items older than 30 days on each app startup
     final trashPurge = ref.watch(trashPurgeOnStartupProvider);
     if (trashPurge is AsyncError) {
-      debugPrint('Trash purge failed: ${trashPurge.error}\n'
-          '${trashPurge.stackTrace}');
+      debugPrint(
+        'Trash purge failed: ${trashPurge.error}\n'
+        '${trashPurge.stackTrace}',
+      );
     }
 
     // Listen for app update results and show dialog when an update is available.
-    ref.listen<AsyncValue<AppUpdateResult?>>(
-      appUpdateProvider,
-      (prev, next) {
-        // Reset flag when provider is refreshed (goes back to loading)
-        if (next.isLoading) {
-          _updateDialogShown = false;
-          return;
-        }
-        next.whenData(_onUpdateResult);
-      },
-    );
+    ref.listen<AsyncValue<AppUpdateResult?>>(appUpdateProvider, (prev, next) {
+      // Reset flag when provider is refreshed (goes back to loading)
+      if (next.isLoading) {
+        _updateDialogShown = false;
+        return;
+      }
+      next.whenData(_onUpdateResult);
+    });
 
     // Initialize deep link handling after the first frame, so the router
     // and auth state are fully settled before processing any incoming link.
@@ -327,17 +368,35 @@ class _SelahAppState extends ConsumerState<SelahApp>
             if (maintenance) const Positioned.fill(child: MaintenanceScreen()),
           ],
         );
-        if (!reduceMotion) return content;
-        return Theme(
-          data: Theme.of(context).copyWith(
-            pageTransitionsTheme: const PageTransitionsTheme(
-              builders: {
-                TargetPlatform.android: _NoPageTransition(),
-                TargetPlatform.iOS: _NoPageTransition(),
-              },
-            ),
-          ),
-          child: content,
+        final themed = !reduceMotion
+            ? content
+            : Theme(
+                data: Theme.of(context).copyWith(
+                  pageTransitionsTheme: const PageTransitionsTheme(
+                    builders: {
+                      TargetPlatform.android: _NoPageTransition(),
+                      TargetPlatform.iOS: _NoPageTransition(),
+                    },
+                  ),
+                ),
+                child: content,
+              );
+
+        // WCAG 1.4.4 requires text to reach 200% without loss of content, so
+        // that is the floor for this ceiling — an earlier 1.6 clamp was below
+        // the threshold and failed the criterion outright.
+        //
+        // iOS Larger Accessibility Sizes go to roughly 3.1x and Android to 2x;
+        // this honours the Android maximum in full and caps the iOS tail.
+        // That tail is capped rather than passed through because a good deal
+        // of this app is laid out against fixed pixel heights — rows, tiles,
+        // the bottom bar — which do not grow with the type, and past 2x those
+        // clip rather than reflow. Removing the cap entirely is the goal;
+        // it needs those fixed heights replaced with minHeight constraints
+        // first, and clipped text is a worse failure than capped text.
+        return MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 2.0,
+          child: themed,
         );
       },
     );
@@ -355,6 +414,5 @@ class _NoPageTransition extends PageTransitionsBuilder {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
     Widget child,
-  ) =>
-      child;
+  ) => child;
 }

@@ -55,7 +55,8 @@ class DailyFocusCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final prayers = ref.watch(activePrayersStreamProvider).valueOrNull ?? const [];
+    final prayers =
+        ref.watch(activePrayersStreamProvider).valueOrNull ?? const [];
     final promises = ref.watch(promisesStreamProvider).valueOrNull ?? const [];
     final history =
         ref.watch(bibleReferenceHistoryStreamProvider).valueOrNull ?? const [];
@@ -65,53 +66,99 @@ class DailyFocusCard extends ConsumerWidget {
     // Always present, including its empty state — the carousel never renders
     // with nothing in it.
     if (prayers.isEmpty) {
-      slides.add(_Slide(
-        eyebrow: l10n(context).dailyFocus,
-        title: l10n(context).noActivePrayers,
-        subtitle: l10n(context).addAPrayerToGetStarted,
-        actionLabel: l10n(context).addPrayer,
-        onPressed: () => showQuickPrayerSheet(context),
-        gradient: const [AppTheme.brandBlue, AppTheme.gradientEnd],
-      ));
+      slides.add(
+        _Slide(
+          eyebrow: l10n(context).dailyFocus,
+          title: l10n(context).noActivePrayers,
+          subtitle: l10n(context).addAPrayerToGetStarted,
+          actionLabel: l10n(context).addPrayer,
+          onPressed: () => showQuickPrayerSheet(context),
+          gradient: const [AppTheme.brandBlue, AppTheme.gradientEnd],
+        ),
+      );
     } else {
       final prayer = prayers[day % prayers.length];
-      slides.add(_Slide(
-        eyebrow: l10n(context).dailyFocus,
-        title: prayer.title,
-        subtitle: l10n(context).scheduledForToday,
-        actionLabel: l10n(context).openPrayer,
-        onPressed: () => context.push('/prayers/${prayer.id}'),
-        gradient: const [AppTheme.brandBlue, AppTheme.gradientEnd],
-      ));
+      slides.add(
+        _Slide(
+          eyebrow: l10n(context).dailyFocus,
+          title: prayer.title,
+          subtitle: l10n(context).scheduledForToday,
+          actionLabel: l10n(context).openPrayer,
+          onPressed: () => context.push('/prayers/${prayer.id}'),
+          gradient: const [AppTheme.brandBlue, AppTheme.gradientEnd],
+        ),
+      );
     }
 
+    // Promises and reading both render whether or not there is anything to
+    // show. An empty one becomes an invitation rather than disappearing.
+    //
+    // Two reasons. A new user with no promises and no reading history used to
+    // get a carousel of exactly one slide, which is a carousel that cannot be
+    // swiped and points at nothing else in the app — the opposite of what the
+    // hero is for. It also skipped the `slides.length == 1` branch below,
+    // which returns before the LayoutBuilder that holds the TickerMode and
+    // Reduce Motion gate, so the six-second timer ran forever for precisely
+    // the users who had the least to look at.
     if (promises.isNotEmpty) {
       final promise = promises[day % promises.length];
-      slides.add(_Slide(
-        eyebrow: l10n(context).holdOnToThis,
-        title: promise.reference.isNotEmpty ? promise.reference : promise.content,
-        subtitle: l10n(context).aVerseYouSaved,
-        actionLabel: l10n(context).openPromise,
-        onPressed: () => context.push('/promises/${promise.id}'),
-        gradient: const [AppTheme.brandPurple, AppTheme.rosePink],
-      ));
+      slides.add(
+        _Slide(
+          eyebrow: l10n(context).holdOnToThis,
+          title: promise.reference.isNotEmpty
+              ? promise.reference
+              : promise.content,
+          subtitle: l10n(context).aVerseYouSaved,
+          actionLabel: l10n(context).openPromise,
+          onPressed: () => context.push('/promises/${promise.id}'),
+          gradient: const [AppTheme.brandPurple, AppTheme.rosePink],
+        ),
+      );
+    } else {
+      slides.add(
+        _Slide(
+          eyebrow: l10n(context).holdOnToThis,
+          title: l10n(context).noPromisesYet,
+          subtitle: l10n(context).saveAVerseThatStaysWithYou,
+          actionLabel: l10n(context).addPromise,
+          onPressed: () => context.push(Routes.promiseNew),
+          gradient: const [AppTheme.brandPurple, AppTheme.rosePink],
+        ),
+      );
     }
 
     final last = history.isNotEmpty ? history.first : null;
     if (last != null) {
-      slides.add(_Slide(
-        eyebrow: l10n(context).keepReading,
-        title: '${last.book} ${last.chapter}',
-        subtitle: l10n(context).pickUpWhereYouLeftOff,
-        actionLabel: l10n(context).resumeReading,
-        onPressed: () {
-          final book = ref.read(bibleRepositoryProvider).getBookByName(last.book);
-          context.push('${Routes.bible}/chapter'
+      slides.add(
+        _Slide(
+          eyebrow: l10n(context).keepReading,
+          title: '${last.book} ${last.chapter}',
+          subtitle: l10n(context).pickUpWhereYouLeftOff,
+          actionLabel: l10n(context).resumeReading,
+          onPressed: () {
+            final book = ref
+                .read(bibleRepositoryProvider)
+                .getBookByName(last.book);
+            context.push(
+              '${Routes.bible}/chapter'
               '?bookId=${book?.id ?? 1}&chapter=${last.chapter}'
-              '&translation=${last.translation}');
-        },
-        gradient: const [AppTheme.emerald, AppTheme.teal],
-      ));
+              '&translation=${last.translation}',
+            );
+          },
+          gradient: const [AppTheme.emerald, AppTheme.teal],
+        ),
+      );
+    } else {
+      slides.add(
+        _Slide(
+          eyebrow: l10n(context).keepReading,
+          title: l10n(context).startReading,
+          subtitle: l10n(context).openTheBibleAndPickABook,
+          actionLabel: l10n(context).openBible,
+          onPressed: () => context.push(Routes.bible),
+          gradient: const [AppTheme.emerald, AppTheme.teal],
+        ),
+      );
     }
 
     return _FocusCarousel(slides: slides);
@@ -195,6 +242,16 @@ class _FocusCarouselState extends State<_FocusCarousel> {
     _autoScroll = null;
   }
 
+  /// Set once the reader drags the carousel themselves, cleared when the
+  /// carousel leaves view.
+  ///
+  /// The visibility gate in build() restarts the timer whenever it finds it
+  /// stopped, and a swipe causes a rebuild of its own (setState on _page as
+  /// the offset crosses a slide). Without this flag the timer came straight
+  /// back on the next frame, so "stops for the rest of this visit" never
+  /// actually held.
+  bool _readerTookOver = false;
+
   @override
   void dispose() {
     _autoScroll?.cancel();
@@ -244,11 +301,16 @@ class _FocusCarouselState extends State<_FocusCarousel> {
         // six seconds for the life of the app to start an animation that
         // could not run. Measured: the position does not move while inactive,
         // so this is wasted work rather than a visible fault.
-        final visible = TickerMode.valuesOf(context).enabled &&
-            !MediaQuery.of(context).disableAnimations;
+        final visible =
+            TickerMode.of(context) && !MediaQuery.of(context).disableAnimations;
         if (!visible) {
+          // Going out of view ends the visit, so the reader's takeover ends
+          // with it. Home stays mounted inside the IndexedStack for the life
+          // of the process, so without this one nudge would disable
+          // auto-advance until the app was killed.
+          _readerTookOver = false;
           _stopAutoScroll();
-        } else if (_autoScroll == null) {
+        } else if (_autoScroll == null && !_readerTookOver) {
           _startAutoScroll();
         }
         return Column(
@@ -264,6 +326,7 @@ class _FocusCarouselState extends State<_FocusCarousel> {
                 // on device while the test passed.
                 if (n is UserScrollNotification &&
                     n.direction != ScrollDirection.idle) {
+                  _readerTookOver = true;
                   _stopAutoScroll();
                 }
                 // Swiped onto the duplicate by hand and let go: settle back
@@ -273,8 +336,9 @@ class _FocusCarouselState extends State<_FocusCarousel> {
                 // its twin so there is always more carousel in both
                 // directions.
                 if (n is ScrollEndNotification) {
-                  WidgetsBinding.instance
-                      .addPostFrameCallback((_) => _normalise());
+                  WidgetsBinding.instance.addPostFrameCallback(
+                    (_) => _normalise(),
+                  );
                 }
                 if (n is ScrollUpdateNotification && width > 0) {
                   // <= length, because the trailing duplicate is a real slot
@@ -497,39 +561,41 @@ class _GlassActionButtonState extends State<_GlassActionButton> {
     return Semantics(
       button: true,
       child: GestureDetector(
-      // The action lives on onTap, not onTapUp: only onTap contributes a tap
-      // action to the semantics tree, so an onTapUp-only control is inert to
-      // TalkBack and VoiceOver. onTapUp still resets the press animation.
-      onTap: widget.onPressed,
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? context.pressScale(0.96) : 1.0,
-        duration: context.motion(AppTheme.durationFast),
-        child: Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: AppTheme.spacing20, vertical: AppTheme.spacing10),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: AppTheme.alphaMedStrong),
-            borderRadius: AppTheme.borderRadiusXL,
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.30),
-              width: 0.8,
+        // The action lives on onTap, not onTapUp: only onTap contributes a tap
+        // action to the semantics tree, so an onTapUp-only control is inert to
+        // TalkBack and VoiceOver. onTapUp still resets the press animation.
+        onTap: widget.onPressed,
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTapCancel: () => setState(() => _pressed = false),
+        child: AnimatedScale(
+          scale: _pressed ? context.pressScale(0.96) : 1.0,
+          duration: context.motion(AppTheme.durationFast),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.spacing20,
+              vertical: AppTheme.spacing10,
             ),
-          ),
-          child: Text(
-            widget.label,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: AppTheme.bodySmallStyle.fontSize,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.2,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: AppTheme.alphaMedStrong),
+              borderRadius: AppTheme.borderRadiusXL,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.30),
+                width: 0.8,
+              ),
+            ),
+            child: Text(
+              widget.label,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: AppTheme.bodySmallStyle.fontSize,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+              ),
             ),
           ),
         ),
       ),
-    ),
     );
   }
 }

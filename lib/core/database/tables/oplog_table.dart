@@ -73,6 +73,23 @@ class Oplog extends Table {
   /// NULL while the op is healthy.
   TextColumn get failedReason => text().nullable()();
 
+  /// How many pushes have tried and failed to get this operation accepted.
+  ///
+  /// A push failure used to be terminal: the operation was marked failed and
+  /// dropped from the queue on the first rejection, so a transient server
+  /// error discarded the user's change permanently. Counting attempts lets a
+  /// retryable rejection stay queued and be tried again, while still bounding
+  /// how long a genuinely unacceptable operation can hold up the queue.
+  IntColumn get pushAttempts => integer().withDefault(const Constant(0))();
+
+  /// Set when the server rejected this operation as a version conflict.
+  ///
+  /// The operation stays queued. Once the pull has brought the server's newer
+  /// version down, the engine re-applies this operation's own field changes on
+  /// top of it and clears the flag, so a concurrent edit from another device
+  /// does not silently discard the user's.
+  BoolColumn get needsRebase => boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column> get primaryKey => {opId};
 }

@@ -4,14 +4,40 @@ import '../utils/sync_logger.dart';
 import '../../testing/test_clock.dart';
 
 /// Sync API exception
+/// What the server did with one operation in a push batch.
+///
+/// The push endpoint answers per operation, and the client has to read it that
+/// way. Treating the batch as all-or-nothing — stopping at the first rejected
+/// operation — meant one invalid operation discarded every later operation in
+/// the same batch, which the server had never rejected.
+class PushOpResult {
+  final String opId;
+
+  /// Set when the server applied it.
+  final int? serverTimestamp;
+
+  /// Set when the server rejected it, e.g. VALIDATION_ERROR.
+  final String? errorCode;
+
+  const PushOpResult({
+    required this.opId,
+    this.serverTimestamp,
+    this.errorCode,
+  });
+
+  bool get applied => serverTimestamp != null;
+}
+
 class SyncApiException implements Exception {
   final String code;
   final String message;
   final int? statusCode;
 
-  /// Server timestamps for operations that succeeded before the failure.
-  /// Non-empty when a batch push partially succeeded.
-  final List<int> partialTimestamps;
+  /// Per-operation outcomes the server reported before the request failed.
+  ///
+  /// Keyed by opId rather than position: a positional list cannot say *which*
+  /// operations it refers to once any of them is reordered or skipped.
+  final List<PushOpResult> partialResults;
 
   /// Seconds to wait before retrying, populated from the server's
   /// `Retry-After` header or `details.retryAfter` on 429 responses.
@@ -21,12 +47,12 @@ class SyncApiException implements Exception {
     required this.code,
     required this.message,
     this.statusCode,
-    this.partialTimestamps = const [],
+    this.partialResults = const [],
     this.retryAfter,
   });
 
   /// Whether some operations succeeded before the failure
-  bool get hasPartialResults => partialTimestamps.isNotEmpty;
+  bool get hasPartialResults => partialResults.isNotEmpty;
 
   @override
   String toString() => 'SyncApiException($code): $message';
@@ -129,10 +155,13 @@ abstract class SyncApiClient {
   /// Returns server timestamp for the operation
   Future<int> pushOperation(OplogEntry operation);
 
-  /// Push multiple operations in a batch
+  /// Push multiple operations in a batch.
   ///
-  /// Returns server timestamps for each operation
-  Future<List<int>> pushOperations(List<OplogEntry> operations);
+  /// Returns one [PushOpResult] per operation, in request order. A rejected
+  /// operation is reported in its own result rather than by throwing, so the
+  /// caller can act on exactly the operations the server refused. Throwing is
+  /// reserved for the request itself failing — network, auth, 429, 5xx.
+  Future<List<PushOpResult>> pushOperations(List<OplogEntry> operations);
 
   /// Pull operations from the server
   ///
@@ -215,17 +244,17 @@ class HttpSyncApiClient implements SyncApiClient {
   }
 
   @override
-  Future<List<int>> pushOperations(List<OplogEntry> operations) async {
+  Future<List<PushOpResult>> pushOperations(List<OplogEntry> operations) async {
     // POST /v1/sync/push-batch
     // Body: { operations: [...] }
-    // Response: { serverTimestamps: [1234567890, ...] }
+    // Response: { results: [{ opId, success, serverTimestamp, error }, ...] }
 
-    final timestamps = <int>[];
+    final results = <PushOpResult>[];
     for (final op in operations) {
       final ts = await pushOperation(op);
-      timestamps.add(ts);
+      results.add(PushOpResult(opId: op.opId, serverTimestamp: ts));
     }
-    return timestamps;
+    return results;
   }
 
   @override
@@ -355,29 +384,29 @@ class MockSyncApiClient implements SyncApiClient {
   }
 
   @override
-  Future<List<int>> pushOperations(List<OplogEntry> operations) async {
+  Future<List<PushOpResult>> pushOperations(List<OplogEntry> operations) async {
     if (!_connected) {
-      throw const SyncApiException(
-        code: 'OFFLINE',
-        message: 'Not connected',
-      );
+      throw const SyncApiException(code: 'OFFLINE', message: 'Not connected');
     }
-    final timestamps = <int>[];
+    final results = <PushOpResult>[];
     for (final op in operations) {
       try {
-        timestamps.add(await pushOperation(op));
+        results.add(
+          PushOpResult(opId: op.opId, serverTimestamp: await pushOperation(op)),
+        );
       } on SyncApiException catch (e) {
-        // Propagate timestamps for ops that succeeded before the failure
+        // Propagate what the server already accepted before the request failed
         throw SyncApiException(
           code: e.code,
           message: e.message,
           statusCode: e.statusCode,
-          partialTimestamps: timestamps,
+          partialResults: results,
         );
       }
     }
-    return timestamps;
+    return results;
   }
+
 
   @override
   Future<PullResponse> pullOperations({String? cursor}) async {

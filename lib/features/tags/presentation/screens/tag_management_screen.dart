@@ -172,7 +172,7 @@ class _TagTile extends ConsumerWidget {
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Renamed to "$newName"')),
+                    SnackBar(content: Text(l10n(context).renamedTo(newName))),
                   );
                   ref.invalidate(tagUsageCountsProvider);
                 }
@@ -329,7 +329,7 @@ class _TagTile extends ConsumerWidget {
                 await tagRepo.deleteTag(tag.id);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Tag "${tag.name}" deleted')),
+                    SnackBar(content: Text(l10n(context).tagDeletedNamed(tag.name))),
                   );
                   ref.invalidate(tagUsageCountsProvider);
                 }

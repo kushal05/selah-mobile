@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../testing/test_clock.dart';
+import 'field_timestamps.dart';
 import 'sync_entity.dart';
 
 /// Visibility level for folders
@@ -10,16 +11,16 @@ enum FolderVisibility {
   open; // Visible to everyone
 
   String get displayName => switch (this) {
-        personal => 'Personal',
-        group => 'Group',
-        open => 'Open to All',
-      };
+    personal => 'Personal',
+    group => 'Group',
+    open => 'Open to All',
+  };
 
   IconData get icon => switch (this) {
-        personal => Icons.lock_rounded,
-        group => Icons.group_rounded,
-        open => Icons.public_rounded,
-      };
+    personal => Icons.lock_rounded,
+    group => Icons.group_rounded,
+    open => Icons.public_rounded,
+  };
 }
 
 /// Domain model for Folder
@@ -65,6 +66,9 @@ class FolderModel implements SyncEntity {
   /// Creation timestamp
   final int createdAt;
 
+  /// When each field last changed, for field-level merge.
+  final Map<String, int> fieldUpdatedAt;
+
   const FolderModel({
     required this.id,
     this.parentId,
@@ -78,7 +82,11 @@ class FolderModel implements SyncEntity {
     required this.deleted,
     this.trashedAt,
     required this.createdAt,
+    this.fieldUpdatedAt = const {},
   });
+
+  /// The fields a merge may resolve independently.
+  static const mergeableFields = ['parentId', 'name', 'visibility', 'groupId'];
 
   @override
   bool get isDeleted => deleted == 1;
@@ -101,6 +109,7 @@ class FolderModel implements SyncEntity {
       'deleted': deleted,
       if (trashedAt != null) 'trashedAt': trashedAt,
       'createdAt': createdAt,
+      'fieldUpdatedAt': fieldUpdatedAt,
     };
   }
 
@@ -121,6 +130,7 @@ class FolderModel implements SyncEntity {
       deleted: _parseDeleted(json['deleted']),
       trashedAt: json['trashedAt'] as int?,
       createdAt: json['createdAt'] as int,
+      fieldUpdatedAt: parseFieldTimestamps(json['fieldUpdatedAt']),
     );
   }
 
@@ -147,6 +157,7 @@ class FolderModel implements SyncEntity {
       version: 1,
       deleted: 0,
       createdAt: now,
+      fieldUpdatedAt: {for (final f in mergeableFields) f: now},
     );
   }
 
@@ -158,6 +169,13 @@ class FolderModel implements SyncEntity {
     String? groupId,
     bool clearGroupId = false,
   }) {
+    final now = TestClock.now();
+    final stamped = Map<String, int>.from(fieldUpdatedAt);
+    if (parentId != null) stamped['parentId'] = now;
+    if (name != null) stamped['name'] = now;
+    if (visibility != null) stamped['visibility'] = now;
+    if (groupId != null) stamped['groupId'] = now;
+
     return FolderModel(
       id: id,
       parentId: parentId ?? this.parentId,
@@ -166,11 +184,12 @@ class FolderModel implements SyncEntity {
       visibility: visibility ?? this.visibility,
       groupId: clearGroupId ? null : (groupId ?? this.groupId),
       userId: userId,
-      updatedAt: TestClock.now(),
+      updatedAt: now,
       version: version + 1,
       deleted: deleted,
       trashedAt: trashedAt,
       createdAt: createdAt,
+      fieldUpdatedAt: stamped,
     );
   }
 
@@ -189,6 +208,7 @@ class FolderModel implements SyncEntity {
       deleted: 1,
       trashedAt: trashedAt,
       createdAt: createdAt,
+      fieldUpdatedAt: fieldUpdatedAt,
     );
   }
 
@@ -208,6 +228,7 @@ class FolderModel implements SyncEntity {
       deleted: deleted,
       trashedAt: now,
       createdAt: createdAt,
+      fieldUpdatedAt: fieldUpdatedAt,
     );
   }
 
@@ -226,6 +247,7 @@ class FolderModel implements SyncEntity {
       deleted: deleted,
       trashedAt: null,
       createdAt: createdAt,
+      fieldUpdatedAt: fieldUpdatedAt,
     );
   }
 
@@ -245,6 +267,7 @@ class FolderModel implements SyncEntity {
       deleted: 0,
       trashedAt: trashedAt,
       createdAt: createdAt,
+      fieldUpdatedAt: fieldUpdatedAt,
     );
   }
 

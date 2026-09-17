@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 
 import '../../database/sync_database.dart';
 import '../models/oplog_entry.dart';
+import '../models/field_timestamps.dart';
 import '../models/person_model.dart';
 import 'base_sync_repository.dart';
 
@@ -25,7 +28,12 @@ class PersonRepository extends BaseSyncRepository<PersonModel> {
   /// Get all people (non-deleted) for a user
   Future<List<PersonModel>> getAllPeople(String userId) async {
     final query = _db.select(_db.people)
-      ..where((p) => p.deleted.equals(0) & p.trashedAt.isNull() & p.userId.equals(userId))
+      ..where(
+        (p) =>
+            p.deleted.equals(0) &
+            p.trashedAt.isNull() &
+            p.userId.equals(userId),
+      )
       ..orderBy([(p) => OrderingTerm.asc(p.name)]);
 
     final rows = await query.get();
@@ -33,9 +41,18 @@ class PersonRepository extends BaseSyncRepository<PersonModel> {
   }
 
   /// Get people by relation/group for a user
-  Future<List<PersonModel>> getPeopleByRelation(String relation, String userId) async {
+  Future<List<PersonModel>> getPeopleByRelation(
+    String relation,
+    String userId,
+  ) async {
     final query = _db.select(_db.people)
-      ..where((p) => p.deleted.equals(0) & p.trashedAt.isNull() & p.userId.equals(userId) & p.relation.equals(relation))
+      ..where(
+        (p) =>
+            p.deleted.equals(0) &
+            p.trashedAt.isNull() &
+            p.userId.equals(userId) &
+            p.relation.equals(relation),
+      )
       ..orderBy([(p) => OrderingTerm.asc(p.name)]);
 
     final rows = await query.get();
@@ -53,28 +70,66 @@ class PersonRepository extends BaseSyncRepository<PersonModel> {
   /// Watch all people (reactive stream) for a user
   Stream<List<PersonModel>> watchAllPeople(String userId) {
     final query = _db.select(_db.people)
-      ..where((p) => p.deleted.equals(0) & p.trashedAt.isNull() & p.userId.equals(userId))
+      ..where(
+        (p) =>
+            p.deleted.equals(0) &
+            p.trashedAt.isNull() &
+            p.userId.equals(userId),
+      )
       ..orderBy([(p) => OrderingTerm.asc(p.name)]);
 
     return query.watch().map((rows) => rows.map(_toModel).toList());
   }
 
+  /// Watch how many people the user has, without materialising them.
+  ///
+  /// The dashboard tile only ever showed a count, but watching the list to
+  /// take `.length` decoded every row into a model on every change. This is a
+  /// single COUNT(*) that re-runs on the same table updates.
+  Stream<int> watchPersonCount(String userId) {
+    final count = _db.people.id.count();
+    final query = _db.selectOnly(_db.people)
+      ..addColumns([count])
+      ..where(
+        _db.people.deleted.equals(0) &
+            _db.people.userId.equals(userId) &
+            _db.people.trashedAt.isNull(),
+      );
+    return query.map((row) => row.read(count) ?? 0).watchSingle();
+  }
+
   /// Watch people by relation for a user
-  Stream<List<PersonModel>> watchPeopleByRelation(String relation, String userId) {
+  Stream<List<PersonModel>> watchPeopleByRelation(
+    String relation,
+    String userId,
+  ) {
     final query = _db.select(_db.people)
-      ..where((p) => p.deleted.equals(0) & p.trashedAt.isNull() & p.userId.equals(userId) & p.relation.equals(relation))
+      ..where(
+        (p) =>
+            p.deleted.equals(0) &
+            p.trashedAt.isNull() &
+            p.userId.equals(userId) &
+            p.relation.equals(relation),
+      )
       ..orderBy([(p) => OrderingTerm.asc(p.name)]);
 
     return query.watch().map((rows) => rows.map(_toModel).toList());
   }
 
   /// Search people by name for a user
-  Future<List<PersonModel>> searchPeople(String searchQuery, String userId) async {
+  Future<List<PersonModel>> searchPeople(
+    String searchQuery,
+    String userId,
+  ) async {
     final searchPattern = '%$searchQuery%';
     final query = _db.select(_db.people)
-      ..where((p) =>
-          p.deleted.equals(0) & p.trashedAt.isNull() & p.userId.equals(userId) &
-          (p.name.like(searchPattern) | p.relation.like(searchPattern)))
+      ..where(
+        (p) =>
+            p.deleted.equals(0) &
+            p.trashedAt.isNull() &
+            p.userId.equals(userId) &
+            (p.name.like(searchPattern) | p.relation.like(searchPattern)),
+      )
       ..orderBy([(p) => OrderingTerm.asc(p.name)]);
 
     final rows = await query.get();
@@ -83,19 +138,23 @@ class PersonRepository extends BaseSyncRepository<PersonModel> {
 
   /// Get unique relations/groups for a user
   Future<List<String>> getUniqueRelations(String userId) async {
-    final result = await _db.customSelect(
-      'SELECT DISTINCT relation FROM people WHERE user_id = ? AND deleted = 0 AND trashed_at IS NULL AND relation != "" ORDER BY relation',
-      variables: [Variable.withString(userId)],
-    ).get();
+    final result = await _db
+        .customSelect(
+          'SELECT DISTINCT relation FROM people WHERE user_id = ? AND deleted = 0 AND trashed_at IS NULL AND relation != "" ORDER BY relation',
+          variables: [Variable.withString(userId)],
+        )
+        .get();
     return result.map((row) => row.read<String>('relation')).toList();
   }
 
   /// Get person count for a user
   Future<int> getPersonCount(String userId) async {
-    final result = await _db.customSelect(
-      'SELECT COUNT(*) as count FROM people WHERE user_id = ? AND deleted = 0 AND trashed_at IS NULL',
-      variables: [Variable.withString(userId)],
-    ).getSingle();
+    final result = await _db
+        .customSelect(
+          'SELECT COUNT(*) as count FROM people WHERE user_id = ? AND deleted = 0 AND trashed_at IS NULL',
+          variables: [Variable.withString(userId)],
+        )
+        .getSingle();
     return result.read<int>('count');
   }
 
@@ -163,8 +222,9 @@ class PersonRepository extends BaseSyncRepository<PersonModel> {
     final oplogEntry = createUpdateOp(updated);
 
     await _db.transaction(() async {
-      await (_db.update(_db.people)..where((p) => p.id.equals(id)))
-          .write(_toCompanion(updated));
+      await (_db.update(
+        _db.people,
+      )..where((p) => p.id.equals(id))).write(_toCompanion(updated));
       await _db.into(_db.oplog).insert(_oplogToCompanion(oplogEntry));
     });
 
@@ -178,8 +238,9 @@ class PersonRepository extends BaseSyncRepository<PersonModel> {
     final trashed = existing.moveToTrash();
     final oplogEntry = createUpdateOp(trashed);
     await _db.transaction(() async {
-      await (_db.update(_db.people)..where((p) => p.id.equals(id)))
-          .write(_toCompanion(trashed));
+      await (_db.update(
+        _db.people,
+      )..where((p) => p.id.equals(id))).write(_toCompanion(trashed));
       await _db.into(_db.oplog).insert(_oplogToCompanion(oplogEntry));
     });
     return trashed;
@@ -192,8 +253,9 @@ class PersonRepository extends BaseSyncRepository<PersonModel> {
     final restored = existing.restoreFromTrash();
     final oplogEntry = createUpdateOp(restored);
     await _db.transaction(() async {
-      await (_db.update(_db.people)..where((p) => p.id.equals(id)))
-          .write(_toCompanion(restored));
+      await (_db.update(
+        _db.people,
+      )..where((p) => p.id.equals(id))).write(_toCompanion(restored));
       await _db.into(_db.oplog).insert(_oplogToCompanion(oplogEntry));
     });
     return restored;
@@ -202,7 +264,12 @@ class PersonRepository extends BaseSyncRepository<PersonModel> {
   /// Get all trashed people for a user
   Future<List<PersonModel>> getTrashedPeople(String userId) async {
     final query = _db.select(_db.people)
-      ..where((p) => p.userId.equals(userId) & p.deleted.equals(0) & p.trashedAt.isNotNull())
+      ..where(
+        (p) =>
+            p.userId.equals(userId) &
+            p.deleted.equals(0) &
+            p.trashedAt.isNotNull(),
+      )
       ..orderBy([(p) => OrderingTerm.desc(p.trashedAt)]);
     final rows = await query.get();
     return rows.map(_toModel).toList();
@@ -211,7 +278,12 @@ class PersonRepository extends BaseSyncRepository<PersonModel> {
   /// Watch all trashed people for a user
   Stream<List<PersonModel>> watchTrashedPeople(String userId) {
     final query = _db.select(_db.people)
-      ..where((p) => p.userId.equals(userId) & p.deleted.equals(0) & p.trashedAt.isNotNull())
+      ..where(
+        (p) =>
+            p.userId.equals(userId) &
+            p.deleted.equals(0) &
+            p.trashedAt.isNotNull(),
+      )
       ..orderBy([(p) => OrderingTerm.desc(p.trashedAt)]);
     return query.watch().map((rows) => rows.map(_toModel).toList());
   }
@@ -227,8 +299,9 @@ class PersonRepository extends BaseSyncRepository<PersonModel> {
     final oplogEntry = createDeleteOp(deletedPerson);
 
     await _db.transaction(() async {
-      await (_db.update(_db.people)..where((p) => p.id.equals(id)))
-          .write(_toCompanion(deletedPerson));
+      await (_db.update(
+        _db.people,
+      )..where((p) => p.id.equals(id))).write(_toCompanion(deletedPerson));
       await _db.into(_db.oplog).insert(_oplogToCompanion(oplogEntry));
     });
   }
@@ -252,6 +325,7 @@ class PersonRepository extends BaseSyncRepository<PersonModel> {
       deleted: row.deleted,
       trashedAt: row.trashedAt,
       createdAt: row.createdAt,
+      fieldUpdatedAt: parseFieldTimestamps(row.fieldUpdatedAt),
     );
   }
 
@@ -272,6 +346,7 @@ class PersonRepository extends BaseSyncRepository<PersonModel> {
       deleted: Value(model.deleted),
       trashedAt: Value(model.trashedAt),
       createdAt: Value(model.createdAt),
+      fieldUpdatedAt: Value(jsonEncode(model.fieldUpdatedAt)),
     );
   }
 

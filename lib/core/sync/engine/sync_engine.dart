@@ -96,14 +96,14 @@ class SyncEngine {
     String? deviceId,
     ConflictResolver? conflictResolver,
     BackoffConfig? backoffConfig,
-  })  : _db = db,
-        _apiClient = apiClient,
-        _config = config,
-        _ftsService = ftsService,
-        _localDeviceId = deviceId,
-        _conflictResolver = conflictResolver ?? ConflictResolver(),
-        _fieldMerger = FieldLevelMerger(),
-        _backoffConfig = backoffConfig ?? const BackoffConfig();
+  }) : _db = db,
+       _apiClient = apiClient,
+       _config = config,
+       _ftsService = ftsService,
+       _localDeviceId = deviceId,
+       _conflictResolver = conflictResolver ?? ConflictResolver(),
+       _fieldMerger = FieldLevelMerger(),
+       _backoffConfig = backoffConfig ?? const BackoffConfig();
 
   /// Initialize the sync engine
   Future<void> initialize() async {
@@ -157,10 +157,7 @@ class SyncEngine {
       // Flag so we re-sync after the current cycle completes,
       // rather than silently dropping the request.
       _syncRequestedWhileBusy = true;
-      return SyncResult.failure(
-        'Sync already in progress',
-        Duration.zero,
-      );
+      return SyncResult.failure('Sync already in progress', Duration.zero);
     }
 
     final startTime = DateTime.now();
@@ -209,7 +206,9 @@ class SyncEngine {
 
       SyncLogger.info(
         'Sync complete: pushed=$operationsPushed, pulled=$operationsPulled, '
-        'conflicts=$conflictsResolved, duration=${result.duration.inMilliseconds}ms',
+        'conflicts=$conflictsResolved, '
+        'skipped=${pullResult.deadLetteredSkipped}, '
+        'duration=${result.duration.inMilliseconds}ms',
       );
 
       _resultController.add(result);
@@ -247,9 +246,11 @@ class SyncEngine {
       _setState(newState);
 
       final pendingOps = await _db.getPendingOpsCount();
-      _emitProgress(hasCrossedDegradedThreshold
-          ? SyncProgress.degraded(pendingOps)
-          : SyncProgress.error(pendingOps));
+      _emitProgress(
+        hasCrossedDegradedThreshold
+            ? SyncProgress.degraded(pendingOps)
+            : SyncProgress.error(pendingOps),
+      );
 
       if (hasCrossedDegradedThreshold) {
         SyncLogger.warning(
@@ -262,7 +263,8 @@ class SyncEngine {
       // Don't retry on auth errors — the token refresh already failed
       // in HttpSyncClient, so retrying won't help. The user needs to
       // re-authenticate.
-      final isAuthError = e is SyncApiException &&
+      final isAuthError =
+          e is SyncApiException &&
           (e.code == 'AUTH_INVALID' ||
               e.code == 'AUTH_REQUIRED' ||
               e.code == 'TOKEN_REUSE_DETECTED' ||
@@ -335,6 +337,7 @@ class SyncEngine {
   /// - Batch push reduces HTTP round trips vs one-by-one
   Future<_PushResult> _executePushPhase() async {
     var operationsPushed = 0;
+    var absorbedByCompression = 0;
     final totalPending = await _db.getPendingOpsCount();
 
     SyncLogger.info('Push phase: $totalPending pending operations');
@@ -347,13 +350,33 @@ class SyncEngine {
     // Process in pages to avoid loading the entire oplog into memory
     final pageSize = _config.maxBatchSize;
 
+    // Operations already attempted in this cycle.
+    //
+    // A rejected operation that is still within its retry budget stays
+    // unsynced and unquarantined on purpose — that is what lets it be tried
+    // again later instead of being discarded. But the page query returns
+    // exactly those operations, so without this the loop would re-fetch and
+    // re-push the same rejected operation forever inside one push phase.
+    final attempted = <String>{};
+
     while (true) {
-      final pendingOps = await _db.getUnsyncedOps(limit: pageSize);
+      final page = await _db.getUnsyncedOps(limit: pageSize);
+      if (page.isEmpty) break;
+
+      final pendingOps = page
+          .where((op) => !attempted.contains(op.opId))
+          .toList();
+      // Everything the query can still see has already had its turn: retrying
+      // now would just repeat this page. They stay queued for the next sync.
       if (pendingOps.isEmpty) break;
+      attempted.addAll(pendingOps.map((op) => op.opId));
 
       // Batch-decode oplog payloads off the main isolate
       final payloadStrings = pendingOps.map((op) => op.payloadJson).toList();
-      final decodedPayloads = await compute(_batchDecodePayloads, payloadStrings);
+      final decodedPayloads = await compute(
+        _batchDecodePayloads,
+        payloadStrings,
+      );
 
       // Convert to entries, marking corrupt ones as synced so they never
       // block the push loop forever.
@@ -386,34 +409,34 @@ class SyncEngine {
       final compressed = OplogCompressor.compress(entries);
       if (compressed.absorbedOpIds.isNotEmpty) {
         await _db.markOpsSynced(compressed.absorbedOpIds);
-        operationsPushed += compressed.absorbedOpIds.length;
+        // Deliberately not added to operationsPushed: these never went over
+        // the wire. They are superseded by the surviving op, which carries the
+        // same entity state. Counting them made the reported figure larger
+        // than the number of operations the server actually accepted.
+        absorbedByCompression += compressed.absorbedOpIds.length;
         SyncLogger.info(
           'Oplog compression: merged ${compressed.absorbedOpIds.length} '
-          'redundant UPDATE ops',
+          'redundant UPDATE ops (not counted as pushed)',
         );
       }
       final entriesToPush = compressed.entriesToPush;
       if (entriesToPush.isEmpty) continue;
 
-      _emitProgress(SyncProgress.pushing(
-        totalPending - operationsPushed,
-        totalPending,
-        '${entriesToPush.length} operations',
-      ));
+      _emitProgress(
+        SyncProgress.pushing(
+          totalPending - operationsPushed,
+          totalPending,
+          '${entriesToPush.length} operations',
+        ),
+      );
 
       var pushRateLimitRetries = 0;
       while (true) {
+        List<PushOpResult> results;
         try {
-          final timestamps = await _apiClient.pushOperations(entriesToPush);
-
-          // Mark all as synced with their server timestamps
-          for (var i = 0; i < entriesToPush.length; i++) {
-            await _db.markOpSyncedWithTimestamp(entriesToPush[i].opId, timestamps[i]);
-          }
-          operationsPushed += entriesToPush.length;
-          break; // success — exit retry loop
+          results = await _apiClient.pushOperations(entriesToPush);
         } on SyncApiException catch (e) {
-          // 429: pause and retry this batch (no partial results to salvage yet)
+          // 429: pause and retry this batch (nothing was applied yet)
           if (e.statusCode == 429 &&
               !e.hasPartialResults &&
               pushRateLimitRetries < _maxRateLimitRetries) {
@@ -422,43 +445,35 @@ class SyncEngine {
             continue; // retry the same batch
           }
 
-          // Mark any partially-succeeded operations as synced
-          final syncedCount = e.hasPartialResults ? e.partialTimestamps.length : 0;
-          if (e.hasPartialResults) {
-            for (var i = 0;
-                i < e.partialTimestamps.length && i < entriesToPush.length;
-                i++) {
-              await _db.markOpSyncedWithTimestamp(
-                entriesToPush[i].opId,
-                e.partialTimestamps[i],
-              );
-            }
-            operationsPushed += syncedCount;
-            SyncLogger.warning(
-              'Push partially succeeded: $syncedCount/${entriesToPush.length} '
-              'operations synced before failure',
-            );
-          }
+          // The request itself failed. Whatever the server reported before it
+          // failed is still authoritative, so settle those; everything else
+          // stays queued and is retried, rather than being thrown away.
+          final settled = await _settlePushResults(
+            entriesToPush,
+            e.partialResults,
+          );
+          operationsPushed += settled;
 
-          // Quarantine permanently failing ops instead of blocking the queue.
-          // 4xx errors (except 401/429) are not retryable.
           if (_isPermanentPushError(e)) {
-            for (var i = syncedCount; i < entriesToPush.length; i++) {
-              await _db.markOpFailed(
-                entriesToPush[i].opId,
-                '${e.code}: ${e.message}',
-              );
-            }
             SyncLogger.warning(
-              'Quarantined ${entriesToPush.length - syncedCount} ops due to '
-              'permanent error: ${e.code}',
+              'Push batch rejected (${e.code}); $settled of '
+              '${entriesToPush.length} settled, the rest stay queued',
             );
-            break; // Move on to next page instead of aborting
+            break; // move on to the next page
           }
-
           rethrow;
         }
+
+        operationsPushed += await _settlePushResults(entriesToPush, results);
+        break; // batch handled
       }
+    }
+
+    if (absorbedByCompression > 0) {
+      SyncLogger.info(
+        'Push phase: $operationsPushed operation(s) accepted by the server, '
+        '$absorbedByCompression superseded locally by compression',
+      );
     }
 
     // Update last push timestamp
@@ -486,8 +501,59 @@ class SyncEngine {
   /// Client:
   /// - Applies ops in order
   /// - Updates last_remote_cursor
+  /// Operations applied per transaction during a pull.
+  ///
+  /// Trades commit cost against how long the database lock is held. Per
+  /// operation meant an fsync each time; a whole page (up to 1000) blocked
+  /// every local read and write for its duration. 64 keeps the fsync saving
+  /// while leaving gaps the editor's batched saves can land in.
+  static const _applyChunkSize = 64;
+
+  /// How many pulls may fail on the same operation before it is given up on.
+  ///
+  /// A retryable failure holds the cursor so the page is re-fetched rather
+  /// than skipped, which is what stops a full disk from discarding data. Left
+  /// unbounded that turns an operation which can never apply into a permanent
+  /// sync stall, so after this many attempts the operation is dead-lettered:
+  /// skipped so the cursor can move, and recorded so it can be surfaced
+  /// instead of vanishing.
+  static const _maxRemoteOpAttempts = 5;
+
+  /// How many times one sync cycle will honour the server asking for a full
+  /// resync.
+  ///
+  /// The flag resets the cursor and restarts the pull, so a server that keeps
+  /// setting it turns the pull into an unbounded request/reset loop: sync
+  /// never finishes, `isSyncing` stays true and blocks every other sync, and
+  /// the device keeps spending battery and data. One restart is legitimate
+  /// (the cursor was too old); a second in the same cycle means the server is
+  /// not making progress, so the cycle fails and backoff takes over.
+  static const _maxFullSyncRestarts = 1;
+
+  /// How many pushes may be rejected for the same operation before it is
+  /// quarantined.
+  ///
+  /// The previous behaviour quarantined on the first rejection, which turned
+  /// any transient server-side refusal into permanent loss of a local change.
+  static const _maxPushAttempts = 5;
+
   Future<_PullResult> _executePullPhase() async {
     var operationsPulled = 0;
+    var deadLetteredSkipped = 0;
+    // Operations previous pulls gave up on. Skipped here so the cursor can
+    // advance past them instead of the pull retrying them forever.
+    final deadLettered = await _db.getDeadLetteredOpIds();
+    // Entities with a local edit the server rejected as a conflict. The pull
+    // below is what delivers the version that caused the rejection, so the
+    // payloads are captured here and merged once it finishes.
+    final awaitingRebase = {
+      for (final op in await _db.getOpsNeedingRebase()) op.entityId,
+    };
+    final serverPayloadsForRebase = <String, Map<String, dynamic>>{};
+    var fullSyncRestarts = 0;
+    // Op ids this pull has written a failure row for, so the clear-on-success
+    // pass only touches rows that exist.
+    final failureRecorded = <String>{};
     var conflictsResolved = 0;
     final accumulatedTypeCounts = <String, int>{};
 
@@ -497,9 +563,11 @@ class SyncEngine {
 
     // Pull until no more operations
     while (true) {
-      _emitProgress(SyncProgress.pulling(
-        counts: Map<String, int>.from(accumulatedTypeCounts),
-      ));
+      _emitProgress(
+        SyncProgress.pulling(
+          counts: Map<String, int>.from(accumulatedTypeCounts),
+        ),
+      );
 
       SyncLogger.info('Pull phase: requesting ops with cursor=$cursor');
       PullResponse response;
@@ -509,7 +577,8 @@ class SyncEngine {
           response = await _apiClient.pullOperations(cursor: cursor);
           break; // success — exit retry loop
         } on SyncApiException catch (e) {
-          if (e.statusCode == 429 && pullRateLimitRetries < _maxRateLimitRetries) {
+          if (e.statusCode == 429 &&
+              pullRateLimitRetries < _maxRateLimitRetries) {
             pullRateLimitRetries++;
             await _awaitRateLimit(e, 'pull');
             continue; // retry the same pull request
@@ -527,6 +596,17 @@ class SyncEngine {
           'reason: ${response.reason ?? 'unknown'}, '
           'message: ${response.message ?? 'none'}',
         );
+
+        if (fullSyncRestarts >= _maxFullSyncRestarts) {
+          // Asked twice in one cycle: restarting again would just repeat this
+          // exchange forever. Fail the cycle so backoff slows it down instead.
+          throw StateError(
+            'Server asked for a full resync more than once in a single sync '
+            '(reason: ${response.reason ?? 'unknown'}). Aborting to avoid an '
+            'endless pull loop; the next sync will try again with backoff.',
+          );
+        }
+        fullSyncRestarts++;
 
         // Reset cursor to null so the next pull starts from the beginning
         await _db.updateSyncState(
@@ -552,46 +632,183 @@ class SyncEngine {
         final key = op.entityType.toDbValue();
         accumulatedTypeCounts[key] = (accumulatedTypeCounts[key] ?? 0) + 1;
       }
-      SyncLogger.info('Pull phase: accumulated entity types: $accumulatedTypeCounts');
+      SyncLogger.info(
+        'Pull phase: accumulated entity types: $accumulatedTypeCounts',
+      );
 
       // Apply operations in order
       _setState(SyncEngineState.applying);
-      _emitProgress(SyncProgress.applying(
-        counts: Map<String, int>.from(accumulatedTypeCounts),
-      ));
+      _emitProgress(
+        SyncProgress.applying(
+          counts: Map<String, int>.from(accumulatedTypeCounts),
+        ),
+      );
 
       var batchApplied = 0;
-      var batchFailed = 0;
+      var batchSkipped = 0;
       final notesNeedingRebuild = <String>{};
-      for (final remoteOp in response.operations) {
+
+      // Applied in chunks rather than one transaction per operation or one per
+      // page.
+      //
+      // Per operation was the original shape and cost a commit and fsync each
+      // time — the dominant term in a first login or a restore. One
+      // transaction per page fixed that but created two problems: it holds
+      // Drift's single connection for up to `pullBatchSize` operations (remote
+      // config allows 1000), so the editor's 300-500ms batched saves and every
+      // watch() re-query queue behind the whole page; and a failure that
+      // aborts the enclosing transaction takes every remaining operation in
+      // that page with it.
+      //
+      // A chunk bounds both: the lock is released between chunks so local
+      // work interleaves, and a poisoned transaction costs one chunk.
+      var transientFailure = _TransientPullFailure.none;
+
+      for (
+        var start = 0;
+        start < response.operations.length;
+        start += _applyChunkSize
+      ) {
+        final end = start + _applyChunkSize < response.operations.length
+            ? start + _applyChunkSize
+            : response.operations.length;
+        final chunk = response.operations.sublist(start, end);
+
+        // Counted inside the transaction, committed to the outer totals only
+        // once it does — a rolled-back chunk must not inflate the numbers.
+        var chunkApplied = 0;
+        var chunkSkipped = 0;
+        var chunkConflicts = 0;
+        var chunkDeadLetterSkips = 0;
+        final chunkRebuilds = <String>{};
+        // Which operation aborted the chunk, so its attempt count can be
+        // incremented after the transaction has rolled back.
+        OplogEntry? failingOp;
+        Object? failingError;
+        final appliedOpIds = <String>[];
+
         try {
-          final resolution = await _applyRemoteOperation(remoteOp);
+          await _db.transaction(() async {
+            chunkApplied = 0;
+            chunkSkipped = 0;
+            chunkConflicts = 0;
+            chunkDeadLetterSkips = 0;
+            chunkRebuilds.clear();
+            appliedOpIds.clear();
 
-          if (resolution.hadConflict) {
-            conflictsResolved++;
-          }
+            for (final remoteOp in chunk) {
+              if (deadLettered.contains(remoteOp.opId)) {
+                chunkDeadLetterSkips++;
+                continue;
+              }
+              try {
+                final resolution = await _applyRemoteOperation(remoteOp);
 
-          // Track notes whose blocks changed so we can rebuild documentJson
-          if (remoteOp.entityType == OplogEntityType.noteBlock) {
-            final noteId = remoteOp.payload['noteId'] as String?;
-            if (noteId != null) notesNeedingRebuild.add(noteId);
-          }
+                if (resolution.hadConflict) chunkConflicts++;
 
-          operationsPulled++;
-          batchApplied++;
+                // Track notes whose blocks changed so we can rebuild
+                // documentJson
+                if (remoteOp.entityType == OplogEntityType.noteBlock) {
+                  final noteId = remoteOp.payload['noteId'] as String?;
+                  if (noteId != null) chunkRebuilds.add(noteId);
+                }
+
+                chunkApplied++;
+                appliedOpIds.add(remoteOp.opId);
+                if (awaitingRebase.contains(remoteOp.entityId)) {
+                  serverPayloadsForRebase[remoteOp.entityId] = remoteOp.payload;
+                }
+              } catch (e, stackTrace) {
+                // Only a payload we can never parse is safe to skip. Skipping
+                // advances the cursor past the operation, so the server never
+                // sends it again — doing that for a disk-full or a poisoned
+                // transaction would discard the user's data permanently.
+                if (!_isUnparseableOperation(e)) {
+                  failingOp = remoteOp;
+                  failingError = e;
+                  rethrow;
+                }
+
+                chunkSkipped++;
+                SyncLogger.error(
+                  'Skipping unparseable remote operation '
+                  '(opId: ${remoteOp.opId}, entity: '
+                  '${remoteOp.entityType.toDbValue()}/${remoteOp.entityId}, '
+                  'op: ${remoteOp.operation.toDbValue()})',
+                  e,
+                  stackTrace,
+                );
+              }
+            }
+          });
         } catch (e, stackTrace) {
-          batchFailed++;
-          // Log and skip malformed remote ops so the cursor can advance.
-          // Without this, one bad op would block the pull phase forever.
-          SyncLogger.error(
-            'Failed to apply remote operation '
-            '(opId: ${remoteOp.opId}, entity: '
-            '${remoteOp.entityType.toDbValue()}/${remoteOp.entityId}, '
-            'op: ${remoteOp.operation.toDbValue()})',
-            e,
-            stackTrace,
-          );
+          // Count the attempt outside the transaction that just rolled back,
+          // so the tally survives it.
+          final op = failingOp;
+          if (op != null) {
+            final attempts = await _db.recordRemoteOpFailure(
+              opId: op.opId,
+              entityType: op.entityType.toDbValue(),
+              entityId: op.entityId,
+              error: (failingError ?? e).toString(),
+              now: TestClock.now(),
+            );
+
+            failureRecorded.add(op.opId);
+
+            if (attempts >= _maxRemoteOpAttempts) {
+              // Giving up on it is the lesser evil now: holding the cursor any
+              // longer stalls every later operation behind one that has never
+              // applied. Recorded, so it is reportable rather than silent.
+              await _db.deadLetterRemoteOp(op.opId);
+              deadLettered.add(op.opId);
+              SyncLogger.error(
+                'Giving up on remote operation after $attempts attempts '
+                '(opId: ${op.opId}, entity: '
+                '${op.entityType.toDbValue()}/${op.entityId}). It will be '
+                'skipped so sync can continue, and stays recorded in '
+                'failed_remote_ops.',
+                failingError ?? e,
+                stackTrace,
+              );
+            }
+          }
+
+          transientFailure = _TransientPullFailure(e, stackTrace);
+          break;
         }
+
+        batchApplied += chunkApplied;
+        batchSkipped += chunkSkipped;
+        deadLetteredSkipped += chunkDeadLetterSkips;
+
+        // An operation that finally applied should not carry its old failures
+        // forward, or an unrelated later failure would inherit the count.
+        for (final opId in appliedOpIds) {
+          if (failureRecorded.remove(opId)) {
+            await _db.clearRemoteOpFailure(opId);
+          }
+        }
+        operationsPulled += chunkApplied;
+        conflictsResolved += chunkConflicts;
+        notesNeedingRebuild.addAll(chunkRebuilds);
+      }
+
+      if (transientFailure.failed) {
+        // Leave the cursor where it is. The operations in this page have not
+        // been durably applied, so the next pull must fetch them again;
+        // applying an operation twice is safe because every apply is guarded
+        // on version, but skipping one is not recoverable.
+        SyncLogger.error(
+          'Pull aborted after a non-recoverable-looking failure; cursor left '
+          'at $cursor so the page is retried rather than skipped',
+          transientFailure.error,
+          transientFailure.stackTrace,
+        );
+        throw SyncIncompleteException(
+          'Sync incomplete: some changes could not be applied yet and will be '
+          'retried on the next sync.',
+        );
       }
 
       // Rebuild documentJson for notes whose blocks were updated.
@@ -601,12 +818,15 @@ class SyncEngine {
         try {
           await _rebuildNoteDocumentJson(noteId);
         } catch (e) {
-          SyncLogger.warning('Failed to rebuild documentJson for note $noteId: $e');
+          SyncLogger.warning(
+            'Failed to rebuild documentJson for note $noteId: $e',
+          );
         }
       }
 
       SyncLogger.info(
-        'Pull phase batch done: applied=$batchApplied, failed=$batchFailed',
+        'Pull phase batch done: applied=$batchApplied, '
+        'skipped=$batchSkipped',
       );
 
       // Update cursor
@@ -621,16 +841,27 @@ class SyncEngine {
       }
     }
 
+    // Re-apply any local edits the server rejected as conflicts, now that the
+    // pull has brought down the versions they conflicted with.
+    if (awaitingRebase.isNotEmpty) {
+      final rebased = await _rebaseConflictedOps(serverPayloadsForRebase);
+      if (rebased > 0) {
+        SyncLogger.info(
+          'Rebased $rebased conflicted local edit(s); they will push on the '
+          'next cycle',
+        );
+      }
+    }
+
     // Update last pull timestamp
     await _db.updateSyncState(
-      SyncStateCompanion(
-        lastPullTimestamp: Value(TestClock.now()),
-      ),
+      SyncStateCompanion(lastPullTimestamp: Value(TestClock.now())),
     );
 
     return _PullResult(
       operationsPulled: operationsPulled,
       conflictsResolved: conflictsResolved,
+      deadLetteredSkipped: deadLetteredSkipped,
     );
   }
 
@@ -747,20 +978,24 @@ class SyncEngine {
 
   /// Apply a folder operation from remote
   Future<bool> _applyFolderOperation(OplogEntry remoteOp) async {
-    final localFolder = await (_db.select(_db.folders)
-          ..where((f) => f.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final localFolder = await (_db.select(
+      _db.folders,
+    )..where((f) => f.id.equals(remoteOp.entityId))).getSingleOrNull();
 
     if (localFolder == null) {
       // No local version - apply directly
       if (remoteOp.operation != OplogOperation.delete) {
-        await _db.into(_db.folders).insert(
+        await _db
+            .into(_db.folders)
+            .insert(
               FoldersCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 parentId: Value(remoteOp.payload['parentId'] as String?),
                 name: Value(remoteOp.payload['name'] as String),
                 type: Value(remoteOp.payload['type'] as String? ?? 'note'),
-                visibility: Value(remoteOp.payload['visibility'] as String? ?? 'personal'),
+                visibility: Value(
+                  remoteOp.payload['visibility'] as String? ?? 'personal',
+                ),
                 groupId: Value(remoteOp.payload['groupId'] as String?),
                 userId: Value(remoteOp.payload['userId'] as String),
                 updatedAt: Value(remoteOp.payload['updatedAt'] as int),
@@ -789,14 +1024,16 @@ class SyncEngine {
 
     if (resolution.useRemote) {
       // Apply remote version
-      await (_db.update(_db.folders)
-            ..where((f) => f.id.equals(remoteOp.entityId)))
-          .write(
+      await (_db.update(
+        _db.folders,
+      )..where((f) => f.id.equals(remoteOp.entityId))).write(
         FoldersCompanion(
           parentId: Value(remoteOp.payload['parentId'] as String?),
           name: Value(remoteOp.payload['name'] as String),
           type: Value(remoteOp.payload['type'] as String? ?? 'note'),
-          visibility: Value(remoteOp.payload['visibility'] as String? ?? 'personal'),
+          visibility: Value(
+            remoteOp.payload['visibility'] as String? ?? 'personal',
+          ),
           groupId: Value(remoteOp.payload['groupId'] as String?),
           updatedAt: Value(remoteOp.payload['updatedAt'] as int),
           version: Value(remoteOp.payload['version'] as int),
@@ -810,16 +1047,20 @@ class SyncEngine {
 
   /// Apply a note operation from remote using field-level merge.
   Future<bool> _applyNoteOperation(OplogEntry remoteOp) async {
-    final localNote = await (_db.select(_db.syncNotes)
-          ..where((n) => n.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final localNote = await (_db.select(
+      _db.syncNotes,
+    )..where((n) => n.id.equals(remoteOp.entityId))).getSingleOrNull();
 
     if (localNote == null) {
       if (remoteOp.operation != OplogOperation.delete) {
-        await _db.into(_db.syncNotes).insert(
+        await _db
+            .into(_db.syncNotes)
+            .insert(
               SyncNotesCompanion(
                 id: Value(remoteOp.payload['id'] as String),
-                folderId: Value((remoteOp.payload['folderId'] as String?) ?? 'root'),
+                folderId: Value(
+                  (remoteOp.payload['folderId'] as String?) ?? 'root',
+                ),
                 userId: Value(remoteOp.payload['userId'] as String),
                 title: Value(remoteOp.payload['title'] as String),
                 updatedAt: Value(remoteOp.payload['updatedAt'] as int),
@@ -830,9 +1071,13 @@ class SyncEngine {
                 noteDate: Value(remoteOp.payload['noteDate'] as int?),
                 trashedAt: Value(remoteOp.payload['trashedAt'] as int?),
                 fieldUpdatedAt: Value(
-                  jsonEncode(_parseFieldTimestamps(remoteOp.payload['fieldUpdatedAt'])),
+                  jsonEncode(
+                    _parseFieldTimestamps(remoteOp.payload['fieldUpdatedAt']),
+                  ),
                 ),
-                documentJson: Value(remoteOp.payload['documentJson'] as String?),
+                documentJson: Value(
+                  remoteOp.payload['documentJson'] as String?,
+                ),
               ),
               mode: InsertMode.insertOrReplace,
             );
@@ -845,19 +1090,27 @@ class SyncEngine {
     final localIsDelete = localNote.deleted == 1;
     if (remoteIsDelete || localIsDelete) {
       if (remoteIsDelete) {
-        await (_db.update(_db.syncNotes)
-              ..where((n) => n.id.equals(remoteOp.entityId)))
-            .write(SyncNotesCompanion(
-          deleted: const Value(1),
-          updatedAt: Value(remoteOp.payload['updatedAt'] as int),
-          version: Value(remoteOp.payload['version'] as int),
-        ));
+        await (_db.update(
+          _db.syncNotes,
+        )..where((n) => n.id.equals(remoteOp.entityId))).write(
+          SyncNotesCompanion(
+            deleted: const Value(1),
+            updatedAt: Value(remoteOp.payload['updatedAt'] as int),
+            version: Value(remoteOp.payload['version'] as int),
+          ),
+        );
       }
       return true;
     }
 
     // Field-level merge
-    const mergeableFields = ['title', 'folderId', 'preacherId', 'noteDate', 'documentJson'];
+    const mergeableFields = [
+      'title',
+      'folderId',
+      'preacherId',
+      'noteDate',
+      'documentJson',
+    ];
 
     final mergeResult = _fieldMerger.merge(
       localFields: {
@@ -887,18 +1140,24 @@ class SyncEngine {
       mergeableFieldNames: mergeableFields,
     );
 
-    await (_db.update(_db.syncNotes)
-          ..where((n) => n.id.equals(remoteOp.entityId)))
-        .write(SyncNotesCompanion(
-      title: Value(mergeResult.mergedFields['title'] as String),
-      folderId: Value((mergeResult.mergedFields['folderId'] as String?) ?? 'root'),
-      preacherId: Value(mergeResult.mergedFields['preacherId'] as String?),
-      noteDate: Value(mergeResult.mergedFields['noteDate'] as int?),
-      documentJson: Value(mergeResult.mergedFields['documentJson'] as String?),
-      updatedAt: Value(mergeResult.mergedUpdatedAt),
-      version: Value(mergeResult.mergedVersion),
-      fieldUpdatedAt: Value(jsonEncode(mergeResult.mergedFieldTimestamps)),
-    ));
+    await (_db.update(
+      _db.syncNotes,
+    )..where((n) => n.id.equals(remoteOp.entityId))).write(
+      SyncNotesCompanion(
+        title: Value(mergeResult.mergedFields['title'] as String),
+        folderId: Value(
+          (mergeResult.mergedFields['folderId'] as String?) ?? 'root',
+        ),
+        preacherId: Value(mergeResult.mergedFields['preacherId'] as String?),
+        noteDate: Value(mergeResult.mergedFields['noteDate'] as int?),
+        documentJson: Value(
+          mergeResult.mergedFields['documentJson'] as String?,
+        ),
+        updatedAt: Value(mergeResult.mergedUpdatedAt),
+        version: Value(mergeResult.mergedVersion),
+        fieldUpdatedAt: Value(jsonEncode(mergeResult.mergedFieldTimestamps)),
+      ),
+    );
 
     return true;
   }
@@ -909,9 +1168,9 @@ class SyncEngine {
   /// - Block conflict: Last writer wins
   /// - Never auto-merge rich text
   Future<bool> _applyBlockOperation(OplogEntry remoteOp) async {
-    final localBlock = await (_db.select(_db.noteBlocks)
-          ..where((b) => b.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final localBlock = await (_db.select(
+      _db.noteBlocks,
+    )..where((b) => b.id.equals(remoteOp.entityId))).getSingleOrNull();
 
     if (localBlock == null) {
       if (remoteOp.operation != OplogOperation.delete) {
@@ -921,7 +1180,9 @@ class SyncEngine {
             : jsonEncode(contentJson);
         final isDeleted = _asIntFlag(remoteOp.payload['deleted']) == 1;
 
-        await _db.into(_db.noteBlocks).insert(
+        await _db
+            .into(_db.noteBlocks)
+            .insert(
               NoteBlocksCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 noteId: Value(remoteOp.payload['noteId'] as String),
@@ -932,7 +1193,9 @@ class SyncEngine {
                 version: Value(remoteOp.payload['version'] as int),
                 deleted: Value(_asIntFlag(remoteOp.payload['deleted'])),
                 createdAt: Value(remoteOp.payload['createdAt'] as int),
-                section: Value(remoteOp.payload['section'] as String? ?? 'main'),
+                section: Value(
+                  remoteOp.payload['section'] as String? ?? 'main',
+                ),
               ),
               mode: InsertMode.insertOrReplace,
             );
@@ -972,9 +1235,9 @@ class SyncEngine {
         await _ftsService.removeFromFts(blockId: remoteOp.entityId);
       }
 
-      await (_db.update(_db.noteBlocks)
-            ..where((b) => b.id.equals(remoteOp.entityId)))
-          .write(
+      await (_db.update(
+        _db.noteBlocks,
+      )..where((b) => b.id.equals(remoteOp.entityId))).write(
         NoteBlocksCompanion(
           blockType: Value(remoteOp.payload['blockType'] as String),
           contentJson: Value(contentStr),
@@ -1005,13 +1268,14 @@ class SyncEngine {
   /// When block operations arrive without a corresponding note operation,
   /// the stream never re-emits unless we write to the note row.
   Future<void> _rebuildNoteDocumentJson(String noteId) async {
-    final blocks = await (_db.select(_db.noteBlocks)
-          ..where((b) => b.noteId.equals(noteId) & b.deleted.equals(0))
-          ..orderBy([
-            (b) => OrderingTerm.asc(b.section),
-            (b) => OrderingTerm.asc(b.orderIndex),
-          ]))
-        .get();
+    final blocks =
+        await (_db.select(_db.noteBlocks)
+              ..where((b) => b.noteId.equals(noteId) & b.deleted.equals(0))
+              ..orderBy([
+                (b) => OrderingTerm.asc(b.section),
+                (b) => OrderingTerm.asc(b.orderIndex),
+              ]))
+            .get();
 
     final blockJsonList = blocks.map((b) {
       Map<String, dynamic> content;
@@ -1036,28 +1300,34 @@ class SyncEngine {
 
     final documentJson = blocks.isEmpty ? null : jsonEncode(blockJsonList);
 
-    await (_db.update(_db.syncNotes)
-          ..where((n) => n.id.equals(noteId)))
-        .write(SyncNotesCompanion(documentJson: Value(documentJson)));
+    await (_db.update(_db.syncNotes)..where((n) => n.id.equals(noteId))).write(
+      SyncNotesCompanion(documentJson: Value(documentJson)),
+    );
   }
 
   /// Apply a prayer operation from remote
   /// Apply a prayer operation from remote using field-level merge.
   Future<bool> _applyPrayerOperation(OplogEntry remoteOp) async {
-    final localPrayer = await (_db.select(_db.prayers)
-          ..where((p) => p.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final localPrayer = await (_db.select(
+      _db.prayers,
+    )..where((p) => p.id.equals(remoteOp.entityId))).getSingleOrNull();
 
     if (localPrayer == null) {
       if (remoteOp.operation != OplogOperation.delete) {
-        await _db.into(_db.prayers).insert(
+        await _db
+            .into(_db.prayers)
+            .insert(
               PrayersCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 userId: Value(remoteOp.payload['userId'] as String),
                 title: Value(remoteOp.payload['title'] as String),
                 content: Value(remoteOp.payload['content'] as String? ?? ''),
-                frequency: Value(remoteOp.payload['frequency'] as String? ?? 'daily'),
-                status: Value(remoteOp.payload['status'] as String? ?? 'active'),
+                frequency: Value(
+                  remoteOp.payload['frequency'] as String? ?? 'daily',
+                ),
+                status: Value(
+                  remoteOp.payload['status'] as String? ?? 'active',
+                ),
                 category: Value(remoteOp.payload['category'] as String?),
                 reminderAt: Value(remoteOp.payload['reminderAt'] as int?),
                 answeredAt: Value(remoteOp.payload['answeredAt'] as int?),
@@ -1066,7 +1336,9 @@ class SyncEngine {
                 deleted: Value(_asIntFlag(remoteOp.payload['deleted'])),
                 createdAt: Value(remoteOp.payload['createdAt'] as int),
                 fieldUpdatedAt: Value(
-                  jsonEncode(_parseFieldTimestamps(remoteOp.payload['fieldUpdatedAt'])),
+                  jsonEncode(
+                    _parseFieldTimestamps(remoteOp.payload['fieldUpdatedAt']),
+                  ),
                 ),
               ),
               mode: InsertMode.insertOrReplace,
@@ -1080,21 +1352,28 @@ class SyncEngine {
     final localIsDelete = localPrayer.deleted == 1;
     if (remoteIsDelete || localIsDelete) {
       if (remoteIsDelete) {
-        await (_db.update(_db.prayers)
-              ..where((p) => p.id.equals(remoteOp.entityId)))
-            .write(PrayersCompanion(
-          deleted: const Value(1),
-          updatedAt: Value(remoteOp.payload['updatedAt'] as int),
-          version: Value(remoteOp.payload['version'] as int),
-        ));
+        await (_db.update(
+          _db.prayers,
+        )..where((p) => p.id.equals(remoteOp.entityId))).write(
+          PrayersCompanion(
+            deleted: const Value(1),
+            updatedAt: Value(remoteOp.payload['updatedAt'] as int),
+            version: Value(remoteOp.payload['version'] as int),
+          ),
+        );
       }
       return true;
     }
 
     // Field-level merge
     const mergeableFields = [
-      'title', 'content', 'frequency', 'status',
-      'category', 'reminderAt', 'answeredAt',
+      'title',
+      'content',
+      'frequency',
+      'status',
+      'category',
+      'reminderAt',
+      'answeredAt',
     ];
 
     final mergeResult = _fieldMerger.merge(
@@ -1129,39 +1408,44 @@ class SyncEngine {
       mergeableFieldNames: mergeableFields,
     );
 
-    await (_db.update(_db.prayers)
-          ..where((p) => p.id.equals(remoteOp.entityId)))
-        .write(PrayersCompanion(
-      title: Value(mergeResult.mergedFields['title'] as String),
-      content: Value(mergeResult.mergedFields['content'] as String),
-      frequency: Value(mergeResult.mergedFields['frequency'] as String),
-      status: Value(mergeResult.mergedFields['status'] as String),
-      category: Value(mergeResult.mergedFields['category'] as String?),
-      reminderAt: Value(mergeResult.mergedFields['reminderAt'] as int?),
-      answeredAt: Value(mergeResult.mergedFields['answeredAt'] as int?),
-      updatedAt: Value(mergeResult.mergedUpdatedAt),
-      version: Value(mergeResult.mergedVersion),
-      fieldUpdatedAt: Value(jsonEncode(mergeResult.mergedFieldTimestamps)),
-    ));
+    await (_db.update(
+      _db.prayers,
+    )..where((p) => p.id.equals(remoteOp.entityId))).write(
+      PrayersCompanion(
+        title: Value(mergeResult.mergedFields['title'] as String),
+        content: Value(mergeResult.mergedFields['content'] as String),
+        frequency: Value(mergeResult.mergedFields['frequency'] as String),
+        status: Value(mergeResult.mergedFields['status'] as String),
+        category: Value(mergeResult.mergedFields['category'] as String?),
+        reminderAt: Value(mergeResult.mergedFields['reminderAt'] as int?),
+        answeredAt: Value(mergeResult.mergedFields['answeredAt'] as int?),
+        updatedAt: Value(mergeResult.mergedUpdatedAt),
+        version: Value(mergeResult.mergedVersion),
+        fieldUpdatedAt: Value(jsonEncode(mergeResult.mergedFieldTimestamps)),
+      ),
+    );
 
     return true;
   }
 
   /// Apply a user profile operation from remote using field-level merge.
   Future<bool> _applyUserProfileOperation(OplogEntry remoteOp) async {
-    final localProfile = await (_db.select(_db.userProfiles)
-          ..where((p) => p.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final localProfile = await (_db.select(
+      _db.userProfiles,
+    )..where((p) => p.id.equals(remoteOp.entityId))).getSingleOrNull();
 
     if (localProfile == null) {
       if (remoteOp.operation != OplogOperation.delete) {
-        await _db.into(_db.userProfiles).insert(
+        await _db
+            .into(_db.userProfiles)
+            .insert(
               UserProfilesCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 userId: Value(remoteOp.payload['userId'] as String),
                 username: Value(remoteOp.payload['username'] as String),
-                displayName:
-                    Value(remoteOp.payload['displayName'] as String? ?? ''),
+                displayName: Value(
+                  remoteOp.payload['displayName'] as String? ?? '',
+                ),
                 bio: Value(remoteOp.payload['bio'] as String? ?? ''),
                 imageUrl: Value(remoteOp.payload['imageUrl'] as String?),
                 friendRequestsEnabled: Value(
@@ -1172,7 +1456,9 @@ class SyncEngine {
                 deleted: Value(_asIntFlag(remoteOp.payload['deleted'])),
                 createdAt: Value(remoteOp.payload['createdAt'] as int),
                 fieldUpdatedAt: Value(
-                  jsonEncode(_parseFieldTimestamps(remoteOp.payload['fieldUpdatedAt'])),
+                  jsonEncode(
+                    _parseFieldTimestamps(remoteOp.payload['fieldUpdatedAt']),
+                  ),
                 ),
               ),
               mode: InsertMode.insertOrReplace,
@@ -1185,20 +1471,26 @@ class SyncEngine {
     final localIsDelete = localProfile.deleted == 1;
     if (remoteIsDelete || localIsDelete) {
       if (remoteIsDelete) {
-        await (_db.update(_db.userProfiles)
-              ..where((p) => p.id.equals(remoteOp.entityId)))
-            .write(UserProfilesCompanion(
-          deleted: const Value(1),
-          updatedAt: Value(remoteOp.payload['updatedAt'] as int),
-          version: Value(remoteOp.payload['version'] as int),
-        ));
+        await (_db.update(
+          _db.userProfiles,
+        )..where((p) => p.id.equals(remoteOp.entityId))).write(
+          UserProfilesCompanion(
+            deleted: const Value(1),
+            updatedAt: Value(remoteOp.payload['updatedAt'] as int),
+            version: Value(remoteOp.payload['version'] as int),
+          ),
+        );
       }
       return true;
     }
 
     // Field-level merge
     const mergeableFields = [
-      'username', 'displayName', 'bio', 'imageUrl', 'friendRequestsEnabled',
+      'username',
+      'displayName',
+      'bio',
+      'imageUrl',
+      'friendRequestsEnabled',
     ];
 
     final mergeResult = _fieldMerger.merge(
@@ -1209,8 +1501,7 @@ class SyncEngine {
         'imageUrl': localProfile.imageUrl,
         'friendRequestsEnabled': localProfile.friendRequestsEnabled,
       },
-      localFieldTimestamps:
-          _parseFieldTimestamps(localProfile.fieldUpdatedAt),
+      localFieldTimestamps: _parseFieldTimestamps(localProfile.fieldUpdatedAt),
       localUpdatedAt: localProfile.updatedAt,
       localVersion: localProfile.version,
       remoteFields: {
@@ -1218,8 +1509,9 @@ class SyncEngine {
         'displayName': remoteOp.payload['displayName'] ?? '',
         'bio': remoteOp.payload['bio'] ?? '',
         'imageUrl': remoteOp.payload['imageUrl'],
-        'friendRequestsEnabled':
-            _asIntFlag(remoteOp.payload['friendRequestsEnabled'] ?? 1),
+        'friendRequestsEnabled': _asIntFlag(
+          remoteOp.payload['friendRequestsEnabled'] ?? 1,
+        ),
       },
       remoteFieldTimestamps: _parseFieldTimestamps(
         remoteOp.payload['fieldUpdatedAt'],
@@ -1231,53 +1523,63 @@ class SyncEngine {
       mergeableFieldNames: mergeableFields,
     );
 
-    await (_db.update(_db.userProfiles)
-          ..where((p) => p.id.equals(remoteOp.entityId)))
-        .write(UserProfilesCompanion(
-      username: Value(mergeResult.mergedFields['username'] as String),
-      displayName: Value(mergeResult.mergedFields['displayName'] as String),
-      bio: Value(mergeResult.mergedFields['bio'] as String),
-      imageUrl: Value(mergeResult.mergedFields['imageUrl'] as String?),
-      friendRequestsEnabled:
-          Value(mergeResult.mergedFields['friendRequestsEnabled'] as int),
-      updatedAt: Value(mergeResult.mergedUpdatedAt),
-      version: Value(mergeResult.mergedVersion),
-      fieldUpdatedAt: Value(jsonEncode(mergeResult.mergedFieldTimestamps)),
-    ));
+    await (_db.update(
+      _db.userProfiles,
+    )..where((p) => p.id.equals(remoteOp.entityId))).write(
+      UserProfilesCompanion(
+        username: Value(mergeResult.mergedFields['username'] as String),
+        displayName: Value(mergeResult.mergedFields['displayName'] as String),
+        bio: Value(mergeResult.mergedFields['bio'] as String),
+        imageUrl: Value(mergeResult.mergedFields['imageUrl'] as String?),
+        friendRequestsEnabled: Value(
+          mergeResult.mergedFields['friendRequestsEnabled'] as int,
+        ),
+        updatedAt: Value(mergeResult.mergedUpdatedAt),
+        version: Value(mergeResult.mergedVersion),
+        fieldUpdatedAt: Value(jsonEncode(mergeResult.mergedFieldTimestamps)),
+      ),
+    );
 
     return true;
   }
 
   /// Apply a group operation from remote using field-level merge.
   Future<bool> _applyGroupOperation(OplogEntry remoteOp) async {
-    final localGroup = await (_db.select(_db.groups)
-          ..where((g) => g.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final localGroup = await (_db.select(
+      _db.groups,
+    )..where((g) => g.id.equals(remoteOp.entityId))).getSingleOrNull();
 
     if (localGroup == null) {
       if (remoteOp.operation != OplogOperation.delete) {
-        await _db.into(_db.groups).insert(
+        await _db
+            .into(_db.groups)
+            .insert(
               GroupsCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 name: Value(remoteOp.payload['name'] as String),
-                description:
-                    Value(remoteOp.payload['description'] as String? ?? ''),
-                groupType:
-                    Value(remoteOp.payload['groupType'] as String? ?? 'church'),
+                description: Value(
+                  remoteOp.payload['description'] as String? ?? '',
+                ),
+                groupType: Value(
+                  remoteOp.payload['groupType'] as String? ?? 'church',
+                ),
                 imageUrl: Value(remoteOp.payload['imageUrl'] as String?),
-                joinCode:
-                    Value(remoteOp.payload['joinCode'] as String? ?? ''),
+                joinCode: Value(remoteOp.payload['joinCode'] as String? ?? ''),
                 joinPolicy: Value(
-                    remoteOp.payload['joinPolicy'] as String? ?? 'codeOnly'),
-                createdByUserId:
-                    Value(remoteOp.payload['createdByUserId'] as String),
+                  remoteOp.payload['joinPolicy'] as String? ?? 'codeOnly',
+                ),
+                createdByUserId: Value(
+                  remoteOp.payload['createdByUserId'] as String,
+                ),
                 userId: Value(remoteOp.payload['userId'] as String),
                 updatedAt: Value(remoteOp.payload['updatedAt'] as int),
                 version: Value(remoteOp.payload['version'] as int),
                 deleted: Value(_asIntFlag(remoteOp.payload['deleted'])),
                 createdAt: Value(remoteOp.payload['createdAt'] as int),
                 fieldUpdatedAt: Value(
-                  jsonEncode(_parseFieldTimestamps(remoteOp.payload['fieldUpdatedAt'])),
+                  jsonEncode(
+                    _parseFieldTimestamps(remoteOp.payload['fieldUpdatedAt']),
+                  ),
                 ),
               ),
               mode: InsertMode.insertOrReplace,
@@ -1290,20 +1592,26 @@ class SyncEngine {
     final localIsDelete = localGroup.deleted == 1;
     if (remoteIsDelete || localIsDelete) {
       if (remoteIsDelete) {
-        await (_db.update(_db.groups)
-              ..where((g) => g.id.equals(remoteOp.entityId)))
-            .write(GroupsCompanion(
-          deleted: const Value(1),
-          updatedAt: Value(remoteOp.payload['updatedAt'] as int),
-          version: Value(remoteOp.payload['version'] as int),
-        ));
+        await (_db.update(
+          _db.groups,
+        )..where((g) => g.id.equals(remoteOp.entityId))).write(
+          GroupsCompanion(
+            deleted: const Value(1),
+            updatedAt: Value(remoteOp.payload['updatedAt'] as int),
+            version: Value(remoteOp.payload['version'] as int),
+          ),
+        );
       }
       return true;
     }
 
     // Field-level merge (joinCode, createdByUserId are immutable)
     const mergeableFields = [
-      'name', 'description', 'groupType', 'imageUrl', 'joinPolicy',
+      'name',
+      'description',
+      'groupType',
+      'imageUrl',
+      'joinPolicy',
     ];
 
     final mergeResult = _fieldMerger.merge(
@@ -1314,8 +1622,7 @@ class SyncEngine {
         'imageUrl': localGroup.imageUrl,
         'joinPolicy': localGroup.joinPolicy,
       },
-      localFieldTimestamps:
-          _parseFieldTimestamps(localGroup.fieldUpdatedAt),
+      localFieldTimestamps: _parseFieldTimestamps(localGroup.fieldUpdatedAt),
       localUpdatedAt: localGroup.updatedAt,
       localVersion: localGroup.version,
       remoteFields: {
@@ -1335,31 +1642,35 @@ class SyncEngine {
       mergeableFieldNames: mergeableFields,
     );
 
-    await (_db.update(_db.groups)
-          ..where((g) => g.id.equals(remoteOp.entityId)))
-        .write(GroupsCompanion(
-      name: Value(mergeResult.mergedFields['name'] as String),
-      description: Value(mergeResult.mergedFields['description'] as String),
-      groupType: Value(mergeResult.mergedFields['groupType'] as String),
-      imageUrl: Value(mergeResult.mergedFields['imageUrl'] as String?),
-      joinPolicy: Value(mergeResult.mergedFields['joinPolicy'] as String),
-      updatedAt: Value(mergeResult.mergedUpdatedAt),
-      version: Value(mergeResult.mergedVersion),
-      fieldUpdatedAt: Value(jsonEncode(mergeResult.mergedFieldTimestamps)),
-    ));
+    await (_db.update(
+      _db.groups,
+    )..where((g) => g.id.equals(remoteOp.entityId))).write(
+      GroupsCompanion(
+        name: Value(mergeResult.mergedFields['name'] as String),
+        description: Value(mergeResult.mergedFields['description'] as String),
+        groupType: Value(mergeResult.mergedFields['groupType'] as String),
+        imageUrl: Value(mergeResult.mergedFields['imageUrl'] as String?),
+        joinPolicy: Value(mergeResult.mergedFields['joinPolicy'] as String),
+        updatedAt: Value(mergeResult.mergedUpdatedAt),
+        version: Value(mergeResult.mergedVersion),
+        fieldUpdatedAt: Value(jsonEncode(mergeResult.mergedFieldTimestamps)),
+      ),
+    );
 
     return true;
   }
 
   /// Apply a promise operation from remote
   Future<bool> _applyPromiseOperation(OplogEntry remoteOp) async {
-    final localPromise = await (_db.select(_db.promises)
-          ..where((p) => p.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final localPromise = await (_db.select(
+      _db.promises,
+    )..where((p) => p.id.equals(remoteOp.entityId))).getSingleOrNull();
 
     if (localPromise == null) {
       if (remoteOp.operation != OplogOperation.delete) {
-        await _db.into(_db.promises).insert(
+        await _db
+            .into(_db.promises)
+            .insert(
               PromisesCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 userId: Value(remoteOp.payload['userId'] as String),
@@ -1394,9 +1705,9 @@ class SyncEngine {
     );
 
     if (resolution.useRemote) {
-      await (_db.update(_db.promises)
-            ..where((p) => p.id.equals(remoteOp.entityId)))
-          .write(
+      await (_db.update(
+        _db.promises,
+      )..where((p) => p.id.equals(remoteOp.entityId))).write(
         PromisesCompanion(
           reference: Value(remoteOp.payload['reference'] as String),
           content: Value(remoteOp.payload['content'] as String),
@@ -1423,13 +1734,15 @@ class SyncEngine {
     );
 
     final p = remoteOp.payload;
-    final localPerson = await (_db.select(_db.people)
-          ..where((t) => t.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final localPerson = await (_db.select(
+      _db.people,
+    )..where((t) => t.id.equals(remoteOp.entityId))).getSingleOrNull();
 
     if (localPerson == null) {
       if (remoteOp.operation != OplogOperation.delete) {
-        await _db.into(_db.people).insert(
+        await _db
+            .into(_db.people)
+            .insert(
               PeopleCompanion(
                 id: Value(p['id'] as String),
                 userId: Value(p['userId'] as String),
@@ -1465,9 +1778,9 @@ class SyncEngine {
     );
 
     if (resolution.useRemote) {
-      await (_db.update(_db.people)
-            ..where((t) => t.id.equals(remoteOp.entityId)))
-          .write(
+      await (_db.update(
+        _db.people,
+      )..where((t) => t.id.equals(remoteOp.entityId))).write(
         PeopleCompanion(
           name: Value(p['name'] as String),
           relation: Value(p['relation'] as String? ?? ''),
@@ -1488,13 +1801,15 @@ class SyncEngine {
 
   /// Apply a song operation from remote
   Future<bool> _applySongOperation(OplogEntry remoteOp) async {
-    final localSong = await (_db.select(_db.songs)
-          ..where((s) => s.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final localSong = await (_db.select(
+      _db.songs,
+    )..where((s) => s.id.equals(remoteOp.entityId))).getSingleOrNull();
 
     if (localSong == null) {
       if (remoteOp.operation != OplogOperation.delete) {
-        await _db.into(_db.songs).insert(
+        await _db
+            .into(_db.songs)
+            .insert(
               SongsCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 userId: Value(remoteOp.payload['userId'] as String),
@@ -1502,12 +1817,16 @@ class SyncEngine {
                 folderId: Value(remoteOp.payload['folderId'] as String?),
                 lyrics: Value(remoteOp.payload['lyrics'] as String? ?? ''),
                 chords: Value(remoteOp.payload['chords'] as String? ?? ''),
-                language: Value(remoteOp.payload['language'] as String? ?? 'English'),
+                language: Value(
+                  remoteOp.payload['language'] as String? ?? 'English',
+                ),
                 book: Value(remoteOp.payload['book'] as String?),
                 preview: Value(remoteOp.payload['preview'] as String? ?? ''),
                 tags: Value(remoteOp.payload['tags'] as String? ?? ''),
                 scale: Value(remoteOp.payload['scale'] as String? ?? ''),
-                chordLines: Value(remoteOp.payload['chordLines'] as String? ?? ''),
+                chordLines: Value(
+                  remoteOp.payload['chordLines'] as String? ?? '',
+                ),
                 notes: Value(remoteOp.payload['notes'] as String? ?? ''),
                 hasChords: Value(_asIntFlag(remoteOp.payload['hasChords'])),
                 isFavorite: Value(_asIntFlag(remoteOp.payload['isFavorite'])),
@@ -1536,9 +1855,9 @@ class SyncEngine {
     );
 
     if (resolution.useRemote) {
-      await (_db.update(_db.songs)
-            ..where((s) => s.id.equals(remoteOp.entityId)))
-          .write(
+      await (_db.update(
+        _db.songs,
+      )..where((s) => s.id.equals(remoteOp.entityId))).write(
         SongsCompanion(
           title: Value(remoteOp.payload['title'] as String),
           folderId: Value(remoteOp.payload['folderId'] as String?),
@@ -1565,16 +1884,18 @@ class SyncEngine {
   }
 
   Future<bool> _applyPrayerLogOperation(OplogEntry remoteOp) async {
-    final local = await (_db.select(_db.prayerLogs)
-          ..where((p) => p.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final local = await (_db.select(
+      _db.prayerLogs,
+    )..where((p) => p.id.equals(remoteOp.entityId))).getSingleOrNull();
     return _applyGeneric(
       localVersion: local?.version,
       localUpdatedAt: local?.updatedAt,
       localIsDeleted: local != null && local.deleted == 1,
       remoteOp: remoteOp,
       onInsert: () async {
-        await _db.into(_db.prayerLogs).insert(
+        await _db
+            .into(_db.prayerLogs)
+            .insert(
               PrayerLogsCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 prayerId: Value(remoteOp.payload['prayerId'] as String),
@@ -1591,9 +1912,9 @@ class SyncEngine {
             );
       },
       onUpdate: () async {
-        await (_db.update(_db.prayerLogs)
-              ..where((p) => p.id.equals(remoteOp.entityId)))
-            .write(
+        await (_db.update(
+          _db.prayerLogs,
+        )..where((p) => p.id.equals(remoteOp.entityId))).write(
           PrayerLogsCompanion(
             prayerId: Value(remoteOp.payload['prayerId'] as String),
             userId: Value(remoteOp.payload['userId'] as String),
@@ -1610,16 +1931,18 @@ class SyncEngine {
   }
 
   Future<bool> _applyPreacherOperation(OplogEntry remoteOp) async {
-    final local = await (_db.select(_db.syncPreachers)
-          ..where((p) => p.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final local = await (_db.select(
+      _db.syncPreachers,
+    )..where((p) => p.id.equals(remoteOp.entityId))).getSingleOrNull();
     return _applyGeneric(
       localVersion: local?.version,
       localUpdatedAt: local?.updatedAt,
       localIsDeleted: local != null && local.deleted == 1,
       remoteOp: remoteOp,
       onInsert: () async {
-        await _db.into(_db.syncPreachers).insert(
+        await _db
+            .into(_db.syncPreachers)
+            .insert(
               SyncPreachersCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 userId: Value(remoteOp.payload['userId'] as String),
@@ -1633,9 +1956,9 @@ class SyncEngine {
             );
       },
       onUpdate: () async {
-        await (_db.update(_db.syncPreachers)
-              ..where((p) => p.id.equals(remoteOp.entityId)))
-            .write(
+        await (_db.update(
+          _db.syncPreachers,
+        )..where((p) => p.id.equals(remoteOp.entityId))).write(
           SyncPreachersCompanion(
             userId: Value(remoteOp.payload['userId'] as String),
             name: Value(remoteOp.payload['name'] as String),
@@ -1649,16 +1972,18 @@ class SyncEngine {
   }
 
   Future<bool> _applyTagOperation(OplogEntry remoteOp) async {
-    final local = await (_db.select(_db.syncTags)
-          ..where((t) => t.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final local = await (_db.select(
+      _db.syncTags,
+    )..where((t) => t.id.equals(remoteOp.entityId))).getSingleOrNull();
     return _applyGeneric(
       localVersion: local?.version,
       localUpdatedAt: local?.updatedAt,
       localIsDeleted: local != null && local.deleted == 1,
       remoteOp: remoteOp,
       onInsert: () async {
-        await _db.into(_db.syncTags).insert(
+        await _db
+            .into(_db.syncTags)
+            .insert(
               SyncTagsCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 userId: Value(remoteOp.payload['userId'] as String),
@@ -1672,9 +1997,9 @@ class SyncEngine {
             );
       },
       onUpdate: () async {
-        await (_db.update(_db.syncTags)
-              ..where((t) => t.id.equals(remoteOp.entityId)))
-            .write(
+        await (_db.update(
+          _db.syncTags,
+        )..where((t) => t.id.equals(remoteOp.entityId))).write(
           SyncTagsCompanion(
             userId: Value(remoteOp.payload['userId'] as String),
             name: Value(remoteOp.payload['name'] as String),
@@ -1688,16 +2013,18 @@ class SyncEngine {
   }
 
   Future<bool> _applyNoteTagOperation(OplogEntry remoteOp) async {
-    final local = await (_db.select(_db.syncNoteTags)
-          ..where((n) => n.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final local = await (_db.select(
+      _db.syncNoteTags,
+    )..where((n) => n.id.equals(remoteOp.entityId))).getSingleOrNull();
     return _applyGeneric(
       localVersion: local?.version,
       localUpdatedAt: local?.updatedAt,
       localIsDeleted: local != null && local.deleted == 1,
       remoteOp: remoteOp,
       onInsert: () async {
-        await _db.into(_db.syncNoteTags).insert(
+        await _db
+            .into(_db.syncNoteTags)
+            .insert(
               SyncNoteTagsCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 noteId: Value(remoteOp.payload['noteId'] as String),
@@ -1712,9 +2039,9 @@ class SyncEngine {
             );
       },
       onUpdate: () async {
-        await (_db.update(_db.syncNoteTags)
-              ..where((n) => n.id.equals(remoteOp.entityId)))
-            .write(
+        await (_db.update(
+          _db.syncNoteTags,
+        )..where((n) => n.id.equals(remoteOp.entityId))).write(
           SyncNoteTagsCompanion(
             noteId: Value(remoteOp.payload['noteId'] as String),
             tagId: Value(remoteOp.payload['tagId'] as String),
@@ -1729,16 +2056,18 @@ class SyncEngine {
   }
 
   Future<bool> _applySongTagOperation(OplogEntry remoteOp) async {
-    final local = await (_db.select(_db.syncSongTags)
-          ..where((s) => s.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final local = await (_db.select(
+      _db.syncSongTags,
+    )..where((s) => s.id.equals(remoteOp.entityId))).getSingleOrNull();
     return _applyGeneric(
       localVersion: local?.version,
       localUpdatedAt: local?.updatedAt,
       localIsDeleted: local != null && local.deleted == 1,
       remoteOp: remoteOp,
       onInsert: () async {
-        await _db.into(_db.syncSongTags).insert(
+        await _db
+            .into(_db.syncSongTags)
+            .insert(
               SyncSongTagsCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 songId: Value(remoteOp.payload['songId'] as String),
@@ -1753,9 +2082,9 @@ class SyncEngine {
             );
       },
       onUpdate: () async {
-        await (_db.update(_db.syncSongTags)
-              ..where((s) => s.id.equals(remoteOp.entityId)))
-            .write(
+        await (_db.update(
+          _db.syncSongTags,
+        )..where((s) => s.id.equals(remoteOp.entityId))).write(
           SyncSongTagsCompanion(
             songId: Value(remoteOp.payload['songId'] as String),
             tagId: Value(remoteOp.payload['tagId'] as String),
@@ -1770,16 +2099,18 @@ class SyncEngine {
   }
 
   Future<bool> _applyPrayerUpdateOperation(OplogEntry remoteOp) async {
-    final local = await (_db.select(_db.prayerUpdates)
-          ..where((p) => p.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final local = await (_db.select(
+      _db.prayerUpdates,
+    )..where((p) => p.id.equals(remoteOp.entityId))).getSingleOrNull();
     return _applyGeneric(
       localVersion: local?.version,
       localUpdatedAt: local?.updatedAt,
       localIsDeleted: local != null && local.deleted == 1,
       remoteOp: remoteOp,
       onInsert: () async {
-        await _db.into(_db.prayerUpdates).insert(
+        await _db
+            .into(_db.prayerUpdates)
+            .insert(
               PrayerUpdatesCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 prayerId: Value(remoteOp.payload['prayerId'] as String),
@@ -1794,9 +2125,9 @@ class SyncEngine {
             );
       },
       onUpdate: () async {
-        await (_db.update(_db.prayerUpdates)
-              ..where((p) => p.id.equals(remoteOp.entityId)))
-            .write(
+        await (_db.update(
+          _db.prayerUpdates,
+        )..where((p) => p.id.equals(remoteOp.entityId))).write(
           PrayerUpdatesCompanion(
             prayerId: Value(remoteOp.payload['prayerId'] as String),
             userId: Value(remoteOp.payload['userId'] as String),
@@ -1811,16 +2142,18 @@ class SyncEngine {
   }
 
   Future<bool> _applyPromiseConditionOperation(OplogEntry remoteOp) async {
-    final local = await (_db.select(_db.promiseConditions)
-          ..where((p) => p.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final local = await (_db.select(
+      _db.promiseConditions,
+    )..where((p) => p.id.equals(remoteOp.entityId))).getSingleOrNull();
     return _applyGeneric(
       localVersion: local?.version,
       localUpdatedAt: local?.updatedAt,
       localIsDeleted: local != null && local.deleted == 1,
       remoteOp: remoteOp,
       onInsert: () async {
-        await _db.into(_db.promiseConditions).insert(
+        await _db
+            .into(_db.promiseConditions)
+            .insert(
               PromiseConditionsCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 promiseId: Value(remoteOp.payload['promiseId'] as String),
@@ -1837,9 +2170,9 @@ class SyncEngine {
             );
       },
       onUpdate: () async {
-        await (_db.update(_db.promiseConditions)
-              ..where((p) => p.id.equals(remoteOp.entityId)))
-            .write(
+        await (_db.update(
+          _db.promiseConditions,
+        )..where((p) => p.id.equals(remoteOp.entityId))).write(
           PromiseConditionsCompanion(
             promiseId: Value(remoteOp.payload['promiseId'] as String),
             userId: Value(remoteOp.payload['userId'] as String),
@@ -1856,16 +2189,18 @@ class SyncEngine {
   }
 
   Future<bool> _applyPromiseTagOperation(OplogEntry remoteOp) async {
-    final local = await (_db.select(_db.syncPromiseTags)
-          ..where((p) => p.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final local = await (_db.select(
+      _db.syncPromiseTags,
+    )..where((p) => p.id.equals(remoteOp.entityId))).getSingleOrNull();
     return _applyGeneric(
       localVersion: local?.version,
       localUpdatedAt: local?.updatedAt,
       localIsDeleted: local != null && local.deleted == 1,
       remoteOp: remoteOp,
       onInsert: () async {
-        await _db.into(_db.syncPromiseTags).insert(
+        await _db
+            .into(_db.syncPromiseTags)
+            .insert(
               SyncPromiseTagsCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 promiseId: Value(remoteOp.payload['promiseId'] as String),
@@ -1880,9 +2215,9 @@ class SyncEngine {
             );
       },
       onUpdate: () async {
-        await (_db.update(_db.syncPromiseTags)
-              ..where((p) => p.id.equals(remoteOp.entityId)))
-            .write(
+        await (_db.update(
+          _db.syncPromiseTags,
+        )..where((p) => p.id.equals(remoteOp.entityId))).write(
           SyncPromiseTagsCompanion(
             promiseId: Value(remoteOp.payload['promiseId'] as String),
             tagId: Value(remoteOp.payload['tagId'] as String),
@@ -1897,16 +2232,18 @@ class SyncEngine {
   }
 
   Future<bool> _applyPrayerTagOperation(OplogEntry remoteOp) async {
-    final local = await (_db.select(_db.syncPrayerTags)
-          ..where((p) => p.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final local = await (_db.select(
+      _db.syncPrayerTags,
+    )..where((p) => p.id.equals(remoteOp.entityId))).getSingleOrNull();
     return _applyGeneric(
       localVersion: local?.version,
       localUpdatedAt: local?.updatedAt,
       localIsDeleted: local != null && local.deleted == 1,
       remoteOp: remoteOp,
       onInsert: () async {
-        await _db.into(_db.syncPrayerTags).insert(
+        await _db
+            .into(_db.syncPrayerTags)
+            .insert(
               SyncPrayerTagsCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 prayerId: Value(remoteOp.payload['prayerId'] as String),
@@ -1921,9 +2258,9 @@ class SyncEngine {
             );
       },
       onUpdate: () async {
-        await (_db.update(_db.syncPrayerTags)
-              ..where((p) => p.id.equals(remoteOp.entityId)))
-            .write(
+        await (_db.update(
+          _db.syncPrayerTags,
+        )..where((p) => p.id.equals(remoteOp.entityId))).write(
           SyncPrayerTagsCompanion(
             prayerId: Value(remoteOp.payload['prayerId'] as String),
             tagId: Value(remoteOp.payload['tagId'] as String),
@@ -1938,16 +2275,18 @@ class SyncEngine {
   }
 
   Future<bool> _applyPrayerPersonOperation(OplogEntry remoteOp) async {
-    final local = await (_db.select(_db.syncPrayerPeople)
-          ..where((p) => p.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final local = await (_db.select(
+      _db.syncPrayerPeople,
+    )..where((p) => p.id.equals(remoteOp.entityId))).getSingleOrNull();
     return _applyGeneric(
       localVersion: local?.version,
       localUpdatedAt: local?.updatedAt,
       localIsDeleted: local != null && local.deleted == 1,
       remoteOp: remoteOp,
       onInsert: () async {
-        await _db.into(_db.syncPrayerPeople).insert(
+        await _db
+            .into(_db.syncPrayerPeople)
+            .insert(
               SyncPrayerPeopleCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 prayerId: Value(remoteOp.payload['prayerId'] as String),
@@ -1962,9 +2301,9 @@ class SyncEngine {
             );
       },
       onUpdate: () async {
-        await (_db.update(_db.syncPrayerPeople)
-              ..where((p) => p.id.equals(remoteOp.entityId)))
-            .write(
+        await (_db.update(
+          _db.syncPrayerPeople,
+        )..where((p) => p.id.equals(remoteOp.entityId))).write(
           SyncPrayerPeopleCompanion(
             prayerId: Value(remoteOp.payload['prayerId'] as String),
             personId: Value(remoteOp.payload['personId'] as String),
@@ -1979,16 +2318,18 @@ class SyncEngine {
   }
 
   Future<bool> _applyEntityAccessOperation(OplogEntry remoteOp) async {
-    final local = await (_db.select(_db.entityAccess)
-          ..where((e) => e.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final local = await (_db.select(
+      _db.entityAccess,
+    )..where((e) => e.id.equals(remoteOp.entityId))).getSingleOrNull();
     return _applyGeneric(
       localVersion: local?.version,
       localUpdatedAt: local?.updatedAt,
       localIsDeleted: local != null && local.deleted == 1,
       remoteOp: remoteOp,
       onInsert: () async {
-        await _db.into(_db.entityAccess).insert(
+        await _db
+            .into(_db.entityAccess)
+            .insert(
               EntityAccessCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 entityType: Value(remoteOp.payload['entityType'] as String),
@@ -2006,9 +2347,9 @@ class SyncEngine {
             );
       },
       onUpdate: () async {
-        await (_db.update(_db.entityAccess)
-              ..where((e) => e.id.equals(remoteOp.entityId)))
-            .write(
+        await (_db.update(
+          _db.entityAccess,
+        )..where((e) => e.id.equals(remoteOp.entityId))).write(
           EntityAccessCompanion(
             entityType: Value(remoteOp.payload['entityType'] as String),
             entityId: Value(remoteOp.payload['entityId'] as String),
@@ -2026,16 +2367,18 @@ class SyncEngine {
   }
 
   Future<bool> _applyPromisePrayerLinkOperation(OplogEntry remoteOp) async {
-    final local = await (_db.select(_db.promisePrayerLinks)
-          ..where((p) => p.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final local = await (_db.select(
+      _db.promisePrayerLinks,
+    )..where((p) => p.id.equals(remoteOp.entityId))).getSingleOrNull();
     return _applyGeneric(
       localVersion: local?.version,
       localUpdatedAt: local?.updatedAt,
       localIsDeleted: local != null && local.deleted == 1,
       remoteOp: remoteOp,
       onInsert: () async {
-        await _db.into(_db.promisePrayerLinks).insert(
+        await _db
+            .into(_db.promisePrayerLinks)
+            .insert(
               PromisePrayerLinksCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 promiseId: Value(remoteOp.payload['promiseId'] as String),
@@ -2050,9 +2393,9 @@ class SyncEngine {
             );
       },
       onUpdate: () async {
-        await (_db.update(_db.promisePrayerLinks)
-              ..where((p) => p.id.equals(remoteOp.entityId)))
-            .write(
+        await (_db.update(
+          _db.promisePrayerLinks,
+        )..where((p) => p.id.equals(remoteOp.entityId))).write(
           PromisePrayerLinksCompanion(
             promiseId: Value(remoteOp.payload['promiseId'] as String),
             prayerId: Value(remoteOp.payload['prayerId'] as String),
@@ -2067,27 +2410,37 @@ class SyncEngine {
   }
 
   Future<bool> _applyFeedbackThreadOperation(OplogEntry remoteOp) async {
-    final local = await (_db.select(_db.feedbackThreads)
-          ..where((t) => t.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final local = await (_db.select(
+      _db.feedbackThreads,
+    )..where((t) => t.id.equals(remoteOp.entityId))).getSingleOrNull();
     return _applyGeneric(
       localVersion: local?.version,
       localUpdatedAt: local?.updatedAt,
       localIsDeleted: local != null && local.deleted == 1,
       remoteOp: remoteOp,
       onInsert: () async {
-        await _db.into(_db.feedbackThreads).insert(
+        await _db
+            .into(_db.feedbackThreads)
+            .insert(
               FeedbackThreadsCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 userId: Value(remoteOp.payload['userId'] as String),
                 category: Value(remoteOp.payload['category'] as String),
                 subject: Value(remoteOp.payload['subject'] as String),
                 status: Value(remoteOp.payload['status'] as String? ?? 'open'),
-                priority: Value(remoteOp.payload['priority'] as String? ?? 'medium'),
+                priority: Value(
+                  remoteOp.payload['priority'] as String? ?? 'medium',
+                ),
                 lastMessageAt: Value(remoteOp.payload['lastMessageAt'] as int?),
-                adminAssigned: Value(remoteOp.payload['adminAssigned'] as String?),
-                unreadForUser: Value(remoteOp.payload['unreadForUser'] as int? ?? 0),
-                unreadForAdmin: Value(remoteOp.payload['unreadForAdmin'] as int? ?? 0),
+                adminAssigned: Value(
+                  remoteOp.payload['adminAssigned'] as String?,
+                ),
+                unreadForUser: Value(
+                  remoteOp.payload['unreadForUser'] as int? ?? 0,
+                ),
+                unreadForAdmin: Value(
+                  remoteOp.payload['unreadForAdmin'] as int? ?? 0,
+                ),
                 deviceModel: Value(remoteOp.payload['deviceModel'] as String?),
                 osVersion: Value(remoteOp.payload['osVersion'] as String?),
                 appVersion: Value(remoteOp.payload['appVersion'] as String?),
@@ -2096,26 +2449,34 @@ class SyncEngine {
                 deleted: Value(_asIntFlag(remoteOp.payload['deleted'])),
                 createdAt: Value(remoteOp.payload['createdAt'] as int),
                 fieldUpdatedAt: Value(
-                  jsonEncode(_parseFieldTimestamps(remoteOp.payload['fieldUpdatedAt'])),
+                  jsonEncode(
+                    _parseFieldTimestamps(remoteOp.payload['fieldUpdatedAt']),
+                  ),
                 ),
               ),
               mode: InsertMode.insertOrReplace,
             );
       },
       onUpdate: () async {
-        await (_db.update(_db.feedbackThreads)
-              ..where((t) => t.id.equals(remoteOp.entityId)))
-            .write(
+        await (_db.update(
+          _db.feedbackThreads,
+        )..where((t) => t.id.equals(remoteOp.entityId))).write(
           FeedbackThreadsCompanion(
             userId: Value(remoteOp.payload['userId'] as String),
             category: Value(remoteOp.payload['category'] as String),
             subject: Value(remoteOp.payload['subject'] as String),
             status: Value(remoteOp.payload['status'] as String? ?? 'open'),
-            priority: Value(remoteOp.payload['priority'] as String? ?? 'medium'),
+            priority: Value(
+              remoteOp.payload['priority'] as String? ?? 'medium',
+            ),
             lastMessageAt: Value(remoteOp.payload['lastMessageAt'] as int?),
             adminAssigned: Value(remoteOp.payload['adminAssigned'] as String?),
-            unreadForUser: Value(remoteOp.payload['unreadForUser'] as int? ?? 0),
-            unreadForAdmin: Value(remoteOp.payload['unreadForAdmin'] as int? ?? 0),
+            unreadForUser: Value(
+              remoteOp.payload['unreadForUser'] as int? ?? 0,
+            ),
+            unreadForAdmin: Value(
+              remoteOp.payload['unreadForAdmin'] as int? ?? 0,
+            ),
             deviceModel: Value(remoteOp.payload['deviceModel'] as String?),
             osVersion: Value(remoteOp.payload['osVersion'] as String?),
             appVersion: Value(remoteOp.payload['appVersion'] as String?),
@@ -2132,44 +2493,56 @@ class SyncEngine {
   }
 
   Future<bool> _applyFeedbackMessageOperation(OplogEntry remoteOp) async {
-    final local = await (_db.select(_db.feedbackMessages)
-          ..where((m) => m.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final local = await (_db.select(
+      _db.feedbackMessages,
+    )..where((m) => m.id.equals(remoteOp.entityId))).getSingleOrNull();
     return _applyGeneric(
       localVersion: local?.version,
       localUpdatedAt: local?.updatedAt,
       localIsDeleted: local != null && local.deleted == 1,
       remoteOp: remoteOp,
       onInsert: () async {
-        await _db.into(_db.feedbackMessages).insert(
+        await _db
+            .into(_db.feedbackMessages)
+            .insert(
               FeedbackMessagesCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 threadId: Value(remoteOp.payload['threadId'] as String),
                 userId: Value(remoteOp.payload['userId'] as String),
                 message: Value(remoteOp.payload['message'] as String),
-                senderType: Value(remoteOp.payload['senderType'] as String? ?? 'user'),
-                hasAttachments: Value(remoteOp.payload['hasAttachments'] as int? ?? 0),
+                senderType: Value(
+                  remoteOp.payload['senderType'] as String? ?? 'user',
+                ),
+                hasAttachments: Value(
+                  remoteOp.payload['hasAttachments'] as int? ?? 0,
+                ),
                 updatedAt: Value(remoteOp.payload['updatedAt'] as int),
                 version: Value(remoteOp.payload['version'] as int),
                 deleted: Value(_asIntFlag(remoteOp.payload['deleted'])),
                 createdAt: Value(remoteOp.payload['createdAt'] as int),
                 fieldUpdatedAt: Value(
-                  jsonEncode(_parseFieldTimestamps(remoteOp.payload['fieldUpdatedAt'])),
+                  jsonEncode(
+                    _parseFieldTimestamps(remoteOp.payload['fieldUpdatedAt']),
+                  ),
                 ),
               ),
               mode: InsertMode.insertOrReplace,
             );
       },
       onUpdate: () async {
-        await (_db.update(_db.feedbackMessages)
-              ..where((m) => m.id.equals(remoteOp.entityId)))
-            .write(
+        await (_db.update(
+          _db.feedbackMessages,
+        )..where((m) => m.id.equals(remoteOp.entityId))).write(
           FeedbackMessagesCompanion(
             threadId: Value(remoteOp.payload['threadId'] as String),
             userId: Value(remoteOp.payload['userId'] as String),
             message: Value(remoteOp.payload['message'] as String),
-            senderType: Value(remoteOp.payload['senderType'] as String? ?? 'user'),
-            hasAttachments: Value(remoteOp.payload['hasAttachments'] as int? ?? 0),
+            senderType: Value(
+              remoteOp.payload['senderType'] as String? ?? 'user',
+            ),
+            hasAttachments: Value(
+              remoteOp.payload['hasAttachments'] as int? ?? 0,
+            ),
             updatedAt: Value(remoteOp.payload['updatedAt'] as int),
             version: Value(remoteOp.payload['version'] as int),
             deleted: Value(_asIntFlag(remoteOp.payload['deleted'])),
@@ -2183,16 +2556,18 @@ class SyncEngine {
   }
 
   Future<bool> _applyFeedbackAttachmentOperation(OplogEntry remoteOp) async {
-    final local = await (_db.select(_db.feedbackAttachments)
-          ..where((a) => a.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final local = await (_db.select(
+      _db.feedbackAttachments,
+    )..where((a) => a.id.equals(remoteOp.entityId))).getSingleOrNull();
     return _applyGeneric(
       localVersion: local?.version,
       localUpdatedAt: local?.updatedAt,
       localIsDeleted: local != null && local.deleted == 1,
       remoteOp: remoteOp,
       onInsert: () async {
-        await _db.into(_db.feedbackAttachments).insert(
+        await _db
+            .into(_db.feedbackAttachments)
+            .insert(
               FeedbackAttachmentsCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 messageId: Value(remoteOp.payload['messageId'] as String),
@@ -2205,16 +2580,18 @@ class SyncEngine {
                 deleted: Value(_asIntFlag(remoteOp.payload['deleted'])),
                 createdAt: Value(remoteOp.payload['createdAt'] as int),
                 fieldUpdatedAt: Value(
-                  jsonEncode(_parseFieldTimestamps(remoteOp.payload['fieldUpdatedAt'])),
+                  jsonEncode(
+                    _parseFieldTimestamps(remoteOp.payload['fieldUpdatedAt']),
+                  ),
                 ),
               ),
               mode: InsertMode.insertOrReplace,
             );
       },
       onUpdate: () async {
-        await (_db.update(_db.feedbackAttachments)
-              ..where((a) => a.id.equals(remoteOp.entityId)))
-            .write(
+        await (_db.update(
+          _db.feedbackAttachments,
+        )..where((a) => a.id.equals(remoteOp.entityId))).write(
           FeedbackAttachmentsCompanion(
             messageId: Value(remoteOp.payload['messageId'] as String),
             url: Value(remoteOp.payload['url'] as String),
@@ -2234,16 +2611,18 @@ class SyncEngine {
   }
 
   Future<bool> _applyBibleReferenceHistoryOperation(OplogEntry remoteOp) async {
-    final local = await (_db.select(_db.bibleReferenceHistory)
-          ..where((h) => h.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final local = await (_db.select(
+      _db.bibleReferenceHistory,
+    )..where((h) => h.id.equals(remoteOp.entityId))).getSingleOrNull();
     return _applyGeneric(
       localVersion: local?.version,
       localUpdatedAt: local?.updatedAt,
       localIsDeleted: local != null && local.deleted == 1,
       remoteOp: remoteOp,
       onInsert: () async {
-        await _db.into(_db.bibleReferenceHistory).insert(
+        await _db
+            .into(_db.bibleReferenceHistory)
+            .insert(
               BibleReferenceHistoryCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 userId: Value(remoteOp.payload['userId'] as String),
@@ -2262,9 +2641,9 @@ class SyncEngine {
             );
       },
       onUpdate: () async {
-        await (_db.update(_db.bibleReferenceHistory)
-              ..where((h) => h.id.equals(remoteOp.entityId)))
-            .write(
+        await (_db.update(
+          _db.bibleReferenceHistory,
+        )..where((h) => h.id.equals(remoteOp.entityId))).write(
           BibleReferenceHistoryCompanion(
             userId: Value(remoteOp.payload['userId'] as String),
             book: Value(remoteOp.payload['book'] as String),
@@ -2283,16 +2662,18 @@ class SyncEngine {
   }
 
   Future<bool> _applyHabitLogOperation(OplogEntry remoteOp) async {
-    final local = await (_db.select(_db.habitLogs)
-          ..where((h) => h.id.equals(remoteOp.entityId)))
-        .getSingleOrNull();
+    final local = await (_db.select(
+      _db.habitLogs,
+    )..where((h) => h.id.equals(remoteOp.entityId))).getSingleOrNull();
     return _applyGeneric(
       localVersion: local?.version,
       localUpdatedAt: local?.updatedAt,
       localIsDeleted: local != null && local.deleted == 1,
       remoteOp: remoteOp,
       onInsert: () async {
-        await _db.into(_db.habitLogs).insert(
+        await _db
+            .into(_db.habitLogs)
+            .insert(
               HabitLogsCompanion(
                 id: Value(remoteOp.payload['id'] as String),
                 userId: Value(remoteOp.payload['userId'] as String),
@@ -2307,9 +2688,9 @@ class SyncEngine {
             );
       },
       onUpdate: () async {
-        await (_db.update(_db.habitLogs)
-              ..where((h) => h.id.equals(remoteOp.entityId)))
-            .write(
+        await (_db.update(
+          _db.habitLogs,
+        )..where((h) => h.id.equals(remoteOp.entityId))).write(
           HabitLogsCompanion(
             userId: Value(remoteOp.payload['userId'] as String),
             habitType: Value(remoteOp.payload['habitType'] as String),
@@ -2369,6 +2750,26 @@ class SyncEngine {
     // No conflict — remote is strictly newer
     if (remoteVersion > localVersion) {
       return const _GenericResolution(useRemote: true, hadConflict: false);
+    }
+
+    // An operation this device itself produced, coming back.
+    //
+    // Same version, same timestamp and same origin device means there is
+    // nothing to resolve: this is the device meeting its own operation again,
+    // pulled back from the server or replayed after an interrupted sync. It
+    // was being reported as a conflict, so an ordinary sync on a single device
+    // announced conflicts it had never had.
+    //
+    // The device check is what keeps this narrow. Two *different* devices
+    // landing on the same version and timestamp is a real tie, and the
+    // tie-breaker below still owns that case.
+    if (remoteVersion == localVersion &&
+        remoteUpdatedAt == localUpdatedAt &&
+        remoteIsDelete == localIsDeleted &&
+        localDeviceId != null &&
+        remoteDeviceId != null &&
+        localDeviceId == remoteDeviceId) {
+      return const _GenericResolution(useRemote: false, hadConflict: false);
     }
 
     // Conflict — apply resolution matrix
@@ -2433,6 +2834,268 @@ class SyncEngine {
   /// Also treats per-operation error codes (e.g. NOT_FOUND inside a 200
   /// batch response) as permanent — the server rejected the individual
   /// operation, so retrying it will never succeed.
+  /// Applies the server's per-operation verdicts to the local oplog.
+  ///
+  /// Returns how many operations the server accepted.
+  ///
+  /// Three outcomes, and the difference between them is what stops a push
+  /// failure from quietly destroying the user's work:
+  ///
+  /// * **Accepted** — marked synced with the server's timestamp.
+  /// * **Version conflict** — the server already has a newer version. The
+  ///   operation is left queued and flagged for rebasing: the pull brings the
+  ///   server's version down, and [_rebaseConflictedOps] re-applies the user's
+  ///   own field changes on top of it. Their edit survives the conflict.
+  /// * **Rejected** — retried while the attempt budget lasts, then quarantined
+  ///   with its reason so it can be shown and retried by hand.
+  ///
+  /// Operations the server did not mention are left untouched and queued.
+  Future<int> _settlePushResults(
+    List<OplogEntry> pushed,
+    List<PushOpResult> results,
+  ) async {
+    if (results.isEmpty) return 0;
+
+    final byId = {for (final op in pushed) op.opId: op};
+    var accepted = 0;
+
+    for (final result in results) {
+      final op = byId[result.opId];
+      if (op == null) continue; // not from this batch — ignore rather than guess
+
+      if (result.applied) {
+        await _db.markOpSyncedWithTimestamp(op.opId, result.serverTimestamp!);
+        accepted++;
+        continue;
+      }
+
+      if (result.errorCode == 'VERSION_CONFLICT') {
+        // Deliberately not quarantined: the user's edit is still wanted, it
+        // just needs to be re-applied on top of what the server now has.
+        await _db.markOpNeedsRebase(op.opId);
+        SyncLogger.info(
+          'Version conflict on ${op.entityType.toDbValue()}/${op.entityId} — '
+          'queued for rebase onto the server version',
+        );
+        continue;
+      }
+
+      final attempts = await _db.incrementPushAttempts(op.opId);
+      if (attempts >= _maxPushAttempts) {
+        await _db.markOpFailed(
+          op.opId,
+          '${result.errorCode}: rejected $attempts times',
+        );
+        SyncLogger.error(
+          'Giving up on push after $attempts attempts '
+          '(opId: ${op.opId}, entity: '
+          '${op.entityType.toDbValue()}/${op.entityId}, '
+          'error: ${result.errorCode}). It stays recorded so it can be shown '
+          'and retried.',
+          null,
+        );
+      } else {
+        SyncLogger.warning(
+          'Push rejected (${result.errorCode}) for ${op.opId}; '
+          'attempt $attempts of $_maxPushAttempts, staying queued',
+        );
+      }
+    }
+
+    return accepted;
+  }
+
+  /// Re-applies the user's conflicted edits on top of the version the server
+  /// had, and queues the result as a fresh operation.
+  ///
+  /// Called after the pull, which is what makes it work: push runs before pull
+  /// in a cycle, so an operation the server rejected as a version conflict is
+  /// followed — in the same cycle — by the pull delivering the newer version
+  /// that caused the rejection. [serverPayloads] is what that pull brought
+  /// down, keyed by entity id.
+  ///
+  /// The merge is done payload to payload rather than column by column. An
+  /// oplog payload is the entity's complete state, so a generic per-field
+  /// choice between the two payloads produces a valid payload for any of the
+  /// entity types without this method needing to know any of their columns.
+  /// Per-field `fieldUpdatedAt` decides each field, falling back to the
+  /// entity's `updatedAt` — the same rule [FieldLevelMerger] applies on the
+  /// pull side.
+  ///
+  /// Returns how many operations were rebased.
+  Future<int> _rebaseConflictedOps(
+    Map<String, Map<String, dynamic>> serverPayloads,
+  ) async {
+    final pending = await _db.getOpsNeedingRebase();
+    if (pending.isEmpty) return 0;
+
+    var rebased = 0;
+
+    for (final row in pending) {
+      final server = serverPayloads[row.entityId];
+      if (server == null) {
+        // The newer version has not arrived yet. Leave it flagged; the attempt
+        // budget below is what stops it retrying forever if it never does.
+        final attempts = await _db.incrementPushAttempts(row.opId);
+        if (attempts >= _maxPushAttempts) {
+          await _db.clearNeedsRebase(row.opId);
+          await _db.markOpFailed(
+            row.opId,
+            'VERSION_CONFLICT: the server version needed to rebase this change '
+            'never arrived after $attempts attempts',
+          );
+          SyncLogger.error(
+            'Giving up on rebasing ${row.entityType}/${row.entityId} — '
+            'recorded so it can be shown and retried',
+            null,
+          );
+        }
+        continue;
+      }
+
+      try {
+        final local = jsonDecode(row.payloadJson) as Map<String, dynamic>;
+        final merged = _mergePayloads(local: local, server: server);
+
+        // Did anything of the user's survive the merge?
+        //
+        // Only 7 of the entity types carry per-field `fieldUpdatedAt`; for the
+        // rest the merge can only compare one timestamp per entity, so a
+        // server version that is newer wins every field and the local edit
+        // contributes nothing. Pushing that would be a no-op dressed up as a
+        // rebase, and the user's change would be gone with nobody told. Quarantine
+        // it instead, where it is visible and can be retried by hand.
+        if (!_mergeKeptAnythingLocal(local: local, merged: merged)) {
+          await _db.clearNeedsRebase(row.opId);
+          await _db.markOpFailed(
+            row.opId,
+            'VERSION_CONFLICT: another device changed this more recently and '
+            'this edit could not be merged into it',
+          );
+          SyncLogger.warning(
+            'Could not merge local edit to ${row.entityType}/${row.entityId} — '
+            'the server version is newer and this type has no per-field '
+            'timestamps. Recorded so it can be shown rather than dropped.',
+          );
+          continue;
+        }
+
+        // The rebased edit has to sit above what the server already has, or
+        // it is rejected as a conflict all over again.
+        final serverVersion = (server['version'] as num?)?.toInt() ?? 0;
+        merged['version'] = serverVersion + 1;
+        merged['updatedAt'] = TestClock.now();
+
+        await _db.replaceOpPayload(
+          opId: row.opId,
+          payloadJson: jsonEncode(merged),
+          entityVersion: serverVersion + 1,
+        );
+
+        // Write the merged state locally too. Rewriting the queued operation
+        // alone would leave the user looking at the other device's version
+        // until their own edit completed a round trip — which, from their
+        // side, is indistinguishable from the edit having been lost.
+        await _applyRemoteOperation(
+          OplogEntry(
+            opId: row.opId,
+            entityType: OplogEntityType.fromDbValue(row.entityType),
+            entityId: row.entityId,
+            operation: OplogOperation.fromDbValue(row.operation),
+            payload: merged,
+            timestamp: TestClock.now(),
+            deviceId: row.deviceId,
+            entityVersion: serverVersion + 1,
+          ),
+        );
+
+        await _db.clearNeedsRebase(row.opId);
+        rebased++;
+
+        SyncLogger.info(
+          'Rebased ${row.entityType}/${row.entityId} onto server version '
+          '$serverVersion — the local edit is preserved and will push again',
+        );
+      } catch (e, st) {
+        SyncLogger.error(
+          'Could not rebase ${row.entityType}/${row.entityId}',
+          e,
+          st,
+        );
+        await _db.clearNeedsRebase(row.opId);
+        await _db.markOpFailed(row.opId, 'VERSION_CONFLICT: rebase failed: $e');
+      }
+    }
+
+    return rebased;
+  }
+
+  /// Whether [merged] kept any field value that came from the local edit.
+  ///
+  /// Compared against the local payload rather than the server's so that a
+  /// local field which merely *matches* the server still counts as agreement
+  /// rather than as a lost edit.
+  bool _mergeKeptAnythingLocal({
+    required Map<String, dynamic> local,
+    required Map<String, dynamic> merged,
+  }) {
+    const bookkeeping = {
+      'id',
+      'userId',
+      'version',
+      'updatedAt',
+      'createdAt',
+      'fieldUpdatedAt',
+    };
+    for (final field in local.keys) {
+      if (bookkeeping.contains(field)) continue;
+      if (merged[field] == local[field]) return true;
+    }
+    return false;
+  }
+
+  /// Picks each field from whichever side changed it more recently.
+  ///
+  /// Starts from the server's payload so fields the user never touched keep
+  /// the other device's values, then lets a local field win only where its own
+  /// timestamp is newer. The effect is that two people editing different parts
+  /// of the same record both keep their work.
+  Map<String, dynamic> _mergePayloads({
+    required Map<String, dynamic> local,
+    required Map<String, dynamic> server,
+  }) {
+    final localTimes = _parseFieldTimestamps(local['fieldUpdatedAt']);
+    final serverTimes = _parseFieldTimestamps(server['fieldUpdatedAt']);
+    final localUpdated = (local['updatedAt'] as num?)?.toInt() ?? 0;
+    final serverUpdated = (server['updatedAt'] as num?)?.toInt() ?? 0;
+
+    final merged = Map<String, dynamic>.from(server);
+    final mergedTimes = Map<String, int>.from(serverTimes);
+
+    for (final field in local.keys) {
+      // Identity and bookkeeping are never merged — they are set below or come
+      // from the server.
+      if (field == 'id' ||
+          field == 'userId' ||
+          field == 'version' ||
+          field == 'updatedAt' ||
+          field == 'createdAt' ||
+          field == 'fieldUpdatedAt') {
+        continue;
+      }
+
+      final localTime = localTimes[field] ?? localUpdated;
+      final serverTime = serverTimes[field] ?? serverUpdated;
+      if (localTime >= serverTime) {
+        merged[field] = local[field];
+        mergedTimes[field] = localTime;
+      }
+    }
+
+    if (mergedTimes.isNotEmpty) merged['fieldUpdatedAt'] = mergedTimes;
+    return merged;
+  }
+
   bool _isPermanentPushError(SyncApiException e) {
     // Per-operation error codes that the server returns inside a 200 batch
     // response. These indicate the operation itself is invalid and will
@@ -2449,7 +3112,10 @@ class SyncEngine {
 
     final statusCode = e.statusCode;
     if (statusCode == null) return false;
-    return statusCode >= 400 && statusCode < 500 && statusCode != 401 && statusCode != 429;
+    return statusCode >= 400 &&
+        statusCode < 500 &&
+        statusCode != 401 &&
+        statusCode != 429;
   }
 
   int _asIntFlag(dynamic value) {
@@ -2639,13 +3305,60 @@ class _PushResult {
   const _PushResult({required this.operationsPushed});
 }
 
+/// Thrown when a pull stops before it has caught up with the server.
+///
+/// Raised rather than returned so the engine's existing failure handling — the
+/// consecutive-failure count, the degraded threshold, backoff scheduling and
+/// the coalesced-request flag — applies unchanged. An earlier version returned
+/// a flag and re-implemented part of that path, which quietly skipped the
+/// retry scheduling.
+class SyncIncompleteException implements Exception {
+  final String message;
+  const SyncIncompleteException(this.message);
+
+  @override
+  String toString() => message;
+}
+
+/// Whether [error] means this operation can never be applied, however many
+/// times it is retried.
+///
+/// Only a payload the client cannot parse qualifies: a field that is not the
+/// type the model expects, or a malformed value. Those are the "malformed
+/// remote op" the pull loop has always skipped, and skipping is safe because
+/// retrying would fail identically forever and wedge sync.
+///
+/// Everything else — a full disk, an I/O error, a transaction Drift had to
+/// close after a failed rollback — is treated as retryable, because skipping
+/// advances the cursor past the operation and the server never sends it
+/// again. Guessing wrong in that direction loses the user's data silently,
+/// so the unknown case deliberately falls on the retry side.
+bool _isUnparseableOperation(Object error) =>
+    error is TypeError || error is FormatException || error is ArgumentError;
+
+/// Carries the failure that stopped a pull, so the caller can leave the
+/// cursor alone and log it once.
+class _TransientPullFailure {
+  final Object? error;
+  final StackTrace? stackTrace;
+
+  const _TransientPullFailure(this.error, this.stackTrace);
+  static const none = _TransientPullFailure(null, null);
+
+  bool get failed => error != null;
+}
+
 class _PullResult {
   final int operationsPulled;
   final int conflictsResolved;
 
+  /// Operations this pull gave up on and skipped.
+  final int deadLetteredSkipped;
+
   const _PullResult({
     required this.operationsPulled,
     required this.conflictsResolved,
+    this.deadLetteredSkipped = 0,
   });
 }
 

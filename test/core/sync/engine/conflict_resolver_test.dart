@@ -148,6 +148,70 @@ void main() {
       });
     });
 
+    // A single device pulls back the operations it just pushed. Those arrive
+    // with the same version, timestamp and device id it wrote them with —
+    // nothing to resolve. Counting them as conflicts meant a perfectly healthy
+    // sync on one device reported conflicts on every cycle.
+    group('own operation coming back', () {
+      test('same version, timestamp and device is not a conflict', () {
+        final result = resolver.resolveFolder(
+          entityId: 'test',
+          localVersion: 3,
+          localUpdatedAt: 1000,
+          remoteVersion: 3,
+          remoteUpdatedAt: 1000,
+          remoteIsDelete: false,
+          localIsDelete: false,
+          localDeviceId: 'device-a',
+          remoteDeviceId: 'device-a',
+        );
+
+        expect(result.hadConflict, false);
+        expect(
+          result.useRemote,
+          false,
+          reason: 'nothing to apply — the local row already is this state',
+        );
+      });
+
+      test('a different device at the same version is still a tie', () {
+        final result = resolver.resolveFolder(
+          entityId: 'test',
+          localVersion: 3,
+          localUpdatedAt: 1000,
+          remoteVersion: 3,
+          remoteUpdatedAt: 1000,
+          remoteIsDelete: false,
+          localIsDelete: false,
+          localDeviceId: 'device-a',
+          remoteDeviceId: 'device-b',
+        );
+
+        expect(
+          result.hadConflict,
+          true,
+          reason: 'two devices landing on the same version really is a tie, '
+              'and the deterministic tie-breaker still owns it',
+        );
+      });
+
+      test('a deletion of our own is not a conflict either', () {
+        final result = resolver.resolveFolder(
+          entityId: 'test',
+          localVersion: 4,
+          localUpdatedAt: 2000,
+          remoteVersion: 4,
+          remoteUpdatedAt: 2000,
+          remoteIsDelete: true,
+          localIsDelete: true,
+          localDeviceId: 'device-a',
+          remoteDeviceId: 'device-a',
+        );
+
+        expect(result.hadConflict, false);
+      });
+    });
+
     group('tie-breaker', () {
       test('same timestamp and same version → local wins by default', () {
         final result = resolver.resolveFolder(

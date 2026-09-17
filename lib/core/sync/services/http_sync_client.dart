@@ -129,7 +129,7 @@ class HttpSyncClient implements SyncApiClient {
   }
 
   @override
-  Future<List<int>> pushOperations(List<OplogEntry> operations) async {
+  Future<List<PushOpResult>> pushOperations(List<OplogEntry> operations) async {
     if (operations.isEmpty) return [];
 
     // Batch if within limit, otherwise push in chunks
@@ -137,15 +137,14 @@ class HttpSyncClient implements SyncApiClient {
       return _pushBatch(operations);
     }
 
-    // Push in batches, collecting results and tracking failures
-    final timestamps = <int>[];
+    // Push in batches, collecting per-operation results
+    final results = <PushOpResult>[];
     SyncApiException? lastError;
 
     for (var i = 0; i < operations.length; i += config.maxBatchSize) {
       final batch = operations.skip(i).take(config.maxBatchSize).toList();
       try {
-        final batchTimestamps = await _pushBatch(batch);
-        timestamps.addAll(batchTimestamps);
+        results.addAll(await _pushBatch(batch));
       } on SyncApiException catch (e) {
         lastError = e;
         // Stop processing further batches to preserve operation order
@@ -154,23 +153,52 @@ class HttpSyncClient implements SyncApiClient {
     }
 
     if (lastError != null) {
-      final allPartialTimestamps = [
-        ...timestamps,
-        ...lastError.partialTimestamps,
-      ];
       throw SyncApiException(
         code: lastError.code,
         message: lastError.message,
         statusCode: lastError.statusCode,
-        partialTimestamps: allPartialTimestamps,
+        partialResults: [...results, ...lastError.partialResults],
         retryAfter: lastError.retryAfter,
       );
     }
 
-    return timestamps;
+    return results;
   }
 
-  Future<List<int>> _pushBatch(List<OplogEntry> operations) async {
+  /// Turns the server's `results` array into one [PushOpResult] per entry.
+  ///
+  /// Matches on `opId` where the server sends one and falls back to position
+  /// otherwise, because a mis-matched result is worse than an unreported one:
+  /// marking the wrong operation synced loses it silently. An operation the
+  /// server did not report on at all is simply absent from the returned list,
+  /// which leaves it queued for the next push.
+  List<PushOpResult> _resultsFor(
+    List<OplogEntry> operations,
+    List<dynamic> rawResults,
+  ) {
+    final results = <PushOpResult>[];
+    for (var i = 0; i < rawResults.length; i++) {
+      final result = rawResults[i] as Map<String, dynamic>;
+      final opId =
+          result['opId'] as String? ??
+          (i < operations.length ? operations[i].opId : null);
+      if (opId == null) continue;
+
+      final success = result['success'] == true;
+      results.add(
+        PushOpResult(
+          opId: opId,
+          serverTimestamp: success ? result['serverTimestamp'] as int? : null,
+          errorCode: success
+              ? null
+              : (result['error'] as String? ?? 'PUSH_FAILED'),
+        ),
+      );
+    }
+    return results;
+  }
+
+  Future<List<PushOpResult>> _pushBatch(List<OplogEntry> operations) async {
     await interceptor.ensureValidToken(deviceId: deviceId);
 
     final opJsonList = operations.map((op) => op.toJson()).toList();
@@ -192,41 +220,36 @@ class HttpSyncClient implements SyncApiClient {
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       final body = await compute(_decodeJson, response.body);
-      final results = body['results'] as List? ?? [];
-      final timestamps = <int>[];
+      final rawResults = body['results'] as List? ?? [];
 
-      for (final raw in results) {
-        final result = raw as Map<String, dynamic>;
-        final success = result['success'] == true;
-        if (!success) {
-          throw SyncApiException(
-            code: result['error'] as String? ?? 'PUSH_FAILED',
-            message: 'Batch push failed for op ${result['opId']}',
-            statusCode: response.statusCode,
-            partialTimestamps: timestamps,
-          );
-        }
-        timestamps.add(result['serverTimestamp'] as int);
-      }
+      // Every result is read. Stopping at the first rejection used to discard
+      // every later operation in the batch, including ones the server had
+      // accepted or never even reported on.
+      final results = _resultsFor(operations, rawResults);
+      final rejected = results.where((r) => !r.applied).toList();
 
       SyncLogger.info(
-        'Push successful: ${timestamps.length} operations confirmed',
+        'Push batch: ${results.length - rejected.length} applied, '
+        '${rejected.length} rejected',
       );
-      return timestamps;
+      for (final r in rejected) {
+        SyncLogger.warning(
+          'Server rejected operation ${r.opId}: ${r.errorCode}',
+        );
+      }
+      return results;
     }
 
-    // Try to extract partial results from the error response
-    List<int> partialTimestamps = const [];
+    // Whatever the server managed to report before the request failed.
+    var partial = const <PushOpResult>[];
     try {
       final body = jsonDecode(response.body) as Map<String, dynamic>;
-      final partialResults = body['results'] as List?;
-      if (partialResults != null && partialResults.isNotEmpty) {
-        partialTimestamps = partialResults
-            .map((r) => (r as Map<String, dynamic>)['serverTimestamp'] as int)
-            .toList();
+      final rawResults = body['results'] as List?;
+      if (rawResults != null && rawResults.isNotEmpty) {
+        partial = _resultsFor(operations, rawResults);
         SyncLogger.warning(
-          'Partial batch success: ${partialTimestamps.length}/${operations.length} '
-          'operations processed before failure (HTTP ${response.statusCode})',
+          'Partial batch: ${partial.length}/${operations.length} operations '
+          'reported before failure (HTTP ${response.statusCode})',
         );
       }
     } catch (_) {
@@ -238,7 +261,7 @@ class HttpSyncClient implements SyncApiClient {
       code: exception.code,
       message: exception.message,
       statusCode: exception.statusCode,
-      partialTimestamps: partialTimestamps,
+      partialResults: partial,
       retryAfter: exception.retryAfter,
     );
   }
@@ -345,6 +368,18 @@ class HttpSyncClient implements SyncApiClient {
           await authService.clearToken();
           _cleanupWebSocket();
           return;
+
+        case 'ping':
+          // The spec is ambiguous here: its prose says the server uses only
+          // protocol-level pings (opcode 0x9), which web_socket_channel
+          // answers for us, while the message tables in the same file list an
+          // application-level ping/pong pair. Answering a JSON ping costs one
+          // frame and is ignored by a server that never sends one; not
+          // answering, if the server does expect it, gets the connection
+          // dropped at every keepalive and reconnected with backoff.
+          SyncLogger.debug('WebSocket: ping received, sending pong');
+          _webSocket?.sink.add(jsonEncode({'type': 'pong'}));
+          break;
 
         case 'error':
           final errorMessage = data['message'] as String?;

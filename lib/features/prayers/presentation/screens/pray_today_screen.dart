@@ -265,7 +265,7 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
                           await showDialog(
                             context: context,
                             builder: (context) => AlertDialog(
-                              title: const Text('Today\'s Reflection'),
+                              title: Text(l10n(context).todaysReflection),
                               content: TextField(
                                 controller: controller,
                                 maxLines: 5,

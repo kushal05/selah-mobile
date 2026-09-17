@@ -97,9 +97,7 @@ class PrayerUpdateModel implements SyncEntity {
   }
 
   /// Create updated copy with incremented version
-  PrayerUpdateModel copyWithUpdate({
-    String? content,
-  }) {
+  PrayerUpdateModel copyWithUpdate({String? content}) {
     return PrayerUpdateModel(
       id: id,
       prayerId: prayerId,

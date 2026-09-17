@@ -262,7 +262,7 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Saved "$reference" as a promise'),
+            content: Text(l10n(context).savedReferenceAsPromise(reference)),
             behavior: SnackBarBehavior.floating,
           ),
         );

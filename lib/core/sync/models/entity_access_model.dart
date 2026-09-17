@@ -79,7 +79,10 @@ enum AccessRole {
   }
 
   /// Whether this role can edit content
-  bool get canEdit => this == AccessRole.editor || this == AccessRole.admin || this == AccessRole.owner;
+  bool get canEdit =>
+      this == AccessRole.editor ||
+      this == AccessRole.admin ||
+      this == AccessRole.owner;
 
   /// Whether this role can manage access (share/unshare)
   bool get canManage => this == AccessRole.admin || this == AccessRole.owner;
@@ -268,9 +271,7 @@ class EntityAccessModel implements SyncEntity {
     );
   }
 
-  EntityAccessModel copyWithUpdate({
-    AccessRole? role,
-  }) {
+  EntityAccessModel copyWithUpdate({AccessRole? role}) {
     final now = TestClock.now();
     return EntityAccessModel(
       id: id,

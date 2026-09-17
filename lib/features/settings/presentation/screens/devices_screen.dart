@@ -148,7 +148,7 @@ class DevicesScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(l10n(context).removeDevice),
-        content: Text('Remove "${device.name}" and revoke its session?'),
+        content: Text(l10n(context).removeDeviceAndRevokeSession(device.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),

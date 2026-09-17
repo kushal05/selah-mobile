@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 
 import '../../database/sync_database.dart';
 import '../models/oplog_entry.dart';
+import '../models/field_timestamps.dart';
 import '../models/song_model.dart';
 import 'base_sync_repository.dart';
 import 'entity_access_repository.dart';
@@ -535,6 +538,7 @@ class SongRepository extends BaseSyncRepository<SongModel> {
       deleted: row.deleted,
       trashedAt: row.trashedAt,
       createdAt: row.createdAt,
+      fieldUpdatedAt: parseFieldTimestamps(row.fieldUpdatedAt),
     );
   }
 
@@ -561,6 +565,7 @@ class SongRepository extends BaseSyncRepository<SongModel> {
       deleted: Value(model.deleted),
       trashedAt: Value(model.trashedAt),
       createdAt: Value(model.createdAt),
+      fieldUpdatedAt: Value(jsonEncode(model.fieldUpdatedAt)),
     );
   }
 

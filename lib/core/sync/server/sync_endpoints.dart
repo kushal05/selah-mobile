@@ -336,10 +336,16 @@ class PullEndpointSpec {
 /// { "type": "error", "message": "..." }
 /// ```
 ///
-/// Keepalive: Server sends WebSocket protocol-level pings (opcode 0x9)
-/// every 30s. The client's WebSocket library auto-responds with
-/// protocol-level pongs. No application-level ping/pong JSON messages
-/// are used.
+/// Keepalive: the server is expected to send WebSocket protocol-level pings
+/// (opcode 0x9) every 30s, which the client's WebSocket library answers
+/// automatically.
+///
+/// The [WebSocketEndpointSpec] tables below additionally describe an
+/// application-level `ping`/`pong` JSON pair. The two have contradicted each
+/// other since this file was written and only the server can settle which is
+/// real, so the client answers a JSON `ping` with a JSON `pong` as well: one
+/// extra frame if the server never sends one, against a connection dropped at
+/// every keepalive if it does.
 ///
 /// Implementation notes:
 /// ```

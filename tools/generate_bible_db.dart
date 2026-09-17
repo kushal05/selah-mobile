@@ -2,9 +2,15 @@
 
 /// Bible Database Generator
 ///
-/// Standalone Dart script that creates the pre-populated `bible.db` file
-/// bundled in `assets/`. Run this script on a development machine, then
-/// commit the resulting `assets/bible.db` to the repository.
+/// Standalone Dart script that creates the pre-populated `bible.db` file.
+/// Run this on a development machine, then upload the result to the CDN the
+/// Bible versions API points at.
+///
+/// This file is NOT bundled with the app. `pubspec.yaml` ships only
+/// `assets/images/`, and [BibleDatabaseService] downloads the database over
+/// HTTP on first use — see `lib/features/bible/data/bible_database_service.dart`.
+/// Output therefore goes to `tools/build/`, which is generator scratch space,
+/// not an asset directory.
 ///
 /// Usage:
 ///   `dart run tools/generate_bible_db.dart <translations_dir> [translation...]`
@@ -30,7 +36,7 @@
 ///   as string keys and verses as string keys mapping to text.
 ///
 /// Output:
-///   assets/bible.db — ready to bundle via pubspec.yaml
+///   tools/build/bible.db — upload to the CDN served by the Bible versions API
 library;
 
 import 'dart:convert';
@@ -145,7 +151,7 @@ void main(List<String> args) {
     exit(1);
   }
 
-  final outputPath = 'assets/bible.db';
+  final outputPath = 'tools/build/bible.db';
 
   print('Bible Database Generator');
   print('========================');
@@ -153,6 +159,10 @@ void main(List<String> args) {
   print('Translations: ${translationFiles.keys.join(', ')}');
   print('Output:       $outputPath');
   print('');
+
+  // tools/build/ is gitignored generator scratch space, so it will not exist
+  // on a fresh checkout — sqlite3.open would fail before writing anything.
+  Directory(outputPath).parent.createSync(recursive: true);
 
   // Delete existing output if present
   final outFile = File(outputPath);

@@ -991,5 +991,217 @@
   "openPrayer": "Open Prayer",
   "markThisTimeOfPrayer": "Mark this time of prayer",
   "howDidItGoOptional": "How did it go? (optional)",
-  "logThisPrayer": "Log prayer"
+  "logThisPrayer": "Log prayer",
+  "savedReferenceAsPromise": "Saved \"{reference}\" as a promise",
+  "@savedReferenceAsPromise": {
+    "placeholders": {
+      "reference": {
+        "type": "String"
+      }
+    }
+  },
+  "removeVersionQuestion": "Remove {name}?",
+  "@removeVersionQuestion": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToRemoveVersion": "Failed to remove {name}.",
+  "@failedToRemoveVersion": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadFailedForVersion": "Download failed for {name}.",
+  "@downloadFailedForVersion": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "friendRequestSentTo": "Friend request sent to {username}",
+  "@friendRequestSentTo": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "movedFolderToTarget": "Moved \"{folder}\" to {target}",
+  "@movedFolderToTarget": {
+    "placeholders": {
+      "folder": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "restoredNamed": "Restored \"{name}\"",
+  "@restoredNamed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "movedToTarget": "Moved to {target}",
+  "@movedToTarget": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "selectedValue": "Selected: {value}",
+  "@selectedValue": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "permanentlyDeletedNamed": "Permanently deleted \"{name}\"",
+  "@permanentlyDeletedNamed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "enterPersonsName": "Enter person's name",
+  "prayerSharedTo": "Prayer shared to \"{name}\"",
+  "@prayerSharedTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "todaysReflection": "Today's Reflection",
+  "whatsNew": "What's New",
+  "removeDeviceAndRevokeSession": "Remove \"{name}\" and revoke its session?",
+  "@removeDeviceAndRevokeSession": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "youreUpToDate": "You're up to date!",
+  "fullResyncFailed": "Full re-sync failed: {error}",
+  "@fullResyncFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "syncFailedWithError": "Sync failed: {error}",
+  "@syncFailedWithError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "renamedTo": "Renamed to \"{name}\"",
+  "@renamedTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tagDeletedNamed": "Tag \"{name}\" deleted",
+  "@tagDeletedNamed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "linkCreatedAgo": "Link created {when}",
+  "@linkCreatedAgo": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "unknownError": "Unknown error",
+  "allNotesUpper": "ALL NOTES",
+  "notesInFolderUpper": "NOTES IN FOLDER",
+  "permanentlyDeleteConfirm": "Permanently delete \"{title}\"? This cannot be undone.",
+  "@permanentlyDeleteConfirm": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "movedNotesToFolder": "{count, plural, =1{Moved 1 note to {target}} other{Moved {count} notes to {target}}}",
+  "@movedNotesToFolder": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "notesSortLastEdited": "Last Edited",
+  "notesSortTitle": "Title (A-Z)",
+  "notesSortCreatedDate": "Created Date",
+  "couldNotSaveVerse": "Could not save the verse. Please try again.",
+  "saveAVerseThatStaysWithYou": "Save a verse that stays with you",
+  "addPromise": "Add a promise",
+  "startReading": "Start reading",
+  "openTheBibleAndPickABook": "Open the Bible and pick a book",
+  "openBible": "Open Bible",
+  "attemptsCount": "{count} attempts",
+  "@attemptsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "changesNeedingAttention": "Changes needing attention",
+  "stalledChangesExplanation": "Sync stopped trying to move these after repeated attempts, so the rest of your data could keep syncing. Nothing has been deleted.",
+  "stalledOutgoing": "From this device",
+  "stalledIncoming": "From another device",
+  "tryAgain": "Try again",
+  "retryingChanges": "Checking with the server…",
+  "retryFullRecheckNote": "Retrying items from another device re-checks your whole account with the server, which can take a moment.",
+  "unsyncedChangesTitle": "Unsynced changes",
+  "unsyncedChangesWarning": "{count, plural, =1{1 change hasn't reached the server yet.} other{{count} changes haven't reached the server yet.}}",
+  "@unsyncedChangesWarning": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "unsyncedChangesOnline": "Signing out will try to send them first. Anything that can't be sent will be lost.",
+  "unsyncedChangesOffline": "You're offline, so they can't be sent. Signing out now will lose them permanently.",
+  "signOutAnyway": "Sign out anyway",
+  "syncAndSignOut": "Sync and sign out",
+  "gettingYourData": "Getting your data…",
+  "gettingYourDataCount": "{count, plural, =1{Getting your data… 1 item so far} other{Getting your data… {count} items so far}}",
+  "@gettingYourDataCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "couldNotLoadYourData": "We couldn't load your data yet."
 }

@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/sync/services/auth_service.dart';
+import '../../../../core/sync/engine/sync_state_machine.dart';
 import '../../../../core/sync/utils/sync_logger.dart';
 
 /// Provider that streams auth state changes
@@ -18,7 +19,10 @@ final authStateProvider = StreamProvider<AuthToken?>((ref) async* {
 /// Whether the user is currently authenticated
 final isAuthenticatedProvider = Provider<bool>((ref) {
   final authState = ref.watch(authStateProvider);
-  return authState.whenOrNull(data: (token) => token != null && !token.isExpired) ?? false;
+  return authState.whenOrNull(
+        data: (token) => token != null && !token.isExpired,
+      ) ??
+      false;
 });
 
 /// Login request model
@@ -129,7 +133,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
         final authToken = AuthToken(
           accessToken: tokens['accessToken'] as String,
           refreshToken: tokens['refreshToken'] as String?,
-          expiresAt: DateTime.fromMillisecondsSinceEpoch(tokens['expiresAt'] as int),
+          expiresAt: DateTime.fromMillisecondsSinceEpoch(
+            tokens['expiresAt'] as int,
+          ),
           userId: user['id'] as String,
         );
 
@@ -142,10 +148,12 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
         // Check profile completeness from the server response first,
         // so it works even on a fresh device with no local DB data.
         final serverUsername = (user['username'] as String?)?.trim() ?? '';
-        final serverDisplayName = (user['displayName'] as String?)?.trim() ?? '';
+        final serverDisplayName =
+            (user['displayName'] as String?)?.trim() ?? '';
         final isCompleteFromServer =
             serverUsername.isNotEmpty && serverDisplayName.isNotEmpty;
-        _ref.read(profileCompleteProvider.notifier).state = isCompleteFromServer;
+        _ref.read(profileCompleteProvider.notifier).state =
+            isCompleteFromServer;
 
         // Kick off post-login sync in the background — server already
         // returned profile completeness inline, so we don't block nav.
@@ -166,7 +174,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
         return false;
       }
     } catch (e, st) {
-      final message = e is TypeError ? 'Unexpected server response' : e.toString();
+      final message = e is TypeError
+          ? 'Unexpected server response'
+          : e.toString();
       state = AsyncValue.error(message, st);
       return false;
     }
@@ -200,7 +210,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
         final authToken = AuthToken(
           accessToken: tokens['accessToken'] as String,
           refreshToken: tokens['refreshToken'] as String?,
-          expiresAt: DateTime.fromMillisecondsSinceEpoch(tokens['expiresAt'] as int),
+          expiresAt: DateTime.fromMillisecondsSinceEpoch(
+            tokens['expiresAt'] as int,
+          ),
           userId: user['id'] as String,
         );
 
@@ -211,10 +223,12 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
 
         // Check profile completeness from the server response first.
         final serverUsername = (user['username'] as String?)?.trim() ?? '';
-        final serverDisplayName = (user['displayName'] as String?)?.trim() ?? '';
+        final serverDisplayName =
+            (user['displayName'] as String?)?.trim() ?? '';
         final isCompleteFromServer =
             serverUsername.isNotEmpty && serverDisplayName.isNotEmpty;
-        _ref.read(profileCompleteProvider.notifier).state = isCompleteFromServer;
+        _ref.read(profileCompleteProvider.notifier).state =
+            isCompleteFromServer;
 
         // Kick off post-register sync in the background.
         // ignore: discarded_futures
@@ -234,7 +248,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
         return false;
       }
     } catch (e, st) {
-      final message = e is TypeError ? 'Unexpected server response' : e.toString();
+      final message = e is TypeError
+          ? 'Unexpected server response'
+          : e.toString();
       state = AsyncValue.error(message, st);
       return false;
     }
@@ -261,7 +277,10 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
       final googleAuth = await account.authentication;
       final idToken = googleAuth.idToken;
       if (idToken == null) {
-        state = AsyncValue.error('Failed to get Google ID token', StackTrace.current);
+        state = AsyncValue.error(
+          'Failed to get Google ID token',
+          StackTrace.current,
+        );
         return false;
       }
 
@@ -289,7 +308,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
         final authToken = AuthToken(
           accessToken: tokens['accessToken'] as String,
           refreshToken: tokens['refreshToken'] as String?,
-          expiresAt: DateTime.fromMillisecondsSinceEpoch(tokens['expiresAt'] as int),
+          expiresAt: DateTime.fromMillisecondsSinceEpoch(
+            tokens['expiresAt'] as int,
+          ),
           userId: user['id'] as String,
         );
 
@@ -300,10 +321,12 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
 
         // Check profile completeness from server response
         final serverUsername = (user['username'] as String?)?.trim() ?? '';
-        final serverDisplayName = (user['displayName'] as String?)?.trim() ?? '';
+        final serverDisplayName =
+            (user['displayName'] as String?)?.trim() ?? '';
         final isCompleteFromServer =
             serverUsername.isNotEmpty && serverDisplayName.isNotEmpty;
-        _ref.read(profileCompleteProvider.notifier).state = isCompleteFromServer;
+        _ref.read(profileCompleteProvider.notifier).state =
+            isCompleteFromServer;
 
         // Kick off post-login sync in the background. We deliberately do
         // NOT await this — the server already returned profile completeness
@@ -327,7 +350,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
         return false;
       }
     } catch (e, st) {
-      final message = e is TypeError ? 'Unexpected server response' : e.toString();
+      final message = e is TypeError
+          ? 'Unexpected server response'
+          : e.toString();
       state = AsyncValue.error(message, st);
       return false;
     }
@@ -352,6 +377,45 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
       );
     } catch (e, st) {
       SyncLogger.error('Post-$origin sync failed', e, st);
+    }
+  }
+
+  /// One last attempt to push queued changes before sign-out destroys them.
+  ///
+  /// Returns the number of changes still unsynced afterwards, so a caller that
+  /// wants to can tell the user what did not make it. Never throws: a failure
+  /// here must not leave the user stuck on a screen they asked to leave.
+  Future<int> _pushPendingBeforeSignOut() async {
+    try {
+      final db = _ref.read(syncDatabaseProvider);
+      final pending = await db.getPendingOpsCount();
+      if (pending == 0) return 0;
+
+      SyncLogger.info(
+        'Sign-out: $pending change(s) still queued — attempting a final push',
+      );
+
+      final syncService = await _ref.read(syncServiceProvider.future);
+      await syncService.syncNow().timeout(
+        const Duration(seconds: 20),
+        onTimeout: () => SyncResult.failure(
+          'Final push before sign-out timed out',
+          Duration.zero,
+        ),
+      );
+
+      final remaining = await db.getPendingOpsCount();
+      if (remaining > 0) {
+        SyncLogger.warning(
+          'Sign-out: $remaining change(s) could not be pushed and will be '
+          'discarded with the local database',
+        );
+      }
+      return remaining;
+    } catch (e, st) {
+      SyncLogger.error('Sign-out: final push failed', e, st);
+      // Fall through — the user asked to sign out.
+      return -1;
     }
   }
 
@@ -381,6 +445,15 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
       } catch (_) {
         // Best-effort: logout should always succeed locally
       }
+
+      // Signing out wipes the local database, oplog included, so anything
+      // still queued is about to be destroyed. Try to get it to the server
+      // first rather than discarding work the user typed.
+      //
+      // Best-effort and time-boxed: sign-out has to stay responsive, and it
+      // must still complete if the push fails. The caller is expected to have
+      // told the user what is pending — see `pendingChangeCountProvider`.
+      await _pushPendingBeforeSignOut();
 
       // Clear all local user data and reset sync cursor so the next
       // login starts with a fresh pull from the server.
@@ -422,7 +495,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
       final config = _ref.read(syncConfigProvider);
       final interceptor = _ref.read(apiInterceptorProvider);
       final response = await interceptor.get(
-        Uri.parse('${config.apiBaseUrl}/v1/auth/check-email?email=${Uri.encodeComponent(email)}'),
+        Uri.parse(
+          '${config.apiBaseUrl}/v1/auth/check-email?email=${Uri.encodeComponent(email)}',
+        ),
         headers: {'Content-Type': 'application/json'},
         timeout: config.httpTimeout,
       );
@@ -445,7 +520,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
       final config = _ref.read(syncConfigProvider);
       final interceptor = _ref.read(apiInterceptorProvider);
       final response = await interceptor.get(
-        Uri.parse('${config.apiBaseUrl}/v1/auth/check-username?username=${Uri.encodeComponent(username)}'),
+        Uri.parse(
+          '${config.apiBaseUrl}/v1/auth/check-username?username=${Uri.encodeComponent(username)}',
+        ),
         headers: {'Content-Type': 'application/json'},
         timeout: config.httpTimeout,
       );
@@ -463,6 +540,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
 }
 
 /// Provider for auth actions
-final authNotifierProvider = StateNotifierProvider<AuthNotifier, AsyncValue<void>>((ref) {
-  return AuthNotifier(ref);
-});
+final authNotifierProvider =
+    StateNotifierProvider<AuthNotifier, AsyncValue<void>>((ref) {
+      return AuthNotifier(ref);
+    });

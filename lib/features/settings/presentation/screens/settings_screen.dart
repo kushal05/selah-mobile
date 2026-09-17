@@ -23,6 +23,8 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../../core/services/user_facing_error.dart';
 import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
+import '../../../../shared/widgets/connectivity_banner.dart';
+import '../../../../shared/widgets/sync_status_icon.dart';
 import '../../../../shared/widgets/section_label.dart';
 
 /// Settings screen with account, sync, data, and about sections
@@ -134,6 +136,12 @@ class SettingsScreen extends ConsumerWidget {
                 icon: Icons.cloud_sync_outlined,
                 title: l10n(context).checkSync,
                 subtitle: l10n(context).seeWhetherYourDataIsUpToDate,
+                // Live state on the row itself: the sync status screen was the
+                // only place it existed, so answering "is it syncing?" always
+                // cost a tap. SyncStatusIcon was written for this and had
+                // never been placed anywhere.
+                trailing: const SyncStatusIcon(),
+                showChevron: false,
                 onTap: () => context.push(Routes.syncStatus),
               ),
             ],
@@ -182,8 +190,12 @@ class SettingsScreen extends ConsumerWidget {
 
           // ── Usage ─────────────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(AppTheme.spacing16,
-                AppTheme.spacing20, AppTheme.spacing16, AppTheme.spacing8),
+            padding: const EdgeInsets.fromLTRB(
+              AppTheme.spacing16,
+              AppTheme.spacing20,
+              AppTheme.spacing16,
+              AppTheme.spacing8,
+            ),
             child: const SectionLabel('USAGE'),
           ),
           Consumer(
@@ -256,8 +268,12 @@ class SettingsScreen extends ConsumerWidget {
 
           // ── About ─────────────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(AppTheme.spacing16,
-                AppTheme.spacing20, AppTheme.spacing16, AppTheme.spacing8),
+            padding: const EdgeInsets.fromLTRB(
+              AppTheme.spacing16,
+              AppTheme.spacing20,
+              AppTheme.spacing16,
+              AppTheme.spacing8,
+            ),
             child: const SectionLabel('ABOUT'),
           ),
           Consumer(
@@ -279,7 +295,8 @@ class SettingsScreen extends ConsumerWidget {
                     showChevron: false,
                     onTap: () async {
                       await ref.read(tutorialServiceProvider).resetForReplay();
-                      ref.read(tutorialReplayRequestedProvider.notifier).state = true;
+                      ref.read(tutorialReplayRequestedProvider.notifier).state =
+                          true;
                       if (context.mounted) {
                         context.go(Routes.home);
                       }
@@ -360,7 +377,9 @@ class SettingsScreen extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(UserFacingError.message(e, action: 'export your data')),
+            content: Text(
+              UserFacingError.message(e, action: 'export your data'),
+            ),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -493,8 +512,8 @@ class SettingsScreen extends ConsumerWidget {
       if (!context.mounted) return;
       if (result == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('You\'re up to date!'),
+          SnackBar(
+            content: Text(l10n(context).youreUpToDate),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -519,8 +538,8 @@ class SettingsScreen extends ConsumerWidget {
 
     if (result == null || !result.canInstallDirectly) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You\'re up to date!'),
+        SnackBar(
+          content: Text(l10n(context).youreUpToDate),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -533,8 +552,8 @@ class SettingsScreen extends ConsumerWidget {
         currentBuild >= result.latestBuildNumber) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You\'re up to date!'),
+        SnackBar(
+          content: Text(l10n(context).youreUpToDate),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -551,7 +570,37 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _handleSignOut(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
+    // Signing out wipes the local database, oplog included, so anything still
+    // queued is destroyed with it. Read that first: a generic "are you sure"
+    // is the wrong question when the honest answer is "this will lose work".
+    final online =
+        ref.read(connectivityProvider).whenOrNull(data: (v) => v) ?? false;
+
+    final pending = await ref
+        .read(pendingChangeCountProvider.future)
+        // If the count itself fails, fall back to the plain confirmation
+        // rather than blocking sign-out.
+        .catchError((_) => 0);
+    if (!context.mounted) return;
+
+    final bool? confirmed;
+    if (pending > 0) {
+      confirmed = await _confirmSignOutWithPending(
+        context,
+        pending,
+        online: online,
+      );
+    } else {
+      confirmed = await _confirmSignOut(context);
+    }
+
+    if (confirmed == true) {
+      await ref.read(authNotifierProvider.notifier).logout();
+    }
+  }
+
+  Future<bool?> _confirmSignOut(BuildContext context) {
+    return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(l10n(context).signOut),
@@ -571,15 +620,57 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
 
-    if (confirmed == true) {
-      await ref.read(authNotifierProvider.notifier).logout();
-    }
+  /// Says what will happen to work that has not reached the server.
+  ///
+  /// Online, sign-out tries to push first, so the confirm button says so.
+  /// Offline there is nothing to try, and the dialog says the changes will be
+  /// lost rather than implying otherwise.
+  Future<bool?> _confirmSignOutWithPending(
+    BuildContext context,
+    int pending, {
+    required bool online,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n(context).unsyncedChangesTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n(context).unsyncedChangesWarning(pending)),
+            const SizedBox(height: 12),
+            Text(
+              online
+                  ? l10n(context).unsyncedChangesOnline
+                  : l10n(context).unsyncedChangesOffline,
+              style: TextStyle(color: context.mutedText),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l10n(context).actionCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              online
+                  ? l10n(context).syncAndSignOut
+                  : l10n(context).signOutAnyway,
+              style: TextStyle(color: context.dangerText),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
 // ─── Section Label ────────────────────────────────────────────────────────────
-
 
 // ─── Settings Group (Card) ────────────────────────────────────────────────────
 
@@ -656,8 +747,9 @@ class _SettingsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ov =
-        ref.watch(remoteConfigProvider).getJson(RcKeys.settingsSections)[id];
+    final ov = ref
+        .watch(remoteConfigProvider)
+        .getJson(RcKeys.settingsSections)[id];
     if (ov is Map && ov['visible'] == false) return const SizedBox.shrink();
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -668,8 +760,12 @@ class _SettingsSection extends ConsumerWidget {
         // further left than the card beneath it. The vertical padding gives
         // each section air instead of the heading touching the card above.
         Padding(
-          padding: const EdgeInsets.fromLTRB(AppTheme.spacing16,
-              AppTheme.spacing20, AppTheme.spacing16, AppTheme.spacing8),
+          padding: const EdgeInsets.fromLTRB(
+            AppTheme.spacing16,
+            AppTheme.spacing20,
+            AppTheme.spacing16,
+            AppTheme.spacing8,
+          ),
           child: SectionLabel(title),
         ),
         _SettingsGroup(tiles: tiles),
@@ -1024,8 +1120,7 @@ class _SilentUpdateDialogState extends State<_SilentUpdateDialog> {
           children: [
             if (!_needsPermission && _error == null)
               LinearProgressIndicator(value: pct),
-            if (!_needsPermission && _error == null)
-              const SizedBox(height: 12),
+            if (!_needsPermission && _error == null) const SizedBox(height: 12),
             Text(
               statusText,
               style: TextStyle(
@@ -1048,8 +1143,9 @@ class _SilentUpdateDialogState extends State<_SilentUpdateDialog> {
               icon: const Icon(Icons.refresh, size: 16),
               label: Text(l10n(context).retry),
               style: FilledButton.styleFrom(
-                      backgroundColor: AppTheme.orange,
-                      foregroundColor: AppTheme.onAccent(AppTheme.orange)),
+                backgroundColor: AppTheme.orange,
+                foregroundColor: AppTheme.onAccent(AppTheme.orange),
+              ),
             ),
           ] else if (_needsPermission) ...[
             TextButton(
@@ -1061,8 +1157,9 @@ class _SilentUpdateDialogState extends State<_SilentUpdateDialog> {
               icon: const Icon(Icons.refresh, size: 16),
               label: Text(l10n(context).retryInstall),
               style: FilledButton.styleFrom(
-                      backgroundColor: AppTheme.orange,
-                      foregroundColor: AppTheme.onAccent(AppTheme.orange)),
+                backgroundColor: AppTheme.orange,
+                foregroundColor: AppTheme.onAccent(AppTheme.orange),
+              ),
             ),
           ] else if (p?.isDone == true)
             TextButton(

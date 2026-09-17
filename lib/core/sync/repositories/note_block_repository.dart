@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 
 import '../../database/services/note_block_fts_service.dart';
 import '../../database/sync_database.dart';
+import '../models/field_timestamps.dart';
 import '../models/note_block_model.dart';
 import '../models/oplog_entry.dart';
 import 'base_sync_repository.dart';
@@ -436,6 +437,7 @@ class NoteBlockRepository extends BaseSyncRepository<NoteBlockModel> {
       version: row.version,
       deleted: row.deleted,
       createdAt: row.createdAt,
+      fieldUpdatedAt: parseFieldTimestamps(row.fieldUpdatedAt),
       section: row.section,
       trashedAt: row.trashedAt,
     );
@@ -454,6 +456,7 @@ class NoteBlockRepository extends BaseSyncRepository<NoteBlockModel> {
       deleted: Value(model.deleted),
       trashedAt: Value(model.trashedAt),
       createdAt: Value(model.createdAt),
+      fieldUpdatedAt: Value(jsonEncode(model.fieldUpdatedAt)),
       section: Value(model.section),
     );
   }

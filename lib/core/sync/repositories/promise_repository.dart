@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 
 import '../../database/sync_database.dart';
 import '../models/oplog_entry.dart';
+import '../models/field_timestamps.dart';
 import '../models/promise_model.dart';
 import 'base_sync_repository.dart';
 import 'entity_access_repository.dart';
@@ -66,6 +69,21 @@ class PromiseRepository extends BaseSyncRepository<PromiseModel> {
       ..orderBy([(p) => OrderingTerm.desc(p.updatedAt)]);
 
     return query.watch().map((rows) => rows.map(_toModel).toList());
+  }
+
+  /// Watch how many promises the user has, without materialising them.
+  ///
+  /// The dashboard tile only ever showed a count, but watching the list to
+  /// take `.length` decoded every row into a model on every change. This is a
+  /// single COUNT(*) that re-runs on the same table updates.
+  Stream<int> watchPromiseCount(String userId) {
+    final count = _db.promises.id.count();
+    final query = _db.selectOnly(_db.promises)
+      ..addColumns([count])
+      ..where(_db.promises.deleted.equals(0) &
+          _db.promises.userId.equals(userId) &
+          _db.promises.trashedAt.isNull());
+    return query.map((row) => row.read(count) ?? 0).watchSingle();
   }
 
   /// Watch favorite promises for a user
@@ -303,6 +321,7 @@ class PromiseRepository extends BaseSyncRepository<PromiseModel> {
       deleted: row.deleted,
       trashedAt: row.trashedAt,
       createdAt: row.createdAt,
+      fieldUpdatedAt: parseFieldTimestamps(row.fieldUpdatedAt),
     );
   }
 
@@ -322,6 +341,7 @@ class PromiseRepository extends BaseSyncRepository<PromiseModel> {
       deleted: Value(model.deleted),
       trashedAt: Value(model.trashedAt),
       createdAt: Value(model.createdAt),
+      fieldUpdatedAt: Value(jsonEncode(model.fieldUpdatedAt)),
     );
   }
 

@@ -47,6 +47,11 @@ class People extends Table {
   /// Creation timestamp (Unix milliseconds)
   IntColumn get createdAt => integer()();
 
+  /// Per-field update timestamps for field-level merge conflict resolution.
+  /// JSON map of {fieldName: timestampMs}. Empty map '{}' for rows written
+  /// before this column existed, which fall back to entity-level merge.
+  TextColumn get fieldUpdatedAt => text().withDefault(const Constant('{}'))();
+
   @override
   Set<Column> get primaryKey => {id};
 }

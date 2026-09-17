@@ -814,7 +814,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
             textCapitalization: TextCapitalization.words,
             decoration: InputDecoration(
               labelText: l10n(context).name,
-              hintText: 'Enter person\'s name',
+              hintText: l10n(context).enterPersonsName,
             ),
             onSubmitted: (value) {
               if (value.trim().isNotEmpty) {

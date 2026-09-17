@@ -148,10 +148,7 @@ class FeedbackMessageModel implements SyncEntity {
     );
   }
 
-  FeedbackMessageModel copyWithUpdate({
-    String? message,
-    int? hasAttachments,
-  }) {
+  FeedbackMessageModel copyWithUpdate({String? message, int? hasAttachments}) {
     return FeedbackMessageModel(
       id: id,
       threadId: threadId,

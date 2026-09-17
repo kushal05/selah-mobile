@@ -332,7 +332,7 @@ class _UsernameSearchScreenState extends ConsumerState<UsernameSearchScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Friend request sent to ${profile.username}'),
+            content: Text(l10n(context).friendRequestSentTo(profile.username)),
             behavior: SnackBarBehavior.floating,
           ),
         );

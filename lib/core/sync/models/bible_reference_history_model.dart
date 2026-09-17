@@ -129,9 +129,7 @@ class BibleReferenceHistoryModel implements SyncEntity {
   }
 
   /// Create updated copy with bumped openedAt timestamp (for dedup)
-  BibleReferenceHistoryModel copyWithUpdate({
-    int? openedAt,
-  }) {
+  BibleReferenceHistoryModel copyWithUpdate({int? openedAt}) {
     final now = TestClock.now();
     return BibleReferenceHistoryModel(
       id: id,

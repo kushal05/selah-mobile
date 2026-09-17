@@ -7,18 +7,20 @@ import 'package:go_router/go_router.dart';
 
 import '../../domain/models/block_type.dart';
 import '../../domain/models/note_section.dart';
+import '../../domain/models/notes_sort_option.dart';
 import '../../../bible/domain/models/bible_reference.dart';
 import '../../../../core/navigation/routes.dart';
 import '../../../../core/sync/models/note_model.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../domain/models/note.dart' as domain;
 import '../providers/database_provider.dart';
-import '../../../../shared/widgets/lists/folder_row.dart';
+import '../providers/note_display_lookups.dart';
+import '../providers/notes_home_ui_state.dart';
 import '../../../../shared/widgets/dialogs/folder_selection_dialog.dart';
 import '../../../../shared/widgets/cards/note_row.dart';
 import '../../../../shared/widgets/dialogs/move_to_folder_sheet.dart';
+import '../widgets/folder_section.dart';
 import '../widgets/note_template_picker_sheet.dart';
-import 'folder_management_screen.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
 import '../../../../shared/widgets/undo_snackbar.dart';
@@ -34,16 +36,6 @@ import '../../../../shared/widgets/filter_pill.dart';
 import '../../../../shared/utils/date_format.dart';
 import '../../../../shared/widgets/tab_title.dart';
 
-/// Sort options for notes list
-enum NotesSortOption {
-  lastEdited('Last Edited'),
-  title('Title (A-Z)'),
-  createdDate('Created Date');
-
-  final String label;
-  const NotesSortOption(this.label);
-}
-
 /// Notes list screen showing folders and notes in a split layout
 class NotesHomeScreen extends ConsumerStatefulWidget {
   const NotesHomeScreen({super.key});
@@ -53,28 +45,12 @@ class NotesHomeScreen extends ConsumerStatefulWidget {
 }
 
 class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
-  // Currently selected folder ID (null means "All Notes")
-  String? _selectedFolderId;
-
-  // Expanded folder IDs
-  final Set<String> _expandedFolders = {};
-
-  // Current sort option
-  NotesSortOption _sortOption = NotesSortOption.lastEdited;
-  bool _sortAscending = false;
-
-  // Folder section collapsed state
-  bool _isFolderSectionExpanded = false;
-
-  // Multi-select state
-  bool _isSelecting = false;
-  final Set<String> _selectedNoteIds = {};
-
-  // Smart collection state: which collection is active (null = none)
-  String? _activeSmartCollection;
-
-  // Trash view toggle
-  bool _showingTrash = false;
+  /// View state — selection, expansion, sort and filters — lives in
+  /// [notesHomeUiProvider] rather than in fields here, so each section can
+  /// watch only the slice it draws from. Read it for one-shot access inside
+  /// callbacks; `build` watches it so the screen still rebuilds on change.
+  NotesHomeUiState get _ui => ref.read(notesHomeUiProvider);
+  NotesHomeUiController get _uiCtl => ref.read(notesHomeUiProvider.notifier);
 
   // Cache for note preview strings to avoid jsonDecode on every build.
   // Keyed by "${note.id}_${note.updatedAt}" so stale entries accumulate as
@@ -83,38 +59,11 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   static const _previewCacheMaxSize = 500;
   final Map<String, String?> _previewCache = {};
 
-  // Filter state
-  bool _isFilterActive = true;
-  final Set<String> _filterTagIds = {};
-  String? _filterPreacherId;
-  DateTimeRange? _filterDateRange;
-  List<domain.Note>? _filteredNotes;
-
-  bool get _hasActiveFilters =>
-      _filterTagIds.isNotEmpty ||
-      _filterPreacherId != null ||
-      _filterDateRange != null;
-
-  int get _activeFilterCount =>
-      (_filterTagIds.isNotEmpty ? 1 : 0) +
-      (_filterPreacherId != null ? 1 : 0) +
-      (_filterDateRange != null ? 1 : 0);
-
-  void _clearFilters() {
-    setState(() {
-      _filterTagIds.clear();
-      _filterPreacherId = null;
-      _filterDateRange = null;
-      _isFilterActive = false;
-      _filteredNotes = null;
-    });
-  }
+  void _clearFilters() => _uiCtl.clearFilters();
 
   Future<void> _applyFilters() async {
-    if (!_hasActiveFilters) {
-      setState(() {
-        _filteredNotes = null;
-      });
+    if (!_ui.hasActiveFilters) {
+      _uiCtl.setFilteredNotes(null);
       return;
     }
 
@@ -124,60 +73,33 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
 
       final results = await noteRepository.searchNotesFiltered(
         userId: userId,
-        tagIds: _filterTagIds.isNotEmpty ? _filterTagIds.toList() : null,
-        preacherId: _filterPreacherId,
-        dateFrom: _filterDateRange?.start.millisecondsSinceEpoch,
-        dateTo: _filterDateRange?.end.add(const Duration(days: 1)).millisecondsSinceEpoch,
-        folderId: _selectedFolderId,
+        tagIds: _ui.filterTagIds.isNotEmpty ? _ui.filterTagIds.toList() : null,
+        preacherId: _ui.filterPreacherId,
+        dateFrom: _ui.filterDateRange?.start.millisecondsSinceEpoch,
+        dateTo: _ui.filterDateRange?.end
+            .add(const Duration(days: 1))
+            .millisecondsSinceEpoch,
+        folderId: _ui.selectedFolderId,
       );
 
       // Convert NoteModel to domain Note using the existing provider's mapping
       final allNotes = ref.read(notesStreamProvider).valueOrNull ?? [];
       final filteredIds = results.map((n) => n.id).toSet();
       if (!mounted) return;
-      setState(() {
-        _filteredNotes = allNotes.where((n) => filteredIds.contains(n.id)).toList();
-      });
+      _uiCtl.setFilteredNotes(
+        allNotes.where((n) => filteredIds.contains(n.id)).toList(),
+      );
     } catch (e) {
       debugPrint('Failed to apply filters: $e');
     }
   }
 
-  void _toggleFolderSection() {
-    setState(() {
-      _isFolderSectionExpanded = !_isFolderSectionExpanded;
-    });
-  }
+  void _enterSelectMode({String? initialNoteId}) =>
+      _uiCtl.enterSelectMode(initialNoteId: initialNoteId);
 
-  void _enterSelectMode({String? initialNoteId}) {
-    setState(() {
-      _isSelecting = true;
-      _selectedNoteIds.clear();
-      if (initialNoteId != null) {
-        _selectedNoteIds.add(initialNoteId);
-      }
-    });
-  }
+  void _exitSelectMode() => _uiCtl.exitSelectMode();
 
-  void _exitSelectMode() {
-    setState(() {
-      _isSelecting = false;
-      _selectedNoteIds.clear();
-    });
-  }
-
-  void _toggleNoteSelection(String noteId) {
-    setState(() {
-      if (_selectedNoteIds.contains(noteId)) {
-        _selectedNoteIds.remove(noteId);
-        if (_selectedNoteIds.isEmpty) {
-          _isSelecting = false;
-        }
-      } else {
-        _selectedNoteIds.add(noteId);
-      }
-    });
-  }
+  void _toggleNoteSelection(String noteId) => _uiCtl.toggleNoteSelected(noteId);
 
   Future<void> _moveNote(domain.Note note) async {
     final result = await MoveToFolderSheet.show(
@@ -189,12 +111,14 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
 
     try {
       final repository = ref.read(notesRepositoryProvider);
-      final moved = await repository.moveNotes([note.id], result.targetFolderId);
+      final moved = await repository.moveNotes([
+        note.id,
+      ], result.targetFolderId);
       if (!mounted) return;
       if (moved > 0) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Moved to ${result.targetFolderName}'),
+            content: Text(l10n(context).movedToTarget(result.targetFolderName)),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -211,27 +135,28 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   }
 
   Future<void> _moveSelectedNotes() async {
-    if (_selectedNoteIds.isEmpty) return;
+    if (_ui.selectedNoteIds.isEmpty) return;
 
     // Determine current folder for disabling in picker.
     // If all selected notes share the same folder, disable it.
     final notes = ref.read(notesStreamProvider).valueOrNull ?? [];
-    final selectedNotes =
-        notes.where((n) => _selectedNoteIds.contains(n.id)).toList();
+    final selectedNotes = notes
+        .where((n) => _ui.selectedNoteIds.contains(n.id))
+        .toList();
     final folderIds = selectedNotes.map((n) => n.folderId).toSet();
     final commonFolderId = folderIds.length == 1 ? folderIds.first : null;
 
     final result = await MoveToFolderSheet.show(
       context,
       currentFolderId: commonFolderId,
-      noteCount: _selectedNoteIds.length,
+      noteCount: _ui.selectedNoteIds.length,
     );
     if (result == null || !mounted) return;
 
     try {
       final repository = ref.read(notesRepositoryProvider);
       final moved = await repository.moveNotes(
-        _selectedNoteIds.toList(),
+        _ui.selectedNoteIds.toList(),
         result.targetFolderId,
       );
       if (!mounted) return;
@@ -239,7 +164,9 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       if (moved > 0) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Moved $moved note${moved == 1 ? '' : 's'} to ${result.targetFolderName}'),
+            content: Text(
+              l10n(context).movedNotesToFolder(moved, result.targetFolderName),
+            ),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -257,14 +184,17 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   }
 
   Future<void> _deleteSelectedNotes() async {
-    if (_selectedNoteIds.isEmpty) return;
+    if (_ui.selectedNoteIds.isEmpty) return;
 
-    final count = _selectedNoteIds.length;
-    final confirmed = await showDialog<bool>(
+    final count = _ui.selectedNoteIds.length;
+    final confirmed =
+        await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
             title: Text(l10n(context).moveToTrash),
-            content: Text('Move $count selected note${count == 1 ? '' : 's'} to trash?'),
+            content: Text(
+              'Move $count selected note${count == 1 ? '' : 's'} to trash?',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
@@ -272,7 +202,9 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                style: TextButton.styleFrom(foregroundColor: context.dangerText),
+                style: TextButton.styleFrom(
+                  foregroundColor: context.dangerText,
+                ),
                 child: Text(l10n(context).moveToTrash),
               ),
             ],
@@ -284,15 +216,17 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
 
     final repository = ref.read(notesRepositoryProvider);
     try {
-      for (final id in _selectedNoteIds) {
+      for (final id in _ui.selectedNoteIds) {
         await repository.trashNote(id);
       }
       if (!mounted) return;
-      final deletedCount = _selectedNoteIds.length;
+      final deletedCount = _ui.selectedNoteIds.length;
       _exitSelectMode();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Moved $deletedCount note${deletedCount == 1 ? '' : 's'} to trash'),
+          content: Text(
+            'Moved $deletedCount note${deletedCount == 1 ? '' : 's'} to trash',
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -320,23 +254,40 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     }
   }
 
+  /// The reader-facing name of a sort option.
+  ///
+  /// [NotesSortOption.label] is the untranslated fallback; the menu and the
+  /// sort control both read from here so they stay in one language.
+  String _sortLabel(BuildContext context, NotesSortOption option) =>
+      switch (option) {
+        NotesSortOption.lastEdited => l10n(context).notesSortLastEdited,
+        NotesSortOption.title => l10n(context).notesSortTitle,
+        NotesSortOption.createdDate => l10n(context).notesSortCreatedDate,
+      };
+
   List<domain.Note> _sortNotes(List<domain.Note> notes) {
     final sorted = List<domain.Note>.from(notes);
-    switch (_sortOption) {
+    switch (_ui.sortOption) {
       case NotesSortOption.lastEdited:
-        sorted.sort((a, b) => _sortAscending
-            ? a.updatedAt.compareTo(b.updatedAt)
-            : b.updatedAt.compareTo(a.updatedAt));
+        sorted.sort(
+          (a, b) => _ui.sortAscending
+              ? a.updatedAt.compareTo(b.updatedAt)
+              : b.updatedAt.compareTo(a.updatedAt),
+        );
         break;
       case NotesSortOption.title:
-        sorted.sort((a, b) => _sortAscending
-            ? a.title.compareTo(b.title)
-            : b.title.compareTo(a.title));
+        sorted.sort(
+          (a, b) => _ui.sortAscending
+              ? a.title.compareTo(b.title)
+              : b.title.compareTo(a.title),
+        );
         break;
       case NotesSortOption.createdDate:
-        sorted.sort((a, b) => _sortAscending
-            ? a.createdAt.compareTo(b.createdAt)
-            : b.createdAt.compareTo(a.createdAt));
+        sorted.sort(
+          (a, b) => _ui.sortAscending
+              ? a.createdAt.compareTo(b.createdAt)
+              : b.createdAt.compareTo(a.createdAt),
+        );
         break;
     }
     return sorted;
@@ -392,6 +343,11 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Subscribes this screen to the view state. The `_ui` getter reads without
+    // watching, so this single watch is what keeps the screen in sync; once
+    // the sections below become their own widgets they watch for themselves
+    // and this can narrow to the slices the shell actually draws.
+    ref.watch(notesHomeUiProvider);
 
     return PopScope(
       canPop: false,
@@ -406,10 +362,10 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
         // — the folder band and the filter bar each had their own fill. Those
         // now match the page, so there is one grey rather than three.
         backgroundColor: context.pageGround,
-        appBar: _isSelecting
+        appBar: _ui.selecting
             ? _buildSelectionAppBar(context)
             : _buildNormalAppBar(context),
-        floatingActionButton: _isSelecting || _showingTrash
+        floatingActionButton: _ui.selecting || _ui.showingTrash
             ? null
             : FloatingActionButton(
                 heroTag: null,
@@ -418,37 +374,35 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                 foregroundColor: AppTheme.onAccent(AppTheme.brandPurple),
                 child: const Icon(Icons.add_rounded),
               ),
-        body: _showingTrash
+        body: _ui.showingTrash
             ? _buildTrashSection(context)
             : Column(
-          children: [
-            // Folder Section (collapsible accordion)
-            // AnimatedSize with a ceiling rather than AnimatedContainer with a
-            // fixed height: expanding gave 35% of the screen whether there
-            // were twenty folders or none, so an empty list drew ~300pt of
-            // blank space on a tall phone. Now it takes what it needs and
-            // stops at the ceiling.
-            AnimatedSize(
-              duration: context.motion(const Duration(milliseconds: 300)),
-              curve: Curves.easeInOut,
-              alignment: Alignment.topCenter,
-              child: ConstrainedBox(
-                key: const ValueKey('folderSection'),
-                constraints: BoxConstraints(
-                  maxHeight: _isFolderSectionExpanded
-                      ? MediaQuery.of(context).size.height * 0.35
-                      : 48,
-                ),
-                child: _buildFolderSection(context),
-              ),
-            ),
+                children: [
+                  // Folder Section (collapsible accordion)
+                  // AnimatedSize with a ceiling rather than AnimatedContainer with a
+                  // fixed height: expanding gave 35% of the screen whether there
+                  // were twenty folders or none, so an empty list drew ~300pt of
+                  // blank space on a tall phone. Now it takes what it needs and
+                  // stops at the ceiling.
+                  AnimatedSize(
+                    duration: context.motion(const Duration(milliseconds: 300)),
+                    curve: Curves.easeInOut,
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      key: const ValueKey('folderSection'),
+                      constraints: BoxConstraints(
+                        maxHeight: _ui.folderSectionExpanded
+                            ? MediaQuery.of(context).size.height * 0.35
+                            : 48,
+                      ),
+                      child: const FolderSection(),
+                    ),
+                  ),
 
-            // Notes Section (takes remaining space)
-            Expanded(
-              child: _buildNotesSection(context),
-            ),
-          ],
-        ),
+                  // Notes Section (takes remaining space)
+                  Expanded(child: _buildNotesSection(context)),
+                ],
+              ),
       ),
     );
   }
@@ -463,55 +417,61 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       // no-back: the Notes tab root. A branch root has nothing to pop to,
       // so a back button would be a dead control.
       automaticallyImplyLeading: false,
-      title: TabTitle(_showingTrash ? 'Trash' : 'Notes'),
+      title: TabTitle(_ui.showingTrash ? 'Trash' : 'Notes'),
       actions: [
         IconButton(
           icon: Icon(
-            _showingTrash ? Icons.arrow_back : Icons.delete_outline,
-            color: _showingTrash ? colorScheme.onSurface : context.mutedText,
+            _ui.showingTrash ? Icons.arrow_back : Icons.delete_outline,
+            color: _ui.showingTrash ? colorScheme.onSurface : context.mutedText,
           ),
-          tooltip: _showingTrash ? 'Back to Notes' : 'Trash',
+          tooltip: _ui.showingTrash ? 'Back to Notes' : 'Trash',
           onPressed: () {
-            setState(() {
-              _showingTrash = !_showingTrash;
-            });
+            _uiCtl.setShowingTrash(!_ui.showingTrash);
           },
         ),
-        if (!_showingTrash) IconButton(
-          tooltip: l10n(context).actionSearch,
-          icon: Icon(Icons.search_rounded, color: Theme.of(context).colorScheme.onSurfaceVariant),
-          onPressed: () => context.push(Routes.search),
-        ),
-        if (!_showingTrash) PopupMenuButton<String>(
-          icon: Icon(Icons.more_vert_rounded, color: Theme.of(context).colorScheme.onSurfaceVariant),
-          onSelected: (value) {
-            switch (value) {
-              case 'select':
-                _enterSelectMode();
-              default:
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Selected: $value'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-            }
-          },
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              value: 'sort',
-              child: Text(l10n(context).sortNotes),
+        if (!_ui.showingTrash)
+          IconButton(
+            tooltip: l10n(context).actionSearch,
+            icon: Icon(
+              Icons.search_rounded,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
-            PopupMenuItem(
-              value: 'density',
-              child: Text(l10n(context).changeViewDensity),
+            onPressed: () => context.push(Routes.search),
+          ),
+        if (!_ui.showingTrash)
+          PopupMenuButton<String>(
+            icon: Icon(
+              Icons.more_vert_rounded,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
-            PopupMenuItem(
-              value: 'select',
-              child: Text(l10n(context).selectMode),
-            ),
-          ],
-        ),
+            onSelected: (value) {
+              switch (value) {
+                case 'select':
+                  _enterSelectMode();
+                default:
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(l10n(context).selectedValue(value)),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'sort',
+                child: Text(l10n(context).sortNotes),
+              ),
+              PopupMenuItem(
+                value: 'density',
+                child: Text(l10n(context).changeViewDensity),
+              ),
+              PopupMenuItem(
+                value: 'select',
+                child: Text(l10n(context).selectMode),
+              ),
+            ],
+          ),
       ],
     );
   }
@@ -519,7 +479,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   /// Builds the selection mode app bar with action buttons
   AppBar _buildSelectionAppBar(BuildContext context) {
     final theme = Theme.of(context);
-    final count = _selectedNoteIds.length;
+    final count = _ui.selectedNoteIds.length;
 
     return AppBar(
       backgroundColor: theme.colorScheme.surface,
@@ -542,7 +502,10 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
           onPressed: count > 0 ? _moveSelectedNotes : null,
         ),
         IconButton(
-          icon: Icon(Icons.delete_outline, color: count > 0 ? context.dangerText : null),
+          icon: Icon(
+            Icons.delete_outline,
+            color: count > 0 ? context.dangerText : null,
+          ),
           tooltip: l10n(context).moveToTrash,
           onPressed: count > 0 ? _deleteSelectedNotes : null,
         ),
@@ -551,185 +514,16 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   }
 
   /// Builds the folder section
-  Widget _buildFolderSection(BuildContext context) {
-    final foldersAsync = ref.watch(foldersStreamProvider);
-    final notesAsync = ref.watch(notesStreamProvider);
-
-    return Container(
-      // The folder section is part of the page, not a raised panel. A filled
-      // band here reads as a grey slab across the top of the list — it was
-      // Colors.grey.shade100 before, which the theme migration turned into a
-      // heavier container fill.
-      color: context.pageGround,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Collapsible Header
-          _buildCollapsibleFolderHeader(context, foldersAsync),
-
-          // Folder List (only visible when expanded)
-          if (_isFolderSectionExpanded)
-            Flexible(
-              child: foldersAsync.when(
-                loading: () => const ListTileSkeletonList(count: 4, hasLeading: false),
-                error: (e, _) => Center(child: Text(UserFacingError.forLoad(e))),
-                data: (folders) {
-                  if (folders.isEmpty) {
-                    return Center(
-                      child: Text(
-                        l10n(context).noFoldersYet,
-                        style: TextStyle(color: context.mutedText),
-                      ),
-                    );
-                  }
-
-                  // Get notes to calculate counts per folder
-                  final notes = notesAsync.valueOrNull ?? [];
-
-                  // Pre-compute note counts per folder to avoid O(notes*folders)
-                  final noteCountByFolder = <String?, int>{};
-                  for (final note in notes) {
-                    noteCountByFolder[note.folderId] =
-                        (noteCountByFolder[note.folderId] ?? 0) + 1;
-                  }
-
-                  // Pre-build children map so recursive traversal is O(F) not O(F²)
-                  final childrenByParentId = <String?, List<dynamic>>{};
-                  for (final folder in folders) {
-                    childrenByParentId.putIfAbsent(folder.parentId, () => []).add(folder);
-                  }
-                  for (final children in childrenByParentId.values) {
-                    children.sort((a, b) => a.name.compareTo(b.name));
-                  }
-
-                  final roots = childrenByParentId[null] ?? const [];
-
-                  final totalNoteCountById = <String?, int>{};
-                  void computeTotal(dynamic folder) {
-                    int count = noteCountByFolder[folder.id] ?? 0;
-                    for (final child in childrenByParentId[folder.id] ?? const []) {
-                      computeTotal(child);
-                      count += totalNoteCountById[child.id] ?? 0;
-                    }
-                    totalNoteCountById[folder.id] = count;
-                  }
-                  for (final root in roots) {
-                    computeTotal(root);
-                  }
-
-                  // Build the folder tree widgets
-                  final folderWidgets = <Widget>[
-                    // "All Notes" option
-                    FolderRow(
-                      title: l10n(context).allNotes,
-                      noteCount: notes.length,
-                      depth: 0,
-                      hasChildren: false,
-                      isExpanded: false,
-                      isActive: _selectedFolderId == null,
-                      onTap: () {
-                        setState(() {
-                          _selectedFolderId = null;
-                          _activeSmartCollection = null;
-                        });
-                      },
-                      onExpandToggle: null,
-                    ),
-                  ];
-
-                  for (final folder in roots) {
-                    folderWidgets.addAll(
-                      _buildFolderTreeItems(folder, childrenByParentId, totalNoteCountById, depth: 0),
-                    );
-                  }
-
-                  return ListView.builder(
-                      // Sizes to its rows so the section can be shorter than
-                      // the ceiling when there are only a few folders.
-                      shrinkWrap: true,
-                    padding: const EdgeInsets.only(bottom: 16),
-                    itemCount: folderWidgets.length,
-                    itemBuilder: (context, index) => folderWidgets[index],
-                  );
-                },
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _buildFolderTreeItems(
-    dynamic folder,
-    Map<String?, List<dynamic>> childrenByParentId,
-    Map<String?, int> totalNoteCountById, {
-    required int depth,
-  }) {
-    final children = childrenByParentId[folder.id] ?? const [];
-
-    final hasChildren = children.isNotEmpty;
-    final isExpanded = _expandedFolders.contains(folder.id);
-    final isActive = _selectedFolderId == folder.id;
-    final noteCount = totalNoteCountById[folder.id] ?? 0;
-
-    final widgets = <Widget>[
-      FolderRow(
-        title: folder.name,
-        noteCount: noteCount,
-        depth: depth,
-        hasChildren: hasChildren,
-        isExpanded: isExpanded,
-        isActive: isActive,
-        visibility: folder.visibility,
-        onTap: () {
-          setState(() {
-            _selectedFolderId = folder.id;
-            _activeSmartCollection = null;
-          });
-        },
-        onExpandToggle: hasChildren
-            ? () {
-                setState(() {
-                  if (isExpanded) {
-                    _expandedFolders.remove(folder.id);
-                  } else {
-                    _expandedFolders.add(folder.id);
-                  }
-                });
-              }
-            : null,
-      ),
-    ];
-
-    if (isExpanded && hasChildren) {
-      for (final child in children) {
-        widgets.addAll(
-          _buildFolderTreeItems(child, childrenByParentId, totalNoteCountById, depth: depth + 1),
-        );
-      }
-    }
-
-    return widgets;
-  }
-
-  /// Builds the notes section
   Widget _buildNotesSection(BuildContext context) {
     final notesAsync = ref.watch(notesStreamProvider);
-    final peopleAsync = ref.watch(peopleStreamProvider);
 
-    // Build a map of person ID to name for quick lookup
-    final peopleMap = peopleAsync.whenOrNull(
-      data: (people) => {for (var p in people) p.id: p.name},
-    ) ?? {};
-
-    // Build a map of folder ID to name for display
-    final foldersAsync = ref.watch(foldersStreamProvider);
-    final folderMap = foldersAsync.whenOrNull(
-      data: (folders) => {for (var f in folders) f.id: f.name},
-    ) ?? {};
+    // Both lookups are derived providers, so they are rebuilt when a person or
+    // folder actually changes rather than on every rebuild of this screen.
+    final peopleMap = ref.watch(personNamesByIdProvider);
+    final folderMap = ref.watch(folderNamesByIdProvider);
 
     // Smart collection data (only fetch when active)
-    final smartNotes = _activeSmartCollection != null
+    final smartNotes = _ui.activeSmartCollection != null
         ? _getSmartCollectionNotes(ref)
         : null;
 
@@ -744,30 +538,32 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
         data: (notes) {
           // Smart collection overrides folder/filter selection
           final List<domain.Note> baseNotes;
-          if (_activeSmartCollection != null && smartNotes != null) {
+          if (_ui.activeSmartCollection != null && smartNotes != null) {
             final smartIds = smartNotes.map((n) => n.id).toSet();
             baseNotes = notes.where((n) => smartIds.contains(n.id)).toList();
-          } else if (_hasActiveFilters && _filteredNotes != null) {
-            baseNotes = _selectedFolderId == null
-                ? _filteredNotes!
-                : _filteredNotes!
-                    .where((n) => n.folderId == _selectedFolderId)
-                    .toList();
+          } else if (_ui.hasActiveFilters && _ui.filteredNotes != null) {
+            baseNotes = _ui.selectedFolderId == null
+                ? _ui.filteredNotes!
+                : _ui.filteredNotes!
+                      .where((n) => n.folderId == _ui.selectedFolderId)
+                      .toList();
           } else {
-            baseNotes = _selectedFolderId == null
+            baseNotes = _ui.selectedFolderId == null
                 ? notes
-                : notes.where((n) => n.folderId == _selectedFolderId).toList();
+                : notes
+                      .where((n) => n.folderId == _ui.selectedFolderId)
+                      .toList();
           }
           final sortedNotes = _sortNotes(baseNotes);
 
           // Determine header title based on selection
           final String headerTitle;
-          if (_activeSmartCollection != null) {
-            headerTitle = _activeSmartCollection!.toUpperCase();
-          } else if (_selectedFolderId == null) {
-            headerTitle = 'ALL NOTES';
+          if (_ui.activeSmartCollection != null) {
+            headerTitle = _ui.activeSmartCollection!.toUpperCase();
+          } else if (_ui.selectedFolderId == null) {
+            headerTitle = l10n(context).allNotesUpper;
           } else {
-            headerTitle = 'NOTES IN FOLDER';
+            headerTitle = l10n(context).notesInFolderUpper;
           }
 
           return Column(
@@ -791,7 +587,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
               ),
 
               // Filter bar (shown when filters are active)
-              if (_isFilterActive) _buildFilterBar(context),
+              if (_ui.filterBarVisible) _buildFilterBar(context),
 
               // Notes List
               Expanded(
@@ -811,17 +607,21 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                           final preacherName = note.preacherId != null
                               ? peopleMap[note.preacherId]
                               : null;
-                          final folderName = _selectedFolderId == null && note.folderId != null
+                          final folderName =
+                              _ui.selectedFolderId == null &&
+                                  note.folderId != null
                               ? folderMap[note.folderId]
                               : null;
 
-                          final isSelected = _selectedNoteIds.contains(note.id);
+                          final isSelected = _ui.selectedNoteIds.contains(
+                            note.id,
+                          );
 
                           // Spacing comes from NoteRow's own cardMargin (4
                           // top and bottom). A wrapper here used to add 6
                           // more on each side, putting consecutive rows 20px
                           // apart where every other list leaves 8.
-                          return _isSelecting
+                          return _ui.selecting
                               ? _buildSelectableNoteRow(
                                   note: note,
                                   isSelected: isSelected,
@@ -849,7 +649,8 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                                         onPressed: (context) async {
                                           final shouldDelete =
                                               await _showDeleteConfirmation(
-                                                  context);
+                                                context,
+                                              );
                                           if (shouldDelete) {
                                             _deleteNote(note.id);
                                           }
@@ -864,14 +665,18 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                                     preacherName: preacherName,
                                     folderName: folderName,
                                     tags: const [],
-                                    onTap: () => context.push('/notes/${note.id}'),
-                                    onLongPress: () => _enterSelectMode(initialNoteId: note.id),
+                                    onTap: () =>
+                                        context.push('/notes/${note.id}'),
+                                    onLongPress: () => _enterSelectMode(
+                                      initialNoteId: note.id,
+                                    ),
                                     actions: [
                                       RowAction(
                                         icon: Icons.checklist_rounded,
                                         label: l10n(context).select,
                                         onSelected: () => _enterSelectMode(
-                                            initialNoteId: note.id),
+                                          initialNoteId: note.id,
+                                        ),
                                       ),
                                       RowAction(
                                         icon: Icons.delete_outline_rounded,
@@ -893,78 +698,6 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   }
 
   /// Builds the collapsible folder section header
-  Widget _buildCollapsibleFolderHeader(BuildContext context, AsyncValue<List<dynamic>> foldersAsync) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    final folderCount = foldersAsync.when(
-      data: (folders) => folders.length,
-      loading: () => 0,
-      error: (e, s) => 0,
-    );
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: _toggleFolderSection,
-        child: Container(
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: context.hairline,
-                width: 1,
-              ),
-            ),
-          ),
-          child: Row(
-            children: [
-              // Expand/collapse indicator
-              AnimatedRotation(
-                turns: _isFolderSectionExpanded ? 0.25 : 0,
-                duration: context.motion(const Duration(milliseconds: 300)),
-                child: Icon(
-                  Icons.chevron_right_rounded,
-                  size: 20,
-                  color: colorScheme.onSurface.withValues(alpha: 0.5),
-                ),
-              ),
-              const SizedBox(width: 8),
-              // Title and count
-              Text(
-                'FOLDERS ($folderCount)',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: context.mutedText,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const Spacer(),
-              // Add folder button
-              IconButton(
-                tooltip: l10n(context).newFolder,
-                icon: Icon(
-                  Icons.create_new_folder_rounded,
-                  color: AppTheme.brandPurple,
-                  size: 20,
-                ),
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const FolderManagementScreen(),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Builds a section header with title, count, and optional trailing widget
   Widget _buildSectionHeader(
     BuildContext context, {
     required String title,
@@ -976,12 +709,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: context.hairline,
-            width: 1,
-          ),
-        ),
+        border: Border(bottom: BorderSide(color: context.hairline, width: 1)),
       ),
       child: Row(
         children: [
@@ -1004,23 +732,21 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   Widget _buildFilterButton(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        setState(() {
-          _isFilterActive = !_isFilterActive;
-        });
+        _uiCtl.setFilterBarVisible(!_ui.filterBarVisible);
       },
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            _isFilterActive
+            _ui.filterBarVisible
                 ? Icons.filter_list_rounded
                 : Icons.filter_list_off_rounded,
             size: 18,
-            color: _hasActiveFilters
+            color: _ui.hasActiveFilters
                 ? AppTheme.brandPurple
                 : context.mutedText,
           ),
-          if (_hasActiveFilters) ...[
+          if (_ui.hasActiveFilters) ...[
             const SizedBox(width: 2),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
@@ -1029,11 +755,12 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                '$_activeFilterCount',
+                '${_ui.activeFilterCount}',
                 style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600),
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -1051,9 +778,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: context.pageGround,
-        border: Border(
-          bottom: BorderSide(color: context.hairline, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: context.hairline, width: 1)),
       ),
       child: Row(
         children: [
@@ -1064,12 +789,13 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
               error: (_, _) => const SizedBox.shrink(),
               data: (tags) => FilterPill(
                 icon: Icons.label_outlined,
-                label: _filterTagIds.isEmpty
+                label: _ui.filterTagIds.isEmpty
                     ? 'Tags'
-                    : '${_filterTagIds.length} tag${_filterTagIds.length == 1 ? '' : 's'}',
-                selected: _filterTagIds.isNotEmpty,
+                    : '${_ui.filterTagIds.length} tag${_ui.filterTagIds.length == 1 ? '' : 's'}',
+                selected: _ui.filterTagIds.isNotEmpty,
                 onTap: () => _showTagFilterSheet(context, tags),
-                accent: AppTheme.brandPurple,),
+                accent: AppTheme.brandPurple,
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -1080,18 +806,19 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
               loading: () => const SizedBox.shrink(),
               error: (_, _) => const SizedBox.shrink(),
               data: (people) {
-                final selectedName = _filterPreacherId != null
+                final selectedName = _ui.filterPreacherId != null
                     ? people
-                        .where((p) => p.id == _filterPreacherId)
-                        .map((p) => p.name)
-                        .firstOrNull
+                          .where((p) => p.id == _ui.filterPreacherId)
+                          .map((p) => p.name)
+                          .firstOrNull
                     : null;
                 return FilterPill(
                   icon: Icons.person_outlined,
                   label: selectedName ?? 'Preacher',
-                  selected: _filterPreacherId != null,
+                  selected: _ui.filterPreacherId != null,
                   onTap: () => _showPreacherFilterSheet(context, people),
-                  accent: AppTheme.brandPurple,);
+                  accent: AppTheme.brandPurple,
+                );
               },
             ),
           ),
@@ -1101,16 +828,17 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
           Expanded(
             child: FilterPill(
               icon: Icons.calendar_today_outlined,
-              label: _filterDateRange != null
-                  ? '${_filterDateRange!.start.day}/${_filterDateRange!.start.month} – ${_filterDateRange!.end.day}/${_filterDateRange!.end.month}'
+              label: _ui.filterDateRange != null
+                  ? '${_ui.filterDateRange!.start.day}/${_ui.filterDateRange!.start.month} – ${_ui.filterDateRange!.end.day}/${_ui.filterDateRange!.end.month}'
                   : 'Date',
-              selected: _filterDateRange != null,
+              selected: _ui.filterDateRange != null,
               onTap: () => _showDateRangeFilter(context),
-              accent: AppTheme.brandPurple,),
+              accent: AppTheme.brandPurple,
+            ),
           ),
 
           // Clear all
-          if (_hasActiveFilters) ...[
+          if (_ui.hasActiveFilters) ...[
             const SizedBox(width: 8),
             GestureDetector(
               onTap: _clearFilters,
@@ -1135,17 +863,15 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 8, 12),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: context.hairline),
-        ),
+        border: Border(bottom: BorderSide(color: context.hairline)),
       ),
       child: Row(
         children: [
           Text(
             title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
           const Spacer(),
           IconButton(
@@ -1182,17 +908,26 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 32),
                       child: Column(
                         children: [
-                          Icon(Icons.label_off_outlined,
-                              size: 40, color: context.hintText),
+                          Icon(
+                            Icons.label_off_outlined,
+                            size: 40,
+                            color: context.hintText,
+                          ),
                           const SizedBox(height: 8),
-                          Text(l10n(context).noTagsAvailable,
-                              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                          Text(
+                            l10n(context).noTagsAvailable,
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
                         ],
                       ),
                     )
                   else
                     ...tags.map((tag) {
-                      final isSelected = _filterTagIds.contains(tag.id);
+                      final isSelected = _ui.filterTagIds.contains(tag.id);
                       return CheckboxListTile(
                         title: Text(tag.name),
                         value: isSelected,
@@ -1200,15 +935,11 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                         controlAffinity: ListTileControlAffinity.leading,
                         dense: true,
                         onChanged: (value) {
-                          setSheetState(() {
-                            setState(() {
-                              if (value == true) {
-                                _filterTagIds.add(tag.id);
-                              } else {
-                                _filterTagIds.remove(tag.id);
-                              }
-                            });
-                          });
+                          final next = Set<String>.from(_ui.filterTagIds);
+                          value == true
+                              ? next.add(tag.id)
+                              : next.remove(tag.id);
+                          setSheetState(() => _uiCtl.setTagFilter(next));
                         },
                       );
                     }),
@@ -1216,7 +947,8 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                     padding: const EdgeInsets.all(16),
                     child: FilledButton(
                       style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.brandPurple),
+                        backgroundColor: AppTheme.brandPurple,
+                      ),
                       onPressed: () {
                         Navigator.pop(context);
                         _applyFilters();
@@ -1233,8 +965,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     );
   }
 
-  void _showPreacherFilterSheet(
-      BuildContext context, List<dynamic> people) {
+  void _showPreacherFilterSheet(BuildContext context, List<dynamic> people) {
     showModalBottomSheet(
       // Defaults to false: a scroll-controlled sheet otherwise draws its
       // top edge behind the notch or Dynamic Island.
@@ -1257,15 +988,28 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 32),
                       child: Column(
                         children: [
-                          Icon(Icons.person_off_outlined,
-                              size: 40, color: context.hintText),
+                          Icon(
+                            Icons.person_off_outlined,
+                            size: 40,
+                            color: context.hintText,
+                          ),
                           const SizedBox(height: 8),
-                          Text(l10n(context).noPeopleAvailable,
-                              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                          Text(
+                            l10n(context).noPeopleAvailable,
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
                           const SizedBox(height: 4),
-                          Text(l10n(context).addPeopleViaNoteDetails,
-                              style: TextStyle(
-                                  color: context.hintText, fontSize: 13)),
+                          Text(
+                            l10n(context).addPeopleViaNoteDetails,
+                            style: TextStyle(
+                              color: context.hintText,
+                              fontSize: 13,
+                            ),
+                          ),
                         ],
                       ),
                     )
@@ -1274,10 +1018,10 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                     ListTile(
                       title: Text(l10n(context).anyPreacher),
                       leading: Icon(
-                        _filterPreacherId == null
+                        _ui.filterPreacherId == null
                             ? Icons.radio_button_checked
                             : Icons.radio_button_unchecked,
-                        color: _filterPreacherId == null
+                        color: _ui.filterPreacherId == null
                             ? AppTheme.brandPurple
                             : context.mutedText,
                         size: 20,
@@ -1285,12 +1029,12 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                       dense: true,
                       onTap: () {
                         setSheetState(() {
-                          setState(() => _filterPreacherId = null);
+                          _uiCtl.setPreacherFilter(null);
                         });
                       },
                     ),
                     ...people.map((person) {
-                      final isSelected = _filterPreacherId == person.id;
+                      final isSelected = _ui.filterPreacherId == person.id;
                       return ListTile(
                         title: Text(person.name),
                         leading: Icon(
@@ -1304,9 +1048,9 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                         ),
                         dense: true,
                         onTap: () {
-                          setSheetState(() {
-                            setState(() => _filterPreacherId = person.id);
-                          });
+                          setSheetState(
+                            () => _uiCtl.setPreacherFilter(person.id),
+                          );
                         },
                       );
                     }),
@@ -1315,7 +1059,8 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                     padding: const EdgeInsets.all(16),
                     child: FilledButton(
                       style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.brandPurple),
+                        backgroundColor: AppTheme.brandPurple,
+                      ),
                       onPressed: () {
                         Navigator.pop(context);
                         _applyFilters();
@@ -1346,10 +1091,31 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
           builder: (context, setSheetState) {
             final now = DateTime.now();
             final presets = [
-              (label: l10n(context).last7Days, range: DateTimeRange(start: now.subtract(const Duration(days: 7)), end: now)),
-              (label: l10n(context).last30Days, range: DateTimeRange(start: now.subtract(const Duration(days: 30)), end: now)),
-              (label: l10n(context).last90Days, range: DateTimeRange(start: now.subtract(const Duration(days: 90)), end: now)),
-              (label: l10n(context).thisYear, range: DateTimeRange(start: DateTime(now.year), end: now)),
+              (
+                label: l10n(context).last7Days,
+                range: DateTimeRange(
+                  start: now.subtract(const Duration(days: 7)),
+                  end: now,
+                ),
+              ),
+              (
+                label: l10n(context).last30Days,
+                range: DateTimeRange(
+                  start: now.subtract(const Duration(days: 30)),
+                  end: now,
+                ),
+              ),
+              (
+                label: l10n(context).last90Days,
+                range: DateTimeRange(
+                  start: now.subtract(const Duration(days: 90)),
+                  end: now,
+                ),
+              ),
+              (
+                label: l10n(context).thisYear,
+                range: DateTimeRange(start: DateTime(now.year), end: now),
+              ),
             ];
 
             return SafeArea(
@@ -1364,78 +1130,86 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                  // Preset options
-                  ListTile(
-                    title: Text(l10n(context).anyDate),
-                    leading: Icon(
-                      _filterDateRange == null
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_unchecked,
-                      color: _filterDateRange == null
-                          ? AppTheme.brandPurple
-                          : context.mutedText,
-                      size: 20,
-                    ),
-                    dense: true,
-                    onTap: () {
-                      setSheetState(() {
-                        setState(() => _filterDateRange = null);
-                      });
-                    },
-                  ),
-                  ...presets.map((preset) {
-                    final isSelected = _filterDateRange != null &&
-                        _filterDateRange!.start.day == preset.range.start.day &&
-                        _filterDateRange!.start.month == preset.range.start.month &&
-                        _filterDateRange!.end.day == preset.range.end.day;
-                    return ListTile(
-                      title: Text(preset.label),
-                      leading: Icon(
-                        isSelected
-                            ? Icons.radio_button_checked
-                            : Icons.radio_button_unchecked,
-                        color: isSelected
-                            ? AppTheme.brandPurple
-                            : context.mutedText,
-                        size: 20,
-                      ),
-                      dense: true,
-                      onTap: () {
-                        setSheetState(() {
-                          setState(() => _filterDateRange = preset.range);
-                        });
-                      },
-                    );
-                  }),
-                  // Custom range option
-                  ListTile(
-                    leading: const Icon(Icons.date_range_outlined, size: 20),
-                    title: Text(l10n(context).customRange),
-                    dense: true,
-                    onTap: () async {
-                      Navigator.pop(context);
-                      final picked = await showDateRangePicker(
-                        context: this.context,
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime.now(),
-                        initialDateRange: _filterDateRange,
-                        builder: (context, child) {
-                          return Theme(
-                            data: Theme.of(context).copyWith(
-                              colorScheme: Theme.of(context).colorScheme.copyWith(
-                                    primary: AppTheme.brandPurple,
-                                  ),
+                          // Preset options
+                          ListTile(
+                            title: Text(l10n(context).anyDate),
+                            leading: Icon(
+                              _ui.filterDateRange == null
+                                  ? Icons.radio_button_checked
+                                  : Icons.radio_button_unchecked,
+                              color: _ui.filterDateRange == null
+                                  ? AppTheme.brandPurple
+                                  : context.mutedText,
+                              size: 20,
                             ),
-                            child: child!,
-                          );
-                        },
-                      );
-                      if (picked != null) {
-                        setState(() => _filterDateRange = picked);
-                        _applyFilters();
-                      }
-                    },
-                  ),
+                            dense: true,
+                            onTap: () {
+                              setSheetState(
+                                () => _uiCtl.setDateRangeFilter(null),
+                              );
+                            },
+                          ),
+                          ...presets.map((preset) {
+                            final isSelected =
+                                _ui.filterDateRange != null &&
+                                _ui.filterDateRange!.start.day ==
+                                    preset.range.start.day &&
+                                _ui.filterDateRange!.start.month ==
+                                    preset.range.start.month &&
+                                _ui.filterDateRange!.end.day ==
+                                    preset.range.end.day;
+                            return ListTile(
+                              title: Text(preset.label),
+                              leading: Icon(
+                                isSelected
+                                    ? Icons.radio_button_checked
+                                    : Icons.radio_button_unchecked,
+                                color: isSelected
+                                    ? AppTheme.brandPurple
+                                    : context.mutedText,
+                                size: 20,
+                              ),
+                              dense: true,
+                              onTap: () {
+                                setSheetState(
+                                  () => _uiCtl.setDateRangeFilter(preset.range),
+                                );
+                              },
+                            );
+                          }),
+                          // Custom range option
+                          ListTile(
+                            leading: const Icon(
+                              Icons.date_range_outlined,
+                              size: 20,
+                            ),
+                            title: Text(l10n(context).customRange),
+                            dense: true,
+                            onTap: () async {
+                              Navigator.pop(context);
+                              final picked = await showDateRangePicker(
+                                context: this.context,
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime.now(),
+                                initialDateRange: _ui.filterDateRange,
+                                builder: (context, child) {
+                                  return Theme(
+                                    data: Theme.of(context).copyWith(
+                                      colorScheme: Theme.of(context).colorScheme
+                                          .copyWith(
+                                            primary: AppTheme.brandPurple,
+                                          ),
+                                    ),
+                                    child: child!,
+                                  );
+                                },
+                              );
+                              if (picked != null) {
+                                _uiCtl.setDateRangeFilter(picked);
+                                _applyFilters();
+                              }
+                            },
+                          ),
                         ],
                       ),
                     ),
@@ -1444,7 +1218,8 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                     padding: const EdgeInsets.all(16),
                     child: FilledButton(
                       style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.brandPurple),
+                        backgroundColor: AppTheme.brandPurple,
+                      ),
                       onPressed: () {
                         Navigator.pop(context);
                         _applyFilters();
@@ -1473,14 +1248,16 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            _sortOption.label,
+            _sortLabel(context, _ui.sortOption),
             style: theme.textTheme.labelSmall?.copyWith(
               color: AppTheme.brandPurple,
             ),
           ),
           const SizedBox(width: 4),
           Icon(
-            _sortAscending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+            _ui.sortAscending
+                ? Icons.arrow_upward_rounded
+                : Icons.arrow_downward_rounded,
             size: 14,
             color: AppTheme.brandPurple,
           ),
@@ -1509,27 +1286,35 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                 children: [
                   _buildFilterSheetHeader(context, 'Sort by'),
                   ...NotesSortOption.values.map((option) {
-                    final isSelected = _sortOption == option;
+                    final isSelected = _ui.sortOption == option;
                     return ListTile(
-                      title: Text(option.label),
+                      title: Text(_sortLabel(context, option)),
                       leading: Icon(
                         isSelected
                             ? Icons.radio_button_checked
                             : Icons.radio_button_unchecked,
-                        color: isSelected ? AppTheme.brandPurple : context.decorativeInk,
+                        color: isSelected
+                            ? AppTheme.brandPurple
+                            : context.decorativeInk,
                         size: 20,
                       ),
                       dense: true,
                       onTap: () {
-                        setSheetState(() {
-                          setState(() => _sortOption = option);
-                        });
+                        setSheetState(
+                          () => _uiCtl.setSort(
+                            option,
+                            ascending: _ui.sortAscending,
+                          ),
+                        );
                       },
                     );
                   }),
                   const Divider(height: 1),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     child: Row(
                       children: [
                         Text(
@@ -1537,25 +1322,33 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                         ),
                         const Spacer(),
                         GestureDetector(
                           onTap: () {
-                            setSheetState(() {
-                              setState(() => _sortAscending = true);
-                            });
+                            setSheetState(
+                              () => _uiCtl.setSort(
+                                _ui.sortOption,
+                                ascending: true,
+                              ),
+                            );
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
-                              color: _sortAscending
+                              color: _ui.sortAscending
                                   ? AppTheme.brandPurple.withValues(alpha: 0.1)
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: _sortAscending
+                                color: _ui.sortAscending
                                     ? AppTheme.brandPurple
                                     : context.hairline,
                               ),
@@ -1563,15 +1356,26 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.arrow_upward_rounded, size: 14,
-                                    color: _sortAscending ? AppTheme.brandPurple : context.mutedText),
+                                Icon(
+                                  Icons.arrow_upward_rounded,
+                                  size: 14,
+                                  color: _ui.sortAscending
+                                      ? AppTheme.brandPurple
+                                      : context.mutedText,
+                                ),
                                 const SizedBox(width: 4),
-                                Text(l10n(context).asc,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: _sortAscending ? FontWeight.w600 : FontWeight.normal,
-                                      color: _sortAscending ? AppTheme.brandPurple : context.mutedText,
-                                    )),
+                                Text(
+                                  l10n(context).asc,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: _ui.sortAscending
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
+                                    color: _ui.sortAscending
+                                        ? AppTheme.brandPurple
+                                        : context.mutedText,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -1579,19 +1383,25 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                         const SizedBox(width: 8),
                         GestureDetector(
                           onTap: () {
-                            setSheetState(() {
-                              setState(() => _sortAscending = false);
-                            });
+                            setSheetState(
+                              () => _uiCtl.setSort(
+                                _ui.sortOption,
+                                ascending: false,
+                              ),
+                            );
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
-                              color: !_sortAscending
+                              color: !_ui.sortAscending
                                   ? AppTheme.brandPurple.withValues(alpha: 0.1)
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: !_sortAscending
+                                color: !_ui.sortAscending
                                     ? AppTheme.brandPurple
                                     : context.hairline,
                               ),
@@ -1599,15 +1409,26 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.arrow_downward_rounded, size: 14,
-                                    color: !_sortAscending ? AppTheme.brandPurple : context.mutedText),
+                                Icon(
+                                  Icons.arrow_downward_rounded,
+                                  size: 14,
+                                  color: !_ui.sortAscending
+                                      ? AppTheme.brandPurple
+                                      : context.mutedText,
+                                ),
                                 const SizedBox(width: 4),
-                                Text(l10n(context).desc,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: !_sortAscending ? FontWeight.w600 : FontWeight.normal,
-                                      color: !_sortAscending ? AppTheme.brandPurple : context.mutedText,
-                                    )),
+                                Text(
+                                  l10n(context).desc,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: !_ui.sortAscending
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
+                                    color: !_ui.sortAscending
+                                        ? AppTheme.brandPurple
+                                        : context.mutedText,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -1638,7 +1459,9 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                style: TextButton.styleFrom(foregroundColor: context.dangerText),
+                style: TextButton.styleFrom(
+                  foregroundColor: context.dangerText,
+                ),
                 child: Text(l10n(context).moveToTrash),
               ),
             ],
@@ -1702,7 +1525,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
 
   /// Returns NoteModel list for the active smart collection, or null.
   List<NoteModel>? _getSmartCollectionNotes(WidgetRef ref) {
-    switch (_activeSmartCollection) {
+    switch (_ui.activeSmartCollection) {
       case 'Recently Edited':
         return ref.watch(recentlyEditedNotesProvider).valueOrNull;
       case 'Untagged':
@@ -1717,9 +1540,21 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   /// Smart collections horizontal chip bar.
   Widget _buildSmartCollectionsBar(BuildContext context) {
     final collections = [
-      (name: 'Recently Edited', icon: Icons.history_rounded, provider: recentlyEditedNotesProvider),
-      (name: 'Untagged', icon: Icons.label_off_rounded, provider: untaggedNotesProvider),
-      (name: 'No Activity 30d', icon: Icons.hourglass_empty_rounded, provider: staleNotesProvider),
+      (
+        name: 'Recently Edited',
+        icon: Icons.history_rounded,
+        provider: recentlyEditedNotesProvider,
+      ),
+      (
+        name: 'Untagged',
+        icon: Icons.label_off_rounded,
+        provider: untaggedNotesProvider,
+      ),
+      (
+        name: 'No Activity 30d',
+        icon: Icons.hourglass_empty_rounded,
+        provider: staleNotesProvider,
+      ),
     ];
 
     return Container(
@@ -1727,9 +1562,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       padding: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
         color: context.pageGround,
-        border: Border(
-          bottom: BorderSide(color: context.hairline, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: context.hairline, width: 1)),
       ),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
@@ -1738,20 +1571,13 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
         separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final c = collections[index];
-          final isActive = _activeSmartCollection == c.name;
+          final isActive = _ui.activeSmartCollection == c.name;
           final countAsync = ref.watch(c.provider);
           final count = countAsync.valueOrNull?.length;
 
           return GestureDetector(
             onTap: () {
-              setState(() {
-                if (isActive) {
-                  _activeSmartCollection = null;
-                } else {
-                  _activeSmartCollection = c.name;
-                  _selectedFolderId = null;
-                }
-              });
+              _uiCtl.setSmartCollection(isActive ? null : c.name);
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -1760,9 +1586,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                 color: isActive ? AppTheme.brandPurple : context.cardSurface,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: isActive
-                      ? AppTheme.brandPurple
-                      : context.hairline,
+                  color: isActive ? AppTheme.brandPurple : context.hairline,
                 ),
               ),
               child: Row(
@@ -1785,7 +1609,10 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                   if (count != null) ...[
                     const SizedBox(width: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
                       decoration: BoxDecoration(
                         color: isActive
                             ? Colors.white.withValues(alpha: 0.25)
@@ -1835,9 +1662,9 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                   const SizedBox(height: 16),
                   Text(
                     l10n(context).trashEmptyTitle,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: context.mutedText,
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleMedium?.copyWith(color: context.mutedText),
                   ),
                 ],
               ),
@@ -1850,8 +1677,9 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
           itemCount: trashedNotes.length,
           itemBuilder: (context, index) {
             final note = trashedNotes[index];
-            final title =
-                note.title.isEmpty ? domain.Note.untitledLabel : note.title;
+            final title = note.title.isEmpty
+                ? domain.Note.untitledLabel
+                : note.title;
 
             return Slidable(
               key: Key(note.id),
@@ -1894,12 +1722,20 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      icon: Icon(Icons.restore, color: context.successText, size: 20),
+                      icon: Icon(
+                        Icons.restore,
+                        color: context.successText,
+                        size: 20,
+                      ),
                       tooltip: l10n(context).restore,
                       onPressed: () => _restoreNote(note.id, title),
                     ),
                     IconButton(
-                      icon: Icon(Icons.delete_forever, color: context.dangerText, size: 20),
+                      icon: Icon(
+                        Icons.delete_forever,
+                        color: context.dangerText,
+                        size: 20,
+                      ),
                       tooltip: l10n(context).deletePermanently,
                       onPressed: () => _permanentlyDeleteNote(note.id, title),
                     ),
@@ -1919,7 +1755,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Restored "$title"'),
+          content: Text(l10n(context).restoredNamed(title)),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -1935,11 +1771,12 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   }
 
   Future<void> _permanentlyDeleteNote(String noteId, String title) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed =
+        await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
             title: Text(l10n(context).deletePermanently),
-            content: Text('Permanently delete "$title"? This cannot be undone.'),
+            content: Text(l10n(context).permanentlyDeleteConfirm(title)),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
@@ -1947,7 +1784,9 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                style: TextButton.styleFrom(foregroundColor: context.dangerText),
+                style: TextButton.styleFrom(
+                  foregroundColor: context.dangerText,
+                ),
                 child: Text(l10n(context).actionDelete),
               ),
             ],
@@ -1962,7 +1801,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Permanently deleted "$title"'),
+          content: Text(l10n(context).permanentlyDeletedNamed(title)),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -2013,4 +1852,3 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     );
   }
 }
-

@@ -12,6 +12,7 @@ import '../../config/remote/remote_config_keys.dart';
 import '../../config/remote/remote_config_providers.dart';
 import '../config/sync_config.dart';
 import '../engine/sync_state_machine.dart';
+import '../models/stalled_change.dart';
 import '../models/folder_model.dart';
 import '../models/note_model.dart';
 import '../models/prayer_model.dart';
@@ -174,6 +175,106 @@ final personRepositoryProvider = Provider<PersonRepository>((ref) {
   return PersonRepository(database, deviceId);
 });
 
+// ==================== ENTITY COUNT PROVIDERS ====================
+
+// Counts for the dashboard tiles. These run a COUNT(*) rather than watching
+// the full entity list and taking `.length`: the list watches decode every row
+// into a model on every change, so a tile showing one number was paying for
+// the user's whole corpus each time anything in it moved.
+
+/// Number of notes the current user has.
+final noteCountProvider = StreamProvider<int>((ref) {
+  final repository = ref.watch(noteRepositoryProvider);
+  final userId = ref.watch(currentUserIdProvider);
+  return repository.watchNoteCount(userId);
+});
+
+/// Number of prayers currently active for the user.
+final activePrayerCountProvider = StreamProvider<int>((ref) {
+  final repository = ref.watch(prayerRepositoryProvider);
+  final userId = ref.watch(currentUserIdProvider);
+  return repository.watchActivePrayerCount(userId);
+});
+
+/// How many local changes have not reached the server.
+///
+/// Read before anything destructive — signing out wipes the local database,
+/// oplog included — so the user can be told what is at stake rather than
+/// finding out afterwards.
+final pendingChangeCountProvider = FutureProvider<int>((ref) async {
+  final db = ref.watch(syncDatabaseProvider);
+  return db.getPendingOpsCount();
+});
+
+// ==================== STALLED CHANGES ====================
+
+/// Everything sync has given up on, in both directions.
+///
+/// Empty in normal operation. A non-empty list means a change is not where the
+/// user thinks it is — either something they did that the server refused, or
+/// something from another device this one could not apply — and it is the only
+/// place either becomes visible.
+final stalledChangesProvider = FutureProvider<List<StalledChange>>((ref) async {
+  final db = ref.watch(syncDatabaseProvider);
+
+  final outgoing = await db.getQuarantinedOps();
+  final incoming = await db.getDeadLetteredOps();
+
+  final changes = <StalledChange>[
+    for (final op in outgoing)
+      StalledChange(
+        direction: StalledDirection.outgoing,
+        entityType: op.entityType,
+        entityId: op.entityId,
+        reason: op.failedReason ?? 'Unknown',
+        attempts: op.pushAttempts,
+        lastAttemptAt: op.failedAt ?? 0,
+      ),
+    for (final op in incoming)
+      StalledChange(
+        direction: StalledDirection.incoming,
+        entityType: op.entityType,
+        entityId: op.entityId,
+        reason: op.lastError,
+        attempts: op.attempts,
+        lastAttemptAt: op.lastAttemptAt,
+      ),
+  ];
+  changes.sort((a, b) => b.lastAttemptAt.compareTo(a.lastAttemptAt));
+
+  return changes;
+});
+
+/// Clears both directions' give-up flags and syncs again.
+///
+/// Outbound operations simply return to the queue. Inbound ones need more than
+/// that: the cursor advanced past them when they were set aside, so the server
+/// will not resend them unless the cursor is reset — which is why this runs a
+/// full re-check rather than an ordinary sync when there is anything inbound.
+Future<void> retryStalledChanges(WidgetRef ref) async {
+  final db = ref.read(syncDatabaseProvider);
+
+  final outgoing = await db.getQuarantinedOps();
+  final incoming = await db.getDeadLetteredOps();
+
+  for (final op in outgoing) {
+    await db.requeueFailedOp(op.opId);
+  }
+  if (incoming.isNotEmpty) {
+    await db.clearAllDeadLetters();
+  }
+
+  final service = ref.read(syncServiceProvider).valueOrNull;
+  if (service == null) return;
+
+  if (incoming.isNotEmpty) {
+    await service.resetAndSync();
+  } else {
+    await service.syncNow();
+  }
+  ref.invalidate(stalledChangesProvider);
+}
+
 // ==================== FOLDERS PROVIDERS ====================
 
 /// Stream provider for note folders for current user
@@ -308,11 +409,15 @@ final promiseByIdProvider = FutureProvider.family<PromiseModel?, String>((ref, p
   return repository.getPromiseById(promiseId);
 });
 
-/// Provider for promise count
-final promiseCountProvider = FutureProvider<int>((ref) async {
+/// Number of promises the current user has.
+///
+/// A COUNT(*) watch rather than the previous one-shot read, so the dashboard
+/// tile updates when sync brings a promise in instead of going stale until
+/// something else invalidated it.
+final promiseCountProvider = StreamProvider<int>((ref) {
   final repository = ref.watch(promiseRepositoryProvider);
   final userId = ref.watch(currentUserIdProvider);
-  return repository.getPromiseCount(userId);
+  return repository.watchPromiseCount(userId);
 });
 
 // ==================== PEOPLE PROVIDERS ====================
@@ -344,11 +449,11 @@ final uniqueRelationsProvider = FutureProvider<List<String>>((ref) async {
   return repository.getUniqueRelations(userId);
 });
 
-/// Provider for person count
-final personCountProvider = FutureProvider<int>((ref) async {
+/// Number of people the current user has. See [promiseCountProvider].
+final personCountProvider = StreamProvider<int>((ref) {
   final repository = ref.watch(personRepositoryProvider);
   final userId = ref.watch(currentUserIdProvider);
-  return repository.getPersonCount(userId);
+  return repository.watchPersonCount(userId);
 });
 
 // ==================== SONGS PROVIDERS ====================
