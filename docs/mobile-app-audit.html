@@ -620,20 +620,19 @@
     <h1>Selah Mobile Audit</h1>
     <p class="standfirst">
       The Flutter client is in <strong>good structural health</strong> — the analyzer is clean,
-      all 362 tests pass, and the expensive JSON work already runs off the UI isolate. What's
-      left are not lint-visible defects. They are <strong>two credential-at-rest exposures</strong>,
-      <strong>one sync path that scales linearly in database transactions</strong>, and a
+      all 559 tests pass, and the expensive JSON work already runs off the UI isolate. What's
+      left are not lint-visible defects. They are <strong>two credential-at-rest exposures</strong> and a
       cluster of rebuild costs concentrated in a single screen.
     </p>
 
     <div class="facts">
-      <div class="fact ok"><span class="n">0</span><span class="k">Analyzer issues</span></div>
-      <div class="fact ok"><span class="n">362</span><span class="k">Tests passing</span></div>
-      <div class="fact"><span class="n">457</span><span class="k">Dart files</span></div>
-      <div class="fact"><span class="n">110,778</span><span class="k">Lines (non-generated)</span></div>
-      <div class="fact"><span class="n">32</span><span class="k">Drift schema version</span></div>
+      <div class="fact ok"><span class="n">1</span><span class="k">Analyzer issue</span></div>
+      <div class="fact ok"><span class="n">559</span><span class="k">Tests passing</span></div>
+      <div class="fact"><span class="n">476</span><span class="k">Dart files</span></div>
+      <div class="fact"><span class="n">107,313</span><span class="k">Lines (non-generated)</span></div>
+      <div class="fact"><span class="n">36</span><span class="k">Drift schema version</span></div>
     </div>
-    <p class="runnote">flutter analyze — no issues found (90.1s) · flutter test — 362 passed, 0 failed</p>
+    <p class="runnote">flutter analyze — 1 deprecation · flutter test — 559 passed, 0 failed</p>
   </header>
 
   <section>
@@ -643,7 +642,7 @@
       Flutter codebase this size are already handled, so none of the findings below are cleanup debt.
     </p>
     <ul class="passes">
-      <li><span class="v">0</span><span><code>TODO</code>, <code>FIXME</code> or <code>HACK</code> markers across all 457 files</span></li>
+      <li><span class="v">0</span><span><code>TODO</code>, <code>FIXME</code> or <code>HACK</code> markers across all 476 files</span></li>
       <li><span class="v">0</span><span>empty or swallowing <code>catch</code> blocks</span></li>
       <li><span class="v">0</span><span><code>use_build_context_synchronously</code> suppressions, against 168 explicit <code>mounted</code> guards</span></li>
       <li><span class="v">0</span><span>deprecated <code>withOpacity()</code> calls left — all 444 sites migrated to <code>withValues()</code></span></li>
@@ -660,9 +659,9 @@
     <h2>Findings</h2>
 
     <div class="ledger">
-      <span class="tally"><i class="dot" style="background:var(--sev-high)"></i><span class="c">3</span><span class="l">High</span></span>
-      <span class="tally"><i class="dot" style="background:var(--sev-med)"></i><span class="c">7</span><span class="l">Medium</span></span>
-      <span class="tally"><i class="dot" style="background:var(--sev-low)"></i><span class="c">6</span><span class="l">Low</span></span>
+      <span class="tally"><i class="dot" style="background:var(--sev-high)"></i><span class="c">2</span><span class="l">High</span></span>
+      <span class="tally"><i class="dot" style="background:var(--sev-med)"></i><span class="c">4</span><span class="l">Medium</span></span>
+      <span class="tally"><i class="dot" style="background:var(--sev-low)"></i><span class="c">3</span><span class="l">Low</span></span>
     </div>
 
     <!-- ===== HIGH ===== -->
@@ -725,93 +724,26 @@
       </div>
     </article>
 
-    <article class="find sev-high">
+    
+
+    <!-- ===== MEDIUM ===== -->
+
+    
+
+    <article class="find sev-med">
       <div class="stripe"></div>
       <div class="body">
         <div class="find-head">
           <span class="fno">03</span>
-          <span class="badge">High</span>
-          <h3>Sync pull opens one database transaction per remote operation</h3>
-          <span class="tag">Performance</span>
-        </div>
-        <p class="loc">lib/core/sync/engine/sync_engine.dart:566 → _applyRemoteOperation</p>
-        <p>
-          The pull loop awaits <code>_applyRemoteOperation()</code> once per operation, and that method
-          opens its own <code>_db.transaction()</code> wrapping a version-check <code>SELECT</code>
-          plus an upsert. There are <strong>zero</strong> <code>batch()</code> calls in the 2,666-line
-          sync engine.
-        </p>
-        <pre>for (final remoteOp in response.operations) {
-  final resolution = await _applyRemoteOperation(remoteOp);   <span class="cmt">// 1 txn each</span>
-  ...
-}</pre>
-        <p>
-          Each transaction carries its own journal write and fsync. A first login or device restore
-          that pulls several thousand operations pays that cost several thousand times, serially —
-          this is the dominant term in first-run time, and it degrades exactly when the user's
-          impression of the app is being formed.
-        </p>
-        <p class="fix"><b>Fix</b>
-          Wrap each pulled page in one outer <code>transaction()</code>, and collapse the per-entity
-          upserts into a Drift <code>batch()</code>. Keep the per-op version check, but read the
-          existing versions for the page in a single indexed query first rather than one round-trip
-          per operation.
-        </p>
-      </div>
-    </article>
-
-    <!-- ===== MEDIUM ===== -->
-
-    <article class="find sev-med">
-      <div class="stripe"></div>
-      <div class="body">
-        <div class="find-head">
-          <span class="fno">04</span>
           <span class="badge">Medium</span>
-          <h3>The folder tree builds every row eagerly, then hands the list to <code>ListView.builder</code></h3>
+          <h3>The notes list re-sorts the full collection inside <code>build()</code></h3>
           <span class="tag">Performance</span>
         </div>
-        <p class="loc">lib/features/notes/presentation/screens/notes_home_screen.dart:621–652</p>
+        <p class="loc">lib/features/notes/presentation/screens/notes_home_screen.dart:609 → _sortNotes</p>
         <p>
-          <code>folderWidgets</code> is a fully-materialised <code>List&lt;Widget&gt;</code> — every
-          <code>FolderRow</code> in the tree is constructed — and the builder only indexes into it.
-          That removes the lazy construction <code>ListView.builder</code> exists for, and
-          <code>shrinkWrap: true</code> then forces all of them through layout as well.
-        </p>
-        <pre>final folderWidgets = &lt;Widget&gt;[ ... ];        <span class="cmt">// all rows built here</span>
-return ListView.builder(
-  shrinkWrap: true,
-  itemCount: folderWidgets.length,
-  itemBuilder: (context, index) =&gt; folderWidgets[index],   <span class="cmt">// no laziness left</span>
-);</pre>
-        <p>
-          The grouping, the per-parent sort and the recursive <code>computeTotal()</code> roll-up all
-          run in the same <code>build()</code>, so the whole tree is recomputed on every rebuild of
-          the screen — including ones triggered by unrelated state such as the sort menu.
-        </p>
-        <p class="fix"><b>Fix</b>
-          Flatten the tree to a <code>List&lt;_FolderNode&gt;</code> (data, not widgets) and build rows
-          inside <code>itemBuilder</code>. Memoise the flatten + roll-up in a provider keyed on the
-          folder list so it recomputes only when folders actually change.
-        </p>
-      </div>
-    </article>
-
-    <article class="find sev-med">
-      <div class="stripe"></div>
-      <div class="body">
-        <div class="find-head">
-          <span class="fno">05</span>
-          <span class="badge">Medium</span>
-          <h3>The notes list re-allocates lookup maps and re-sorts the full collection inside <code>build()</code></h3>
-          <span class="tag">Performance</span>
-        </div>
-        <p class="loc">lib/features/notes/presentation/screens/notes_home_screen.dart:716–761</p>
-        <p>
-          <code>_buildNotesSection()</code> watches <code>notesStreamProvider</code>,
-          <code>peopleStreamProvider</code> and <code>foldersStreamProvider</code>, then rebuilds a
-          full person-id→name map and folder-id→name map, filters the note list, and calls
-          <code>_sortNotes()</code> over all of it — every single rebuild, on the UI thread.
+          The notes section filters the note list and calls <code>_sortNotes()</code> over all of
+          it — every single rebuild, on the UI thread. <code>_sortNotes()</code> copies the list
+          and sorts the copy, so the cost is the whole collection each time.
         </p>
         <p>
           With a few hundred notes this is invisible. It scales with the user's whole corpus, and it
@@ -819,8 +751,8 @@ return ListView.builder(
           the interactions where dropped frames are most noticeable.
         </p>
         <p class="fix"><b>Fix</b>
-          Move the maps and the filter/sort into derived providers so Riverpod caches them, and have
-          the widget watch the already-sorted result. <code>.select()</code> is used well elsewhere
+          Move the filter/sort into a derived provider so Riverpod caches it, and have the widget
+          watch the already-sorted result. <code>.select()</code> is used well elsewhere
           in this codebase (see <code>overview_grid.dart</code>) — the same approach applies here.
         </p>
       </div>
@@ -830,7 +762,7 @@ return ListView.builder(
       <div class="stripe"></div>
       <div class="body">
         <div class="find-head">
-          <span class="fno">06</span>
+          <span class="fno">04</span>
           <span class="badge">Medium</span>
           <h3>Large accessibility font sizes have no ceiling anywhere in the app</h3>
           <span class="tag">Accessibility</span>
@@ -860,7 +792,7 @@ return ListView.builder(
       <div class="stripe"></div>
       <div class="body">
         <div class="find-head">
-          <span class="fno">07</span>
+          <span class="fno">05</span>
           <span class="badge">Medium</span>
           <h3>Reactive queries are almost entirely unbounded</h3>
           <span class="tag">Performance</span>
@@ -885,70 +817,15 @@ return ListView.builder(
       </div>
     </article>
 
-    <article class="find sev-med">
-      <div class="stripe"></div>
-      <div class="body">
-        <div class="find-head">
-          <span class="fno">08</span>
-          <span class="badge">Medium</span>
-          <h3>Nine of seventeen features have no test touching them</h3>
-          <span class="tag">Coverage</span>
-        </div>
-        <p class="loc">test/ — 27 files, 7,345 lines against 110,778 lines of source</p>
-        <p>
-          The risky core is well covered: the sync engine has e2e, stress, conflict-resolution and
-          field-merge suites. The feature layer is where the gap is —
-          <code>bible</code>, <code>bible_search</code>, <code>feedback</code>, <code>friends</code>,
-          <code>groups</code>, <code>search</code>, <code>social</code>, <code>songs</code> and
-          <code>tags</code> are referenced by no test at all.
-        </p>
-        <p>
-          Test code is 6.6% of source by line. Several untested features are the newest ones, which
-          is the inverse of where coverage is most useful.
-        </p>
-        <p class="fix"><b>Fix</b>
-          Extend the existing <code>screen_smoke_test.dart</code> pattern to the nine uncovered
-          features first — it is cheap and catches the provider-wiring breakages that refactors in
-          <code>sync_providers.dart</code> cause.
-        </p>
-      </div>
-    </article>
+    
+
+    
 
     <article class="find sev-med">
       <div class="stripe"></div>
       <div class="body">
         <div class="find-head">
-          <span class="fno">09</span>
-          <span class="badge">Medium</span>
-          <h3>Folder roll-up recursion is untyped and has no cycle guard</h3>
-          <span class="tag">Correctness</span>
-        </div>
-        <p class="loc">lib/features/notes/presentation/screens/notes_home_screen.dart:608, 663</p>
-        <p>
-          <code>computeTotal(dynamic folder)</code> and <code>_buildFolderTreeItems(dynamic folder, …)</code>
-          recurse through the parent/child map with no visited set and no static typing. Folder
-          hierarchy is unlimited-depth and <code>parentId</code> arrives from sync.
-        </p>
-        <p>
-          Two devices reparenting folders concurrently can converge on a cycle
-          (A→B, B→A) that neither device ever wrote locally. This code then recurses until the stack
-          overflows, taking down the Notes tab with no path to recovery in-app. <code>dynamic</code>
-          also means the analyzer cannot catch a shape mismatch here, which is why this is invisible
-          to the clean analyzer run.
-        </p>
-        <p class="fix"><b>Fix</b>
-          Type both parameters as <code>FolderModel</code>, and thread a
-          <code>Set&lt;String&gt; visited</code> through the recursion that drops any folder already
-          seen on the current path.
-        </p>
-      </div>
-    </article>
-
-    <article class="find sev-med">
-      <div class="stripe"></div>
-      <div class="body">
-        <div class="find-head">
-          <span class="fno">10</span>
+          <span class="fno">06</span>
           <span class="badge">Medium</span>
           <h3>Seventeen files exceed 800 lines, concentrated in screens that mix four concerns</h3>
           <span class="tag">Maintainability</span>
@@ -975,36 +852,13 @@ return ListView.builder(
 
     <!-- ===== LOW ===== -->
 
-    <article class="find sev-low">
-      <div class="stripe"></div>
-      <div class="body">
-        <div class="find-head">
-          <span class="fno">11</span>
-          <span class="badge">Low</span>
-          <h3>Three <code>TextEditingController</code>s leak on every add-verse sheet</h3>
-          <span class="tag">Memory</span>
-        </div>
-        <p class="loc">lib/features/bible/presentation/screens/memorization_screen.dart:87–89</p>
-        <p>
-          <code>_showAddSheet()</code> creates <code>reference</code>, <code>text</code> and
-          <code>version</code> controllers, awaits the modal sheet, and never disposes them — the
-          host is a <code>ConsumerWidget</code>, so there is no <code>dispose()</code> to fall back on.
-          Each open-and-close leaks three controllers with their listener lists.
-          It is the only such site in the app; the analogous
-          <code>join_group_dialog.dart</code> disposes correctly.
-        </p>
-        <p class="fix"><b>Fix</b>
-          Wrap the <code>await showModalBottomSheet(...)</code> in <code>try/finally</code> and
-          dispose all three in the <code>finally</code>.
-        </p>
-      </div>
-    </article>
+    
 
     <article class="find sev-low">
       <div class="stripe"></div>
       <div class="body">
         <div class="find-head">
-          <span class="fno">12</span>
+          <span class="fno">07</span>
           <span class="badge">Low</span>
           <h3>Thirty-seven UI files still carry hardcoded strings, and only English ships</h3>
           <span class="tag">i18n</span>
@@ -1023,39 +877,13 @@ return ListView.builder(
       </div>
     </article>
 
-    <article class="find sev-low">
-      <div class="stripe"></div>
-      <div class="body">
-        <div class="find-head">
-          <span class="fno">13</span>
-          <span class="badge">Low</span>
-          <h3>Legacy <code>/people/…</code> routes are still the ones the app navigates to</h3>
-          <span class="tag">Navigation</span>
-        </div>
-        <p class="loc">lib/core/navigation/nav_actions.dart:12 · lib/features/people/presentation/screens/people_list_screen.dart:47, 122 · lib/core/navigation/routes.dart:150</p>
-        <p>
-          <code>openPerson()</code> calls <code>router.go('/people/$id')</code> and the list screen
-          pushes <code>/people/new</code> and <code>/people/{id}</code>, all of which exist only as
-          backward-compatibility redirects into the Social tab. Every such navigation pays a redirect
-          hop and enters the Social branch's stack from outside it, so the back behaviour is the
-          redirect's rather than the tab's.
-        </p>
-        <p>
-          <code>routes.dart</code> already marks these <code>@deprecated Use socialPeople instead</code>
-          — the constant is annotated, but the app's own navigation never moved across.
-        </p>
-        <p class="fix"><b>Fix</b>
-          Point these three call sites at the canonical <code>Routes.socialPeople…</code> constants,
-          as the group routes already do. The redirects can then stay purely for external deep links.
-        </p>
-      </div>
-    </article>
+    
 
     <article class="find sev-low">
       <div class="stripe"></div>
       <div class="body">
         <div class="find-head">
-          <span class="fno">14</span>
+          <span class="fno">08</span>
           <span class="badge">Low</span>
           <h3>Custom tap targets bypass the accessibility affordances <code>IconButton</code> gets for free</h3>
           <span class="tag">Accessibility</span>
@@ -1079,7 +907,7 @@ return ListView.builder(
       <div class="stripe"></div>
       <div class="body">
         <div class="find-head">
-          <span class="fno">15</span>
+          <span class="fno">09</span>
           <span class="badge">Low</span>
           <h3>Debug logging ships in release paths</h3>
           <span class="tag">Hygiene</span>
@@ -1098,92 +926,45 @@ return ListView.builder(
       </div>
     </article>
 
-    <article class="find sev-low">
-      <div class="stripe"></div>
-      <div class="body">
-        <div class="find-head">
-          <span class="fno">16</span>
-          <span class="badge">Low</span>
-          <h3>A 25 MB <code>bible.db</code> sits in <code>assets/</code> but is not bundled</h3>
-          <span class="tag">Hygiene</span>
-        </div>
-        <p class="loc">assets/bible.db — 25,329,664 bytes · pubspec.yaml declares only assets/images/</p>
-        <p>
-          The <code>pubspec</code> asset list correctly ships only <code>assets/images/</code>, so
-          this file is <em>not</em> inflating the install — the runtime download path is doing its
-          job. It is dead weight in the working tree, and it is one accidental
-          <code>- assets/</code> line away from adding 25 MB to every download.
-        </p>
-        <p class="fix"><b>Fix</b>
-          Move it out of <code>assets/</code> (it is generator output — <code>tools/</code> is its
-          home) so the directory name stops implying it is bundled.
-        </p>
-      </div>
-    </article>
+    
 
   </section>
 
   <section>
     <h2>Where the weight sits</h2>
     <p class="sublede">
-      The two charts below are the shape behind findings 08 and 10 — test coverage concentrated away
-      from the newest features, and file size concentrated in a few screens.
+      The chart below is the shape behind finding 06 — file size concentrated in a few
+      screens.
     </p>
 
     <figure>
       <figcaption>Largest source files, lines (generated and localisation files excluded)</figcaption>
       <div class="bars">
-        <div class="bar-row"><span class="bar-lab">sync_engine.dart</span><span class="bar-track"><span class="bar-fill" style="width:100%"></span><span class="bar-val">2,666</span></span></div>
-        <div class="bar-row"><span class="bar-lab">note_editor_provider.dart</span><span class="bar-track"><span class="bar-fill" style="width:84.5%"></span><span class="bar-val">2,252</span></span></div>
-        <div class="bar-row"><span class="bar-lab">notes_home_screen.dart</span><span class="bar-track"><span class="bar-fill" style="width:75.6%"></span><span class="bar-val">2,016</span></span></div>
-        <div class="bar-row"><span class="bar-lab">group_detail_screen.dart</span><span class="bar-track"><span class="bar-fill" style="width:75.3%"></span><span class="bar-val">2,008</span></span></div>
-        <div class="bar-row"><span class="bar-lab">prayer_detail_screen.dart</span><span class="bar-track"><span class="bar-fill" style="width:72.1%"></span><span class="bar-val">1,923</span></span></div>
-        <div class="bar-row"><span class="bar-lab">sync_database.dart</span><span class="bar-track"><span class="bar-fill" style="width:60.8%"></span><span class="bar-val">1,620</span></span></div>
-        <div class="bar-row"><span class="bar-lab">sync_providers.dart</span><span class="bar-track"><span class="bar-fill" style="width:54.2%"></span><span class="bar-val">1,445</span></span></div>
-        <div class="bar-row"><span class="bar-lab">app_theme.dart</span><span class="bar-track"><span class="bar-fill" style="width:48.5%"></span><span class="bar-val">1,294</span></span></div>
+        <div class="bar-row"><span class="bar-lab">sync_engine.dart</span><span class="bar-track"><span class="bar-fill" style="width:100.0%"></span><span class="bar-val">3,379</span></span></div>
+        <div class="bar-row"><span class="bar-lab">note_editor_provider.dart</span><span class="bar-track"><span class="bar-fill" style="width:71.0%"></span><span class="bar-val">2,400</span></span></div>
+        <div class="bar-row"><span class="bar-lab">group_detail_screen.dart</span><span class="bar-track"><span class="bar-fill" style="width:59.4%"></span><span class="bar-val">2,008</span></span></div>
+        <div class="bar-row"><span class="bar-lab">sync_database.dart</span><span class="bar-track"><span class="bar-fill" style="width:58.0%"></span><span class="bar-val">1,959</span></span></div>
+        <div class="bar-row"><span class="bar-lab">prayer_detail_screen.dart</span><span class="bar-track"><span class="bar-fill" style="width:56.9%"></span><span class="bar-val">1,923</span></span></div>
+        <div class="bar-row"><span class="bar-lab">notes_home_screen.dart</span><span class="bar-track"><span class="bar-fill" style="width:56.3%"></span><span class="bar-val">1,904</span></span></div>
+        <div class="bar-row"><span class="bar-lab">sync_providers.dart</span><span class="bar-track"><span class="bar-fill" style="width:45.9%"></span><span class="bar-val">1,550</span></span></div>
+        <div class="bar-row"><span class="bar-lab">app_theme.dart</span><span class="bar-track"><span class="bar-fill" style="width:38.3%"></span><span class="bar-val">1,294</span></span></div>
       </div>
     </figure>
 
-    <figure>
-      <figcaption>Test coverage by feature — files in test/ referencing each feature</figcaption>
-      <div class="cov">
-        <div class="cov-cell yes"><span class="m">2</span><span class="f">home</span></div>
-        <div class="cov-cell yes"><span class="m">2</span><span class="f">notes</span></div>
-        <div class="cov-cell yes"><span class="m">2</span><span class="f">prayers</span></div>
-        <div class="cov-cell yes"><span class="m">1</span><span class="f">auth</span></div>
-        <div class="cov-cell yes"><span class="m">1</span><span class="f">habits</span></div>
-        <div class="cov-cell yes"><span class="m">1</span><span class="f">people</span></div>
-        <div class="cov-cell yes"><span class="m">1</span><span class="f">promises</span></div>
-        <div class="cov-cell yes"><span class="m">1</span><span class="f">settings</span></div>
-        <div class="cov-cell no"><span class="m">0</span><span class="f">bible</span></div>
-        <div class="cov-cell no"><span class="m">0</span><span class="f">bible_search</span></div>
-        <div class="cov-cell no"><span class="m">0</span><span class="f">feedback</span></div>
-        <div class="cov-cell no"><span class="m">0</span><span class="f">friends</span></div>
-        <div class="cov-cell no"><span class="m">0</span><span class="f">groups</span></div>
-        <div class="cov-cell no"><span class="m">0</span><span class="f">search</span></div>
-        <div class="cov-cell no"><span class="m">0</span><span class="f">social</span></div>
-        <div class="cov-cell no"><span class="m">0</span><span class="f">songs</span></div>
-        <div class="cov-cell no"><span class="m">0</span><span class="f">tags</span></div>
-      </div>
-      <div class="legend">
-        <span><i style="background:var(--sev-good)"></i>Covered — 8 features</span>
-        <span><i style="background:var(--sev-high)"></i>No test reference — 9 features</span>
-      </div>
-    </figure>
+    
   </section>
 
   <section>
     <h2>Work plan — for review</h2>
     <p class="sublede">
-      Every one of the 16 findings maps to exactly one task below. Nothing here has been
-      implemented — this is the proposal. Phases A–E are bounded and verifiable against the
-      existing 362-test suite. Phase F is structural and wants an explicit decision, because
-      those three touch the screen with the most state while feature test coverage is thinnest.
+      Every one of the 9 findings maps to a task below. Phases A, C, D and E are bounded and
+      verifiable against the existing 559-test suite. Phase F is structural and wants an explicit
+      decision, because it touches the screen with the most state.
     </p>
 
     <div class="plan-sum">
-      <span class="tally"><i class="dot" style="background:var(--sev-good)"></i><span class="c">13</span><span class="l">Ready to start</span></span>
-      <span class="tally"><i class="dot" style="background:var(--sev-med)"></i><span class="c">3</span><span class="l">Need your call</span></span>
+      <span class="tally"><i class="dot" style="background:var(--sev-good)"></i><span class="c">7</span><span class="l">Ready to start</span></span>
+      <span class="tally"><i class="dot" style="background:var(--sev-med)"></i><span class="c">2</span><span class="l">Need your call</span></span>
       <span class="tally"><i class="dot" style="background:var(--ink-3)"></i><span class="c">1</span><span class="l">Parked</span></span>
     </div>
 
@@ -1242,35 +1023,7 @@ return ListView.builder(
       </div>
     </div>
 
-    <!-- PHASE B -->
-    <div class="phase">
-      <div class="phase-head">
-        <span class="pid">B</span>
-        <h3>Remove the crash class</h3>
-        <span class="pnote">~2 hours</span>
-      </div>
-
-      <div class="task">
-        <span class="box"></span>
-        <span class="tid">T03</span>
-        <div class="main">
-          <div class="tt">Add a cycle guard and real types to the folder recursion</div>
-          <p class="td">
-            Type both <code>dynamic</code> parameters as <code>FolderModel</code> and thread a
-            <code>Set&lt;String&gt; visited</code> through <code>computeTotal()</code> and
-            <code>_buildFolderTreeItems()</code>, dropping any folder already seen on the current
-            path. Ships with a unit test that builds an A→B→A cycle and asserts the tree still
-            renders.
-          </p>
-          <p class="tf">lib/features/notes/presentation/screens/notes_home_screen.dart:608, 663</p>
-          <div class="chips">
-            <span class="chip cov">Covers 09</span>
-            <span class="chip">2 hours</span>
-            <span class="chip r-low">Low risk</span>
-          </div>
-        </div>
-      </div>
-    </div>
+    
 
     <!-- PHASE C -->
     <div class="phase">
@@ -1280,54 +1033,13 @@ return ListView.builder(
         <span class="pnote">~3 days</span>
       </div>
 
-      <div class="task">
-        <span class="box"></span>
-        <span class="tid">T04</span>
-        <div class="main">
-          <div class="tt">Batch the sync pull apply loop</div>
-          <p class="td">
-            Wrap each pulled page in one outer <code>transaction()</code>, read the existing versions
-            for the page in a single indexed query instead of one round-trip per operation, and
-            collapse the upserts into a Drift <code>batch()</code>. The per-op version guard stays
-            exactly as it is.
-          </p>
-          <p class="flag"><b>Why this one is worth the care</b>
-            It is the largest single win available — first-login and restore time scales linearly in
-            transactions today. It is also the most critical code in the app. It does have real
-            cover: <code>sync_engine_e2e_test</code>, <code>sync_engine_stress_test</code> and
-            <code>conflict_resolver_test</code> all exercise this path, so a regression should surface.
-          </p>
-          <p class="tf">lib/core/sync/engine/sync_engine.dart:566 → _applyRemoteOperation</p>
-          <div class="chips">
-            <span class="chip cov">Covers 03</span>
-            <span class="chip">1–2 days</span>
-            <span class="chip r-med">Medium risk — critical path</span>
-          </div>
-        </div>
-      </div>
+      
+
+      
 
       <div class="task">
         <span class="box"></span>
-        <span class="tid">T05</span>
-        <div class="main">
-          <div class="tt">Make the folder tree actually lazy</div>
-          <p class="td">
-            Flatten the tree into a <code>List&lt;_FolderNode&gt;</code> of data rather than widgets,
-            build rows inside <code>itemBuilder</code>, and memoise the flatten plus the roll-up in a
-            provider keyed on the folder list so it recomputes only when folders change.
-          </p>
-          <p class="tf">lib/features/notes/presentation/screens/notes_home_screen.dart:621–652</p>
-          <div class="chips">
-            <span class="chip cov">Covers 04</span>
-            <span class="chip">Half a day</span>
-            <span class="chip r-low">Low risk</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="task">
-        <span class="box"></span>
-        <span class="tid">T06</span>
+        <span class="tid">T03</span>
         <div class="main">
           <div class="tt">Lift the notes filter, sort and lookup maps into providers</div>
           <p class="td">
@@ -1338,7 +1050,7 @@ return ListView.builder(
           </p>
           <p class="tf">lib/features/notes/presentation/screens/notes_home_screen.dart:716–761 · notes providers</p>
           <div class="chips">
-            <span class="chip cov">Covers 05</span>
+            <span class="chip cov">Covers 03</span>
             <span class="chip">1 day</span>
             <span class="chip r-med">Medium risk</span>
           </div>
@@ -1356,7 +1068,7 @@ return ListView.builder(
 
       <div class="task">
         <span class="box"></span>
-        <span class="tid">T07</span>
+        <span class="tid">T04</span>
         <div class="main">
           <div class="tt">Clamp <code>textScaler</code> globally</div>
           <p class="td">
@@ -1367,7 +1079,7 @@ return ListView.builder(
           </p>
           <p class="tf">lib/main.dart</p>
           <div class="chips">
-            <span class="chip cov">Covers 06</span>
+            <span class="chip cov">Covers 04</span>
             <span class="chip">1 hour + follow-up</span>
             <span class="chip r-low">Low risk</span>
           </div>
@@ -1376,7 +1088,7 @@ return ListView.builder(
 
       <div class="task">
         <span class="box"></span>
-        <span class="tid">T08</span>
+        <span class="tid">T05</span>
         <div class="main">
           <div class="tt">Give custom tap targets semantics and a 48×48 hit area</div>
           <p class="td">
@@ -1387,7 +1099,7 @@ return ListView.builder(
           </p>
           <p class="tf">~57 sites across lib/features/ and lib/shared/</p>
           <div class="chips">
-            <span class="chip cov">Covers 14</span>
+            <span class="chip cov">Covers 08</span>
             <span class="chip">1 day</span>
             <span class="chip r-low">Low risk</span>
           </div>
@@ -1403,28 +1115,11 @@ return ListView.builder(
         <span class="pnote">~2 days</span>
       </div>
 
-      <div class="task">
-        <span class="box"></span>
-        <span class="tid">T09</span>
-        <div class="main">
-          <div class="tt">Dispose the three leaked controllers</div>
-          <p class="td">
-            Wrap the <code>await showModalBottomSheet(...)</code> in <code>try/finally</code> and
-            dispose <code>reference</code>, <code>text</code> and <code>version</code> in the
-            <code>finally</code>.
-          </p>
-          <p class="tf">lib/features/bible/presentation/screens/memorization_screen.dart:87–89</p>
-          <div class="chips">
-            <span class="chip cov">Covers 11</span>
-            <span class="chip">10 minutes</span>
-            <span class="chip r-low">Low risk</span>
-          </div>
-        </div>
-      </div>
+      
 
       <div class="task">
         <span class="box"></span>
-        <span class="tid">T10</span>
+        <span class="tid">T06</span>
         <div class="main">
           <div class="tt">Sweep the 37 remaining files into the ARB</div>
           <p class="td">
@@ -1434,34 +1129,18 @@ return ListView.builder(
           </p>
           <p class="tf">37 files under lib/features/ and lib/shared/ · lib/l10n/app_en.arb</p>
           <div class="chips">
-            <span class="chip cov">Covers 12</span>
+            <span class="chip cov">Covers 07</span>
             <span class="chip">1 day</span>
             <span class="chip r-low">Low risk</span>
           </div>
         </div>
       </div>
 
-      <div class="task">
-        <span class="box"></span>
-        <span class="tid">T11</span>
-        <div class="main">
-          <div class="tt">Point people navigation at the canonical routes</div>
-          <p class="td">
-            Switch the three call sites to <code>Routes.socialPeople…</code>, as the group routes
-            already do. The redirects stay in place purely for external deep links.
-          </p>
-          <p class="tf">lib/core/navigation/nav_actions.dart:12 · lib/features/people/presentation/screens/people_list_screen.dart:47, 122</p>
-          <div class="chips">
-            <span class="chip cov">Covers 13</span>
-            <span class="chip">30 minutes</span>
-            <span class="chip r-low">Low risk</span>
-          </div>
-        </div>
-      </div>
+      
 
       <div class="task">
         <span class="box"></span>
-        <span class="tid">T12</span>
+        <span class="tid">T07</span>
         <div class="main">
           <div class="tt">Route debug logging through the existing logger</div>
           <p class="td">
@@ -1471,31 +1150,14 @@ return ListView.builder(
           </p>
           <p class="tf">71 call sites across lib/</p>
           <div class="chips">
-            <span class="chip cov">Covers 15</span>
+            <span class="chip cov">Covers 09</span>
             <span class="chip">Half a day</span>
             <span class="chip r-low">Low risk</span>
           </div>
         </div>
       </div>
 
-      <div class="task">
-        <span class="box"></span>
-        <span class="tid">T13</span>
-        <div class="main">
-          <div class="tt">Move <code>bible.db</code> out of <code>assets/</code></div>
-          <p class="td">
-            Relocate the 25 MB generator output to <code>tools/</code> so the directory name stops
-            implying it is bundled, and one stray <code>- assets/</code> line can never add 25 MB to
-            every download.
-          </p>
-          <p class="tf">assets/bible.db → tools/</p>
-          <div class="chips">
-            <span class="chip cov">Covers 16</span>
-            <span class="chip">10 minutes</span>
-            <span class="chip r-low">Low risk</span>
-          </div>
-        </div>
-      </div>
+      
     </div>
 
     <!-- PHASE F -->
@@ -1508,7 +1170,7 @@ return ListView.builder(
 
       <div class="task">
         <span class="box"></span>
-        <span class="tid">T14</span>
+        <span class="tid">T08</span>
         <div class="main">
           <div class="tt">Split <code>notes_home_screen.dart</code> into per-section widgets</div>
           <p class="td">
@@ -1519,7 +1181,7 @@ return ListView.builder(
           </p>
           <p class="tf">lib/features/notes/presentation/screens/notes_home_screen.dart (2,016 lines)</p>
           <div class="chips">
-            <span class="chip cov">Covers 10</span>
+            <span class="chip cov">Covers 06</span>
             <span class="chip">2–3 days</span>
             <span class="chip r-high">High risk — thin test cover here</span>
           </div>
@@ -1528,7 +1190,7 @@ return ListView.builder(
 
       <div class="task">
         <span class="box"></span>
-        <span class="tid">T15</span>
+        <span class="tid">T09</span>
         <div class="main">
           <div class="tt">Page the unbounded watch streams</div>
           <p class="td">
@@ -1538,31 +1200,14 @@ return ListView.builder(
           </p>
           <p class="tf">lib/core/sync/repositories/ — 44 watch() sites</p>
           <div class="chips">
-            <span class="chip cov">Covers 07</span>
+            <span class="chip cov">Covers 05</span>
             <span class="chip">2–3 days</span>
             <span class="chip r-high">High risk — broad surface</span>
           </div>
         </div>
       </div>
 
-      <div class="task">
-        <span class="box"></span>
-        <span class="tid">T16</span>
-        <div class="main">
-          <div class="tt">Smoke-test the nine uncovered features</div>
-          <p class="td">
-            Extend the existing <code>screen_smoke_test.dart</code> pattern to bible, bible_search,
-            feedback, friends, groups, search, social, songs and tags. Cheap, and it is what would
-            guard T14 and T15 — if you want those two, this should come first rather than last.
-          </p>
-          <p class="tf">test/features/ — new files following screen_smoke_test.dart</p>
-          <div class="chips">
-            <span class="chip cov">Covers 08</span>
-            <span class="chip">1–2 days</span>
-            <span class="chip r-low">Low risk</span>
-          </div>
-        </div>
-      </div>
+      
     </div>
 
     <!-- PARKED -->
@@ -1598,7 +1243,7 @@ return ListView.builder(
 
   <footer>
     Static audit of <span class="mono">d:\Work\PersonalNotify\notify</span> at Flutter analyzer-clean state, 17 September 2026.<br>
-    Evidence: <span class="mono">flutter analyze</span> (0 issues, 90.1s) · <span class="mono">flutter test</span> (362 passed) · source scan of 457 non-generated Dart files, 110,778 lines.<br>
+    Evidence: <span class="mono">flutter analyze</span> (1 deprecation) · <span class="mono">flutter test</span> (559 passed) · source scan of 476 non-generated Dart files, 107,313 lines.<br>
     Findings are from static reading only — no profiling run, no device trace. Performance claims describe algorithmic cost, not measured frame times.
   </footer>
 
