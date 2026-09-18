@@ -118,7 +118,7 @@ class FolderRow extends StatelessWidget {
                           ? Icons.expand_more_rounded
                           : Icons.chevron_right_rounded,
                       size: 20,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      color: context.mutedText,
                     ),
                   ),
                 ),

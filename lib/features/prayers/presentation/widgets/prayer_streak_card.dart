@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/prayer_streak.dart';
 import '../providers/prayer_streak_provider.dart';
 import '../../../../l10n/l10n.dart';
+import '../../../../core/theme/theme_colors.dart';
 
 /// Compact card showing current streak, longest streak, and a 12-week
 /// heatmap of prayer-log activity. Designed to slot into the prayers
@@ -129,7 +130,7 @@ class _MiniStat extends StatelessWidget {
         Text(
           label,
           style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            color: context.mutedText,
           ),
         ),
       ],
@@ -159,8 +160,7 @@ class _Heatmap extends StatelessWidget {
 
     final activeColor = theme.colorScheme.primary;
     final dimColor = theme.colorScheme.primary.withValues(alpha: 0.15);
-    final emptyColor =
-        theme.colorScheme.onSurface.withValues(alpha: 0.06);
+    final emptyColor = context.subtleFill;
 
     return LayoutBuilder(
       builder: (context, constraints) {

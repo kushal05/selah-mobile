@@ -20,6 +20,14 @@ class BibleRepository {
 
   BibleRepository(this._dbService);
 
+  /// The open Bible database.
+  ///
+  /// Throws when no Bible is installed — an assert in debug, a null check in
+  /// release — and the query methods below only catch [SqliteException], so
+  /// the failure escaped them and took the Bible chapter screen down on
+  /// build. Every read therefore checks [BibleDatabaseService.isOpen] first
+  /// and answers "no data", which is what they already answered when a query
+  /// itself failed.
   Database get _db => _dbService.db;
 
   // ---------------------------------------------------------------------------
@@ -28,6 +36,7 @@ class BibleRepository {
 
   /// All 66 books ordered by canonical sort_order.
   List<BibleBookEntity> getAllBooks() {
+    if (!_dbService.isOpen) return const [];
     try {
       final rows = _db.select('SELECT * FROM bible_books ORDER BY sort_order');
       return rows.map((r) => BibleBookEntity.fromRow(r)).toList();
@@ -39,6 +48,7 @@ class BibleRepository {
 
   /// Books filtered by testament (0 = OT, 1 = NT), ordered by sort_order.
   List<BibleBookEntity> getBooksByTestament(int testament) {
+    if (!_dbService.isOpen) return const [];
     try {
       final rows = _db.select(
         'SELECT * FROM bible_books WHERE testament = ? ORDER BY sort_order',
@@ -53,6 +63,7 @@ class BibleRepository {
 
   /// Find a single book by its ID (1..66).
   BibleBookEntity? getBookById(int bookId) {
+    if (!_dbService.isOpen) return null;
     try {
       final rows = _db.select(
         'SELECT * FROM bible_books WHERE id = ?',
@@ -68,6 +79,7 @@ class BibleRepository {
 
   /// Find a book by name (case-insensitive exact match).
   BibleBookEntity? getBookByName(String name) {
+    if (!_dbService.isOpen) return null;
     try {
       final rows = _db.select(
         'SELECT * FROM bible_books WHERE LOWER(name) = LOWER(?)',
@@ -83,6 +95,7 @@ class BibleRepository {
 
   /// Find a book by short name (case-insensitive exact match).
   BibleBookEntity? getBookByShortName(String shortName) {
+    if (!_dbService.isOpen) return null;
     try {
       final rows = _db.select(
         'SELECT * FROM bible_books WHERE LOWER(short_name) = LOWER(?)',
@@ -104,6 +117,7 @@ class BibleRepository {
   ///
   /// Example: getChapters(bookId: 43, translation: 'KJV') → [1, 2, ..., 21]
   List<int> getChapters({required int bookId, required String translation}) {
+    if (!_dbService.isOpen) return const [];
     try {
       final rows = _db.select(
         '''
@@ -132,6 +146,7 @@ class BibleRepository {
     required int chapter,
     required String translation,
   }) {
+    if (!_dbService.isOpen) return const [];
     try {
       final rows = _db.select(
         '''
@@ -157,6 +172,7 @@ class BibleRepository {
     required int verse,
     required String translation,
   }) {
+    if (!_dbService.isOpen) return null;
     try {
       final rows = _db.select(
         '''
@@ -184,6 +200,7 @@ class BibleRepository {
     required int verseEnd,
     required String translation,
   }) {
+    if (!_dbService.isOpen) return const [];
     try {
       final rows = _db.select(
         '''
@@ -208,6 +225,7 @@ class BibleRepository {
     required List<int> verseNumbers,
     required String translation,
   }) {
+    if (!_dbService.isOpen) return const [];
     if (verseNumbers.isEmpty) return [];
 
     // Build a parameterized IN clause
@@ -253,6 +271,7 @@ class BibleRepository {
     String? translation,
     int limit = 50,
   }) {
+    if (!_dbService.isOpen) return const [];
     if (query.trim().isEmpty) return [];
 
     final translationFilter = translation != null
@@ -291,6 +310,7 @@ class BibleRepository {
   ///
   /// Example return: ['KJV']
   List<String> getAvailableTranslations() {
+    if (!_dbService.isOpen) return const [];
     try {
       final rows = _db.select(
         'SELECT DISTINCT translation FROM bible_verses ORDER BY translation',

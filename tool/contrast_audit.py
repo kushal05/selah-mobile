@@ -375,6 +375,150 @@ def scan_light_tokens():
     return findings
 
 
+# Tokens that name a *surface*: something a shape is painted with, never
+# something text or a glyph is drawn in. context.subtleFill is
+# surfaceContainerHighest — a chip ground — and as text it measured 1.22:1 on
+# the dark card and 1.10:1 on the light page. It was the colour of the note
+# detail screen's date and preacher line, which is to say those were not
+# visible in either theme.
+#
+# The pairing audit above could not see this: it checks the foreground tokens
+# against the grounds they sit on, and a fill token is not in that list. So
+# this rule works the other way round — it finds fills in a position where a
+# foreground belongs, whatever their contrast happens to be.
+FILL_TOKENS = ('subtleFill', 'cardSurface', 'raisedSurface', 'pageGround',
+               'hairline')
+FILL_RE = re.compile(r'context\.(' + '|'.join(FILL_TOKENS) + r')\b')
+
+# Constructors whose colour argument paints text or a glyph.
+FOREGROUND_CTORS = {
+    'TextStyle', 'Icon', 'IconThemeData', 'ImageIcon',
+    'CircularProgressIndicator', 'LinearProgressIndicator',
+}
+# Named arguments that settle it either way, whatever the constructor is.
+FOREGROUND_ARGS = {
+    'foregroundColor', 'iconColor', 'textColor', 'labelColor',
+    'unselectedLabelColor', 'cursorColor',
+}
+BACKGROUND_ARGS = {
+    'backgroundColor', 'fillColor', 'surfaceTintColor', 'barrierColor',
+    'shadowColor', 'selectedTileColor', 'indicatorColor', 'splashColor',
+    'highlightColor', 'overlayColor', 'trackColor', 'thumbColor',
+}
+
+
+def _enclosing(src, pos):
+    """The nearest unclosed `Name(` before pos, and the named argument we are
+    inside. Counting brackets rather than reading the few lines above is what
+    keeps a nested TextStyle from being credited to the Container around it."""
+    depth, i, arg = 0, pos - 1, None
+    while i >= 0:
+        c = src[i]
+        if c == ')':
+            depth += 1
+        elif c == '(':
+            if depth == 0:
+                j = i - 1
+                while j >= 0 and (src[j].isalnum() or src[j] == '_'):
+                    j -= 1
+                return src[j + 1:i], arg
+            depth -= 1
+        elif c == ':' and depth == 0 and arg is None:
+            # Only a named argument's colon counts. A ternary's colon sits at
+            # the same depth —
+            #
+            #     foregroundColor: on ? blue : context.subtleFill
+            #                              ^ this one
+            #
+            # and taking it lost the argument name, so a fill in a foreground
+            # position written as a ternary was skipped entirely. A named
+            # argument is an identifier whose colon follows it directly and
+            # which begins the argument, i.e. sits just after `(` or `,`.
+            j = i - 1
+            while j >= 0 and (src[j].isalnum() or src[j] == '_'):
+                j -= 1
+            name = src[j + 1:i]
+            k = j
+            while k >= 0 and src[k] in ' \t\n':
+                k -= 1
+            if name.isidentifier() and (k < 0 or src[k] in '(,{'):
+                arg = name
+        i -= 1
+    return None, arg
+
+
+def scan_fill_as_foreground():
+    """Surface tokens used to colour text or an icon."""
+    findings = []
+    for path in sorted(LIB.rglob('*.dart')):
+        if path.name == 'theme_colors.dart':
+            continue
+        src = path.read_text(encoding='utf-8')
+        for m in FILL_RE.finditer(src):
+            ctor, arg = _enclosing(src, m.start())
+            if arg in BACKGROUND_ARGS:
+                continue
+            if arg not in FOREGROUND_ARGS and ctor not in FOREGROUND_CTORS:
+                continue
+            line = src[:m.start()].count('\n') + 1
+            findings.append((str(path.relative_to(LIB.parent)), line,
+                             m.group(1), ctor or '?'))
+    return findings
+
+
+# A foreground token faded by alpha is not the same thing as a muted colour.
+#
+# The Bible reference picker drew its BOOK / CHAPTER / VERSE labels in
+# cs.onSurface.withValues(alpha: 0.6) and its hints at 0.4. Composited on the
+# dark panel those measure 5.90:1 and 3.34:1, and on white 4.88:1 and 2.59:1 —
+# the token the audit had verified, destroyed by the alpha applied to it.
+# onSurfaceVariant is the per-theme muted colour that is actually tuned for
+# this, at 7.08:1 and 5.60:1.
+#
+# The threshold is 0.7 because that is where a faded onSurface stops failing
+# on the light ground. Anything at or above it is left alone.
+FADE_RE = re.compile(
+    r'\b(?:cs|colorScheme|theme\.colorScheme|Theme\.of\(context\)\.colorScheme)'
+    r'\.(onSurface|onSurfaceVariant|onBackground)'
+    r'\.withValues\(alpha: (0\.\d+)\)')
+FADE_FLOOR = 0.7
+# Constructors that paint a shape rather than a glyph.
+FILL_CTORS = {'BoxDecoration', 'ShapeDecoration', 'BoxShadow', 'ColoredBox',
+              'Divider', 'VerticalDivider', 'CircleAvatar'}
+
+
+def scan_faded_foregrounds():
+    """Foreground tokens dimmed by alpha where text or a glyph is drawn."""
+    findings = []
+    for path in sorted(LIB.rglob('*.dart')):
+        src = path.read_text(encoding='utf-8')
+        for m in FADE_RE.finditer(src):
+            if float(m.group(2)) >= FADE_FLOOR:
+                continue
+            ctor, arg = _enclosing(src, m.start())
+            # Flag unless this is plainly a fill. The default has to be this
+            # way round for two reasons. onSurface names a foreground role —
+            # it is the colour of what sits *on* the surface — so a fill built
+            # from it is the unusual case, and a surfaceContainer token is the
+            # right one there. And the bug this rule exists for assigned the
+            # faded colour to a local first:
+            #
+            #     final color = isEnabled
+            #         ? cs.onSurface.withValues(alpha: 0.6)   <- not inside
+            #         : ...                                      any ctor
+            #
+            # which is in no constructor at all, so a rule that only flagged
+            # recognised foreground positions walked straight past it.
+            if arg in BACKGROUND_ARGS:
+                continue
+            if ctor in FILL_CTORS:
+                continue
+            line = src[:m.start()].count('\n') + 1
+            findings.append((str(path.relative_to(LIB.parent)), line,
+                             m.group(1), m.group(2), ctor or 'assignment'))
+    return findings
+
+
 def scan_literals():
     """Foreground colour literals below 4.5:1 on either theme's ground.
 
@@ -451,6 +595,30 @@ def main():
                 print(f'      … {len(sites) - 3} more (--verbose to list)')
         print(f'\ncontrast_audit: {len(tokens)} light-only token use(s). '
               'These vanish in dark mode — use the context.* getters.')
+        return 1
+
+    fills = scan_fill_as_foreground()
+    if fills:
+        print('\ncontrast_audit: SURFACE TOKENS used as a foreground')
+        for path, line, name, ctor in fills:
+            print(f'  context.{name:14} in {ctor:10} {path}:{line}')
+        print(f'\ncontrast_audit: {len(fills)} surface token(s) colouring '
+              'text or an icon. A fill is the colour of the thing behind the '
+              'text — use context.mutedText for secondary text, '
+              'context.primaryText for body, context.decorativeInk for a '
+              'decorative glyph.')
+        return 1
+
+    faded = scan_faded_foregrounds()
+    if faded:
+        print('\ncontrast_audit: FOREGROUND TOKENS DIMMED BY ALPHA')
+        for path, line, name, alpha, ctor in faded:
+            print(f'  {name}.withValues(alpha: {alpha}) in {ctor:10} '
+                  f'{path}:{line}')
+        print(f'\ncontrast_audit: {len(faded)} faded foreground(s). Fading a '
+              'verified token undoes the verification — use '
+              'context.mutedText, which is the per-theme muted colour tuned '
+              'for secondary text.')
         return 1
 
     literals = scan_literals()

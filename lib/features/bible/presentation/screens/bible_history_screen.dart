@@ -103,7 +103,8 @@ class BibleHistoryScreen extends ConsumerWidget {
               return _DateGroupSection(
                 group: group,
                 onTap: (entry) => _navigateToChapter(context, ref, entry),
-                onDelete: (entry) => _deleteEntry(ref, entry.id),
+                onDelete: (entry) =>
+                    _deleteEntry(context, ref, entry.id),
               );
             },
           );
@@ -179,8 +180,21 @@ class BibleHistoryScreen extends ConsumerWidget {
     );
   }
 
-  void _deleteEntry(WidgetRef ref, String id) {
-    ref.read(bibleReferenceHistoryRepositoryProvider).deleteEntry(id);
+  // Awaited, not fired and forgotten. An unawaited future that throws becomes
+  // an unhandled async error, and the user's only clue was the row staying
+  // where it was.
+  Future<void> _deleteEntry(
+      BuildContext context, WidgetRef ref, String id) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final failed = l10n(context).couldNotRemoveHistoryEntry;
+    try {
+      await ref.read(bibleReferenceHistoryRepositoryProvider).deleteEntry(id);
+    } catch (_) {
+      messenger.showSnackBar(SnackBar(
+        content: Text(failed),
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
   }
 
   void _confirmClearAll(BuildContext context, WidgetRef ref) {

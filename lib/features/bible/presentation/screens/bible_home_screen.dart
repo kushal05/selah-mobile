@@ -183,6 +183,35 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
 
   Widget _buildBookmarksStrip(ThemeData theme) {
     final bookmarksAsync = ref.watch(bibleBookmarksProvider);
+
+    // A failed read used to take the whole strip off the screen, which reads
+    // as "you have no bookmarks" rather than "we could not fetch them".
+    if (bookmarksAsync.hasError) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(AppTheme.spacing16,
+            AppTheme.spacing12, AppTheme.spacing8, AppTheme.spacing4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                l10n(context).bookmarksCouldntBeLoaded,
+                style: AppTheme.caption.copyWith(color: context.mutedText),
+              ),
+            ),
+            TextButton(
+              onPressed: () => ref.invalidate(bibleBookmarksProvider),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: const Size(0, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(l10n(context).retry),
+            ),
+          ],
+        ),
+      );
+    }
+
     final bookmarks = bookmarksAsync.valueOrNull ?? [];
     if (bookmarks.isEmpty) return const SizedBox.shrink();
 
@@ -197,14 +226,14 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
           child: Row(
             children: [
               Icon(Icons.bookmark, size: 14,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                  color: context.mutedText),
               const SizedBox(width: 4),
               Text(
                 l10n(context).bookmarks,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  color: context.mutedText,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -273,7 +302,7 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: cs.onSurface.withValues(alpha: 0.5),
+            color: context.mutedText,
             letterSpacing: 0.5,
           ),
         ),

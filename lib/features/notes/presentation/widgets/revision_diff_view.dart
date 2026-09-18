@@ -7,6 +7,7 @@ import '../../domain/models/note_revision.dart';
 import '../providers/database_provider.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_colors.dart';
 
 /// Screen that shows a side-by-side comparison between a revision and the
 /// current note state.
@@ -116,7 +117,7 @@ class _RevisionDiffViewState extends ConsumerState<RevisionDiffView> {
                       '${diffLines.length} differences',
                       style: TextStyle(
                         fontSize: 13,
-                        color: cs.onSurface.withValues(alpha: 0.5),
+                        color: context.mutedText,
                       ),
                     ),
                   ],
@@ -138,7 +139,7 @@ class _RevisionDiffViewState extends ConsumerState<RevisionDiffView> {
                         l10n(context).previous,
                         style: theme.textTheme.labelMedium?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: cs.onSurface.withValues(alpha: 0.6),
+                          color: context.mutedText,
                         ),
                       ),
                     ),
@@ -147,7 +148,7 @@ class _RevisionDiffViewState extends ConsumerState<RevisionDiffView> {
                         l10n(context).current,
                         style: theme.textTheme.labelMedium?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: cs.onSurface.withValues(alpha: 0.6),
+                          color: context.mutedText,
                         ),
                       ),
                     ),
@@ -161,7 +162,7 @@ class _RevisionDiffViewState extends ConsumerState<RevisionDiffView> {
                         child: Text(
                           l10n(context).noDifferencesFound,
                           style: TextStyle(
-                            color: cs.onSurface.withValues(alpha: 0.5),
+                            color: context.mutedText,
                           ),
                         ),
                       )
@@ -261,7 +262,7 @@ class _DiffRow extends StatelessWidget {
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: diff.oldText != null
                       ? null
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                      : context.mutedText,
                   decoration: diff.type == _DiffType.removed
                       ? TextDecoration.lineThrough
                       : null,
@@ -284,7 +285,7 @@ class _DiffRow extends StatelessWidget {
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: diff.newText != null
                       ? null
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                      : context.mutedText,
                 ),
               ),
             ),
@@ -351,7 +352,7 @@ class _LegendChip extends StatelessWidget {
           label,
           style: TextStyle(
             fontSize: 12,
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+            color: context.mutedText,
           ),
         ),
       ],

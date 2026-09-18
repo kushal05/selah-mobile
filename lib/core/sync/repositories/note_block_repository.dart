@@ -65,6 +65,22 @@ class NoteBlockRepository extends BaseSyncRepository<NoteBlockModel> {
     return query.watch().map((rows) => rows.map(_toModel).toList());
   }
 
+  /// Watch every live block of one kind, across all of the user's notes.
+  ///
+  /// Narrow on purpose: the Bible reader needs the tags that notes have put on
+  /// verses, and the only blocks that can carry them are Bible references.
+  /// Filtering in SQL rather than loading every block and discarding most of
+  /// them is what keeps that cheap on a large notebook.
+  Stream<List<NoteBlockModel>> watchBlocksOfType(BlockType blockType) {
+    final query = _db.select(_db.noteBlocks)
+      ..where((b) =>
+          b.blockType.equals(blockType.name) &
+          b.deleted.equals(0) &
+          b.trashedAt.isNull());
+
+    return query.watch().map((rows) => rows.map(_toModel).toList());
+  }
+
   /// Watch a single block
   Stream<NoteBlockModel?> watchBlockById(String id) {
     final query = _db.select(_db.noteBlocks)..where((b) => b.id.equals(id));

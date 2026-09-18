@@ -63,3 +63,11 @@ lib/l10n/app_localizations*.dart
 
 # Bible DB generator output (25 MB, served over HTTP, never bundled)
 tools/build/
+
+# Android release signing. The keystore is the app's identity for its lifetime:
+# committing it hands anyone the ability to publish as Selah, and losing it
+# means the app can never be updated again. Keep it out of the repo and backed
+# up somewhere safe.
+android/key.properties
+*.jks
+*.keystore

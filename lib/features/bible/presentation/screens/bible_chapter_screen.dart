@@ -8,7 +8,9 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/dialogs/reading_text_size_sheet.dart';
 import '../../domain/models/bible_highlight_entity.dart';
 import '../../domain/models/bible_verse_entity.dart';
+import '../../../../core/theme/theme_colors.dart';
 import '../providers/bible_chapter_providers.dart';
+import '../providers/verse_tag_providers.dart';
 import '../providers/bible_providers.dart';
 import '../widgets/chapter_verse_list.dart';
 import '../widgets/highlight_bottom_sheet.dart';
@@ -62,13 +64,17 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     _chapter = widget.chapter;
     _primaryTranslation = widget.initialTranslation;
 
+    // `.first` on an empty list throws, and this list is empty on any device
+    // with no Bible downloaded — which a chapter is still reachable from, via
+    // a note's verse reference or reading history. The screen died in
+    // initState rather than showing anything. Falling back to the primary
+    // covers both that case and the single-translation one; parallel view is
+    // gated on having two regardless.
     final translations = ref.read(bibleTranslationsProvider);
-    _secondaryTranslation = translations.length > 1
-        ? translations.firstWhere(
-            (t) => t != _primaryTranslation,
-            orElse: () => translations.first,
-          )
-        : translations.first;
+    _secondaryTranslation = translations.firstWhere(
+      (t) => t != _primaryTranslation,
+      orElse: () => _primaryTranslation,
+    );
 
     _primaryScrollController.addListener(_onPrimaryScroll);
     _secondaryScrollController.addListener(_onSecondaryScroll);
@@ -221,29 +227,52 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
       reference: reference,
       verseText: verse.text,
       existingHighlight: existing,
-      onSave: (color, note) {
+      // These three were fire-and-forget. The sheet closed, the write was
+      // never awaited, and a failure had nowhere to go — the highlight simply
+      // did not appear, or would not delete, with nothing said. The note
+      // attached to a highlight is the user's own writing, so losing it
+      // quietly is the worst of the options.
+      onSave: (color, note) async {
+        final messenger = ScaffoldMessenger.of(context);
+        final failed = l10n(context).couldNotSaveHighlight;
         final repo = ref.read(bibleHighlightRepositoryProvider);
-        if (existing != null) {
-          repo.updateHighlight(existing.copyWithUpdate(
-            color: color,
-            note: note,
+        try {
+          if (existing != null) {
+            await repo.updateHighlight(existing.copyWithUpdate(
+              color: color,
+              note: note,
+            ));
+          } else {
+            await repo.createHighlight(
+              bookId: _bookId,
+              chapter: _chapter,
+              verseStart: verse.verse,
+              verseEnd: verse.verse,
+              color: color,
+              note: note,
+            );
+          }
+        } catch (_) {
+          messenger.showSnackBar(SnackBar(
+            content: Text(failed),
+            behavior: SnackBarBehavior.floating,
           ));
-        } else {
-          repo.createHighlight(
-            bookId: _bookId,
-            chapter: _chapter,
-            verseStart: verse.verse,
-            verseEnd: verse.verse,
-            color: color,
-            note: note,
-          );
         }
       },
       onRemove: existing != null
-          ? () {
-              ref
-                  .read(bibleHighlightRepositoryProvider)
-                  .deleteHighlight(existing!.id);
+          ? () async {
+              final messenger = ScaffoldMessenger.of(context);
+              final failed = l10n(context).couldNotRemoveHighlight;
+              try {
+                await ref
+                    .read(bibleHighlightRepositoryProvider)
+                    .deleteHighlight(existing!.id);
+              } catch (_) {
+                messenger.showSnackBar(SnackBar(
+                  content: Text(failed),
+                  behavior: SnackBarBehavior.floating,
+                ));
+              }
             }
           : null,
       onSaveToPromises: (ref_, text) => _saveAsPromise(ref_, text),
@@ -286,6 +315,11 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
 
   // ── Bookmarks ────────────────────────────────────────────────────────
 
+  /// Opens the notes carrying [tagId].
+  void _openNotesWithTag(String tagId) {
+    context.push('${Routes.notesHome}?tagId=$tagId');
+  }
+
   Future<void> _toggleBookmark(String bookName) async {
     try {
       await ref.read(bibleBookmarkRepositoryProvider).toggleBookmark(
@@ -314,13 +348,25 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     final book = ref.watch(bibleRepositoryProvider).getBookById(_bookId);
     final bookName = book?.name ?? 'Book $_bookId';
     final translations = ref.watch(bibleTranslationsProvider);
+    final verseTags = ref.watch(
+      chapterVerseTagsProvider((bookId: _bookId, chapter: _chapter)),
+    );
     final highlightsAsync = ref.watch(
       chapterHighlightsProvider((bookId: _bookId, chapter: _chapter)),
     );
+    // A failed read renders every verse unhighlighted, which does not look
+    // like a failure — it looks like the highlights are gone. Say so instead.
+    final highlightsFailed = highlightsAsync.hasError;
     final highlights = highlightsAsync.valueOrNull ?? [];
+    // Nullable: null means we have not read the bookmark yet, which is not
+    // the same as "not bookmarked". toggleBookmark re-queries the database
+    // rather than trusting this, so tapping while it reads as false finds the
+    // existing row and deletes it — a tap meant to bookmark a chapter removes
+    // the bookmark instead. The window is the first frames after the screen
+    // opens, no error required.
     final isBookmarked = ref
         .watch(isChapterBookmarkedProvider((bookId: _bookId, chapter: _chapter)))
-        .valueOrNull ?? false;
+        .valueOrNull;
 
     final primaryVerses = ref.watch(bibleVersesProvider(
       (bookId: _bookId, chapter: _chapter, translation: _primaryTranslation),
@@ -368,14 +414,20 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
                       setState(() => _primaryTranslation = t),
                 ),
               ),
-            // Bookmark toggle
+            // Bookmark toggle — inert until we know which way it goes.
             IconButton(
               icon: Icon(
-                isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                color: isBookmarked ? _bibleGreen : null,
+                isBookmarked == true ? Icons.bookmark : Icons.bookmark_border,
+                color: isBookmarked == true ? _bibleGreen : null,
               ),
-              tooltip: isBookmarked ? 'Remove bookmark' : 'Bookmark chapter',
-              onPressed: () => _toggleBookmark(bookName),
+              tooltip: isBookmarked == null
+                  ? 'Loading bookmark'
+                  : isBookmarked
+                      ? 'Remove bookmark'
+                      : 'Bookmark chapter',
+              onPressed: isBookmarked == null
+                  ? null
+                  : () => _toggleBookmark(bookName),
             ),
             // Parallel toggle
             IconButton(
@@ -391,12 +443,53 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
         ),
         body: Stack(
           children: [
+            if (highlightsFailed)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Material(
+                  color: AppTheme.warning.withValues(alpha: 0.12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.spacing16,
+                        vertical: AppTheme.spacing8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            l10n(context).highlightsCouldntBeLoaded,
+                            style: AppTheme.caption
+                                .copyWith(color: context.warningText),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => ref.invalidate(
+                            chapterHighlightsProvider(
+                                (bookId: _bookId, chapter: _chapter)),
+                          ),
+                          style: TextButton.styleFrom(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: const Size(0, 32),
+                            tapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: Text(l10n(context).retry),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             _isParallel
                 ? _buildParallelView(
-                    theme, primaryVerses, highlights, translations)
+                    theme, primaryVerses, highlights, translations, verseTags)
                 : ChapterVerseList(
                     verses: primaryVerses,
                     highlights: highlights,
+                    verseTags: verseTags,
+                    onTagTap: _openNotesWithTag,
                     scrollController: _primaryScrollController,
                     scrollToVerse: widget.scrollToVerse,
                     onVerseTap: (verse) =>
@@ -436,6 +529,7 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     List<BibleVerseEntity> primaryVerses,
     List<BibleHighlightEntity> highlights,
     List<String> translations,
+    Map<int, Set<String>> verseTags,
   ) {
     final secondaryVerses = ref.watch(bibleVersesProvider(
       (
@@ -461,6 +555,8 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
                 child: ChapterVerseList(
                   verses: primaryVerses,
                   highlights: highlights,
+                  verseTags: verseTags,
+                  onTagTap: _openNotesWithTag,
                   scrollController: _primaryScrollController,
                   onVerseTap: (verse) =>
                       _showHighlightSheet(verse, highlights),
@@ -490,6 +586,10 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
                 child: ChapterVerseList(
                   verses: secondaryVerses,
                   highlights: highlights,
+                  // The tags belong to the verse, not to a translation, so
+                  // the primary column carries them; showing them in both
+                  // would put two controls on screen for one thing.
+                  showVerseTags: false,
                   scrollController: _secondaryScrollController,
                   onVerseTap: (verse) =>
                       _showHighlightSheet(verse, highlights),

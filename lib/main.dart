@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -25,6 +26,7 @@ import 'features/bible/presentation/providers/bible_providers.dart';
 import 'features/bible_search/presentation/providers/bible_search_providers.dart';
 import 'shared/widgets/dialogs/update_dialog.dart';
 import 'shared/widgets/maintenance_screen.dart';
+import 'core/navigation/routes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -254,18 +256,50 @@ class _SelahAppState extends ConsumerState<SelahApp>
     final prefs = ref.read(sharedPreferencesProvider);
     prefs.setInt('last_update_check_ms', DateTime.now().millisecondsSinceEpoch);
 
-    // Use rootNavigatorKey so the dialog is shown above all routes
+    _showUpdateWhenSettled(result);
+  }
+
+  /// Routes the app passes through on its way somewhere else.
+  ///
+  /// Splash calls `context.go(Routes.home)` once it has decided where to send
+  /// the user, and a `go` replaces the root stack — taking any dialog above it
+  /// with it. Showing the update prompt while one of these is on screen is why
+  /// it flashed for under a second and vanished before anyone could read it.
+  static const _transientRoutes = {
+    Routes.splash,
+    Routes.onboarding,
+    Routes.login,
+    Routes.register,
+  };
+
+  /// Shows the update prompt once the app has stopped navigating.
+  ///
+  /// Waits for a destination that will not be replaced out from under it, then
+  /// shows the dialog and leaves it there until the reader picks Install or
+  /// Later — which is the whole point of asking.
+  void _showUpdateWhenSettled(AppUpdateResult result) {
     final ctx = rootNavigatorKey.currentContext;
     if (ctx == null || !ctx.mounted) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (rootNavigatorKey.currentContext?.mounted == true) {
-        UpdateDialog.show(
-          rootNavigatorKey.currentContext!,
-          result,
-          ref.read(appUpdateServiceProvider),
-        );
-      }
-    });
+    final router = GoRouter.of(ctx);
+
+    void attempt() {
+      final current = rootNavigatorKey.currentContext;
+      if (current == null || !current.mounted) return;
+      final path = router.state.uri.path;
+      // Still on the way somewhere: wait for the next route change.
+      if (_transientRoutes.contains(path)) return;
+
+      router.routerDelegate.removeListener(attempt);
+      UpdateDialog.show(
+        current,
+        result,
+        ref.read(appUpdateServiceProvider),
+      );
+    }
+
+    router.routerDelegate.addListener(attempt);
+    // The app may already be settled — a resume rather than a cold start.
+    WidgetsBinding.instance.addPostFrameCallback((_) => attempt());
   }
 
   @override

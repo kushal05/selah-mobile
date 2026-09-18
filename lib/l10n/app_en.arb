@@ -992,6 +992,50 @@
   "markThisTimeOfPrayer": "Mark this time of prayer",
   "howDidItGoOptional": "How did it go? (optional)",
   "logThisPrayer": "Log prayer",
+  "bibleDownloadNeededForVerse": "Add a Bible to pick a verse. Download one below and the books will appear here.",
+  "@bibleDownloadNeededForVerse": {
+    "description": "Shown in the Bible reference picker when no translation is installed."
+  },
+  "bibleDownloadFailed": "Download failed. Check your connection and try again.",
+  "@bibleDownloadFailed": {
+    "description": "Shown in the Bible reference picker when no translation is installed."
+  },
+  "habitsCouldntBeLoaded": "Today's habits couldn't be loaded",
+  "@habitsCouldntBeLoaded": {
+    "description": "Shown on the home screen habits widget."
+  },
+  "habitCouldntBeUpdated": "Couldn't update that habit. Try again.",
+  "@habitCouldntBeUpdated": {
+    "description": "Shown on the home screen habits widget."
+  },
+  "prayersCouldntBeLoaded": "Your prayers couldn't be loaded",
+  "@prayersCouldntBeLoaded": {
+    "description": "Shown on the home hero when the prayers read fails."
+  },
+  "tapRetryToTryAgain": "Tap retry to try again",
+  "@tapRetryToTryAgain": {
+    "description": "Shown on the home hero when the prayers read fails."
+  },
+  "couldNotSaveHighlight": "Couldn't save that highlight. Try again.",
+  "@couldNotSaveHighlight": {
+    "description": "Shown when a Bible highlight write fails."
+  },
+  "couldNotRemoveHighlight": "Couldn't remove that highlight. Try again.",
+  "@couldNotRemoveHighlight": {
+    "description": "Shown when a Bible highlight write fails."
+  },
+  "couldNotRemoveHistoryEntry": "Couldn't remove that entry. Try again.",
+  "@couldNotRemoveHistoryEntry": {
+    "description": "Shown when deleting a reading-history entry fails."
+  },
+  "highlightsCouldntBeLoaded": "Your highlights couldn't be loaded",
+  "@highlightsCouldntBeLoaded": {
+    "description": "Shown in the Bible reader when a read fails."
+  },
+  "bookmarksCouldntBeLoaded": "Your bookmarks couldn't be loaded",
+  "@bookmarksCouldntBeLoaded": {
+    "description": "Shown in the Bible reader when a read fails."
+  },
   "savedReferenceAsPromise": "Saved \"{reference}\" as a promise",
   "@savedReferenceAsPromise": {
     "placeholders": {

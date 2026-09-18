@@ -38,7 +38,14 @@ import '../../../../shared/widgets/tab_title.dart';
 
 /// Notes list screen showing folders and notes in a split layout
 class NotesHomeScreen extends ConsumerStatefulWidget {
-  const NotesHomeScreen({super.key});
+  /// Opens with this tag already applied to the filter.
+  ///
+  /// Set when arriving from a verse tag in the Bible reader, so tapping the
+  /// tag lands on the notes that carry it rather than on an unfiltered list
+  /// the user then has to narrow by hand.
+  final String? initialTagId;
+
+  const NotesHomeScreen({super.key, this.initialTagId});
 
   @override
   ConsumerState<NotesHomeScreen> createState() => _NotesHomeScreenState();
@@ -58,6 +65,51 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   // prevent unbounded growth without the overhead of LRU bookkeeping.
   static const _previewCacheMaxSize = 500;
   final Map<String, String?> _previewCache = {};
+
+  @override
+  void initState() {
+    super.initState();
+    // Seeded, not forced: the user can clear it like any other filter.
+    //
+    // The filter now lives in [notesHomeUiProvider] rather than in a field
+    // here, and the provider is autoDispose — a second visit starts empty —
+    // so the seed has to be written on every mount, not just the first.
+    final tagId = widget.initialTagId;
+    if (tagId != null) _seedTagFilter({tagId});
+  }
+
+  /// Writes the tag filter out of band.
+  ///
+  /// The filter lives in a provider now, and Riverpod refuses a write from
+  /// inside initState or didUpdateWidget — the tree is building at that point
+  /// and a notifier change would rebuild it mid-flight. A microtask lands the
+  /// write immediately after the current build instead, which is soon enough
+  /// that the unfiltered list is never painted.
+  void _seedTagFilter(Set<String> tagIds) {
+    Future.microtask(() {
+      if (!mounted) return;
+      _uiCtl.setTagFilter(tagIds);
+    });
+  }
+
+  /// The active tag filter, so the arriving-from-a-verse-tag path can be
+  /// asserted without driving the whole screen's data layer.
+  @visibleForTesting
+  Set<String> get debugFilterTagIds => _ui.filterTagIds;
+
+  @override
+  void didUpdateWidget(NotesHomeScreen old) {
+    super.didUpdateWidget(old);
+    // Arriving from a second verse tag rebuilds this screen with a new id
+    // rather than creating it again, so initState does not run and the list
+    // would keep showing the first tag's notes.
+    final tagId = widget.initialTagId;
+    if (tagId == null || tagId == old.initialTagId) return;
+    final next = Set<String>.from(_ui.filterTagIds);
+    if (old.initialTagId != null) next.remove(old.initialTagId);
+    next.add(tagId);
+    _seedTagFilter(next);
+  }
 
   void _clearFilters() => _uiCtl.clearFilters();
 
@@ -1641,7 +1693,6 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   /// Builds the trash section showing trashed notes with restore/delete actions
   Widget _buildTrashSection(BuildContext context) {
     final trashedNotesAsync = ref.watch(trashedNotesStreamProvider);
-    final colorScheme = Theme.of(context).colorScheme;
 
     return trashedNotesAsync.when(
       loading: () => const ListTileSkeletonList(count: 8, hasLeading: false),
@@ -1657,7 +1708,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                   Icon(
                     Icons.delete_outline,
                     size: 64,
-                    color: colorScheme.onSurface.withValues(alpha: 0.3),
+                    color: context.mutedText,
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -1819,7 +1870,6 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   /// Builds empty state for notes section
   Widget _buildEmptyNotesState(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
     return Center(
       child: Padding(
@@ -1830,7 +1880,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
             Icon(
               Icons.note_add_rounded,
               size: 64,
-              color: colorScheme.onSurface.withValues(alpha: 0.3),
+              color: context.mutedText,
             ),
             const SizedBox(height: 16),
             Text(

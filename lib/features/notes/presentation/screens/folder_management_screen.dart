@@ -121,7 +121,6 @@ class _FolderManagementScreenState
     required int depth,
   }) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
     // Get children of this folder
     final children =
@@ -177,7 +176,7 @@ class _FolderManagementScreenState
                               child: Icon(
                                 Icons.chevron_right_rounded,
                                 size: 20,
-                                color: colorScheme.onSurface.withValues(alpha: 0.5),
+                                color: context.mutedText,
                               ),
                             ),
                             onPressed: () {
@@ -227,7 +226,7 @@ class _FolderManagementScreenState
                   PopupMenuButton<String>(
                     icon: Icon(
                       Icons.more_vert_rounded,
-                      color: colorScheme.onSurface.withValues(alpha: 0.5),
+                      color: context.mutedText,
                     ),
                     onSelected: (value) =>
                         _handleFolderAction(context, folder, value, allFolders),

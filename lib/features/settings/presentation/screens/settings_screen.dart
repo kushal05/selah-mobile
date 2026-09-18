@@ -279,7 +279,15 @@ class SettingsScreen extends ConsumerWidget {
           Consumer(
             builder: (context, ref, _) {
               final pkgAsync = ref.watch(packageInfoProvider);
-              final version = pkgAsync.valueOrNull?.version ?? '—';
+              // Name and build number together: "0.2.3 (31)". The build
+              // number is what the updater actually compares and what a bug
+              // report needs, and it was not shown anywhere.
+              final pkg = pkgAsync.valueOrNull;
+              final version = pkg == null
+                  ? '—'
+                  : pkg.buildNumber.isEmpty
+                      ? pkg.version
+                      : '${pkg.version} (${pkg.buildNumber})';
               return _SettingsGroup(
                 tiles: [
                   _SettingsTile(

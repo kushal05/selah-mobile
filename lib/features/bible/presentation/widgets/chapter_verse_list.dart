@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/sync/providers/sync_providers.dart';
+
 import '../../../../core/providers/reading_preferences.dart';
 import '../../domain/models/bible_highlight_entity.dart';
 import '../../domain/models/bible_verse_entity.dart';
@@ -20,6 +22,20 @@ class ChapterVerseList extends StatefulWidget {
   final void Function(BibleVerseEntity verse)? onVerseTap;
   final int? scrollToVerse;
 
+  /// Tags your notes have put on these verses, by verse number.
+  final Map<int, Set<String>> verseTags;
+
+  /// Opens the notes carrying [tagId].
+  final void Function(String tagId)? onTagTap;
+
+  /// Whether this column shows verse tags.
+  ///
+  /// Parallel view renders this widget twice side by side. The tags belong to
+  /// the verse rather than to a translation, so showing them in both columns
+  /// would put two controls on screen for the same thing; the primary column
+  /// carries them.
+  final bool showVerseTags;
+
   const ChapterVerseList({
     super.key,
     required this.verses,
@@ -28,6 +44,9 @@ class ChapterVerseList extends StatefulWidget {
     this.onVerseLongPress,
     this.onVerseTap,
     this.scrollToVerse,
+    this.verseTags = const {},
+    this.onTagTap,
+    this.showVerseTags = true,
   });
 
   @override
@@ -113,6 +132,10 @@ class _ChapterVerseListState extends State<ChapterVerseList> {
           verse: verse,
           highlight: highlight,
           isFlashing: isFlashing,
+          tagIds: widget.showVerseTags
+              ? (widget.verseTags[verse.verse] ?? const {})
+              : const {},
+          onTagTap: widget.onTagTap,
           onTap: widget.onVerseTap != null
               ? () => widget.onVerseTap!(verse)
               : null,
@@ -128,6 +151,8 @@ class _ChapterVerseListState extends State<ChapterVerseList> {
 /// A single verse row with optional highlight background.
 class _VerseRow extends ConsumerWidget {
   final BibleVerseEntity verse;
+  final Set<String> tagIds;
+  final void Function(String tagId)? onTagTap;
   final BibleHighlightEntity? highlight;
   final bool isFlashing;
   final VoidCallback? onTap;
@@ -140,7 +165,78 @@ class _VerseRow extends ConsumerWidget {
     this.isFlashing = false,
     this.onTap,
     this.onLongPress,
+    this.tagIds = const {},
+    this.onTagTap,
   });
+
+  /// Tags on this verse, under it and to the right.
+  ///
+  /// Each one is its own tap target: the row's GestureDetector opens the
+  /// highlight sheet and would otherwise swallow the tap.
+  Widget _buildTags(BuildContext context, WidgetRef ref) {
+    if (tagIds.isEmpty) return const SizedBox.shrink();
+
+    final names = {
+      for (final t in ref.watch(tagsStreamProvider).valueOrNull ?? const [])
+        t.id: t.name,
+    };
+    // A tag whose name has not arrived is skipped rather than shown as an id.
+    final shown = tagIds.where((id) => names[id] != null).toList()..sort();
+    if (shown.isEmpty) return const SizedBox.shrink();
+
+    // A highlight repaints the row in a pastel that the usual ink would
+    // disappear into, so the tag follows the verse text's own colour there.
+    final ink = highlight != null
+        ? AppTheme.onHighlight
+        : AppTheme.inkOnTintFor(
+            AppTheme.brandPurple, Theme.of(context).brightness);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Wrap(
+        alignment: WrapAlignment.end,
+        spacing: 8,
+        runSpacing: 2,
+        children: [
+          for (final id in shown)
+            Semantics(
+              button: onTagTap != null,
+              label: names[id],
+              child: GestureDetector(
+                onTap: onTagTap == null ? null : () => onTagTap!(id),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.local_offer_outlined, size: 12, color: ink),
+                    const SizedBox(width: 2),
+                    // Capped and ellipsised. A span gets the line's
+                    // remaining width, but its child does not inherit that
+                    // bound — a long tag name still ran the row off the
+                    // edge. Half the screen is always narrower than the
+                    // paragraph, so a tag that needs more simply wraps to
+                    // its own line and truncates there.
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.sizeOf(context).width * 0.5,
+                    ),
+                    child: Text(
+                      names[id]!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTheme.tiny.copyWith(
+                        color: ink,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -189,9 +285,18 @@ class _VerseRow extends ConsumerWidget {
                 ),
               ),
             ),
-            // Verse text
+            // Verse text, with any tags under it at the right.
+            //
+            // Under, not beside: as a sibling in this Row the tags had no
+            // width to share with the text, and two ordinary tag names on a
+            // 320pt screen ran the row 222px off the edge. Below the verse
+            // they are still at its end and still right-aligned, and they
+            // wrap instead of overflowing.
             Expanded(
-              child: Text(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+              Text(
                 verse.text,
                 style: TextStyle(
                   fontSize: bodySize,
@@ -205,6 +310,9 @@ class _VerseRow extends ConsumerWidget {
                       : theme.colorScheme.onSurface,
                 ),
               ),
+                  _buildTags(context, ref),
+                ],
+              ),
             ),
             // Highlight note indicator
             if (highlight != null && highlight!.hasNote)
@@ -216,6 +324,7 @@ class _VerseRow extends ConsumerWidget {
                   color: AppTheme.onHighlight,
                 ),
               ),
+
           ],
         ),
       ),

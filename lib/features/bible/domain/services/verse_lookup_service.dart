@@ -83,6 +83,13 @@ class VerseLookupService {
   /// Resolve a book name (e.g., "John", "1 Corinthians") to its numeric ID.
   ///
   /// Tries full name first, then short name. Returns null if not found.
+  /// Book name to the 1..66 id used as the key for anything stored per verse.
+  ///
+  /// Names are abbreviated and localised, so they make a poor key; this is the
+  /// bridge between the string world the note blocks store and the id world
+  /// the reader works in.
+  int? resolveBookId(String bookName) => _resolveBookId(bookName);
+
   int? _resolveBookId(String bookName) {
     if (bookName.isEmpty) return null;
 

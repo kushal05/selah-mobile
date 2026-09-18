@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
@@ -141,7 +142,7 @@ class SyncDatabase extends _$SyncDatabase {
   SyncDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 35;
+  int get schemaVersion => 36;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -713,7 +714,14 @@ class SyncDatabase extends _$SyncDatabase {
           }
 
           if (from < 33) {
-            // v33: Track remote operations whose apply keeps failing.
+            // v33: Tags become lowercase, so "Faith" and "faith" stop being
+            // two tags. Normalising new writes does not touch what is already
+            // stored, so fold the existing ones together here.
+            await foldTagsToLowercase();
+          }
+
+          if (from < 34) {
+            // v34: Track remote operations whose apply keeps failing.
             // The pull leaves the cursor alone on a retryable failure so the
             // page is re-fetched rather than skipped; this bounds that so a
             // permanently unapplyable operation cannot wedge sync forever.
@@ -735,8 +743,8 @@ class SyncDatabase extends _$SyncDatabase {
             );
           }
 
-          if (from < 34) {
-            // v34: Count push attempts per operation, so a rejected push can
+          if (from < 35) {
+            // v35: Count push attempts per operation, so a rejected push can
             // be retried and bounded instead of being dropped on the first
             // failure.
             final cols = await customSelect('PRAGMA table_info(oplog)').get();
@@ -755,8 +763,8 @@ class SyncDatabase extends _$SyncDatabase {
             }
           }
 
-          if (from < 35) {
-            // v35: Per-field update timestamps for the multi-field entities
+          if (from < 36) {
+            // v36: Per-field update timestamps for the multi-field entities
             // that were still merging at record level, so two devices editing
             // different fields of the same record both keep their change.
             //
@@ -1758,6 +1766,106 @@ class SyncDatabase extends _$SyncDatabase {
   ///
   /// Called during logout / account switch so the next login starts
   /// with an empty local database and a fresh sync pull (cursor = null).
+  /// Folds tags that differ only by case into one, then lowercases the rest.
+  ///
+  /// Run once, at schema 33. Two things make this delicate:
+  ///
+  /// The survivor of each collision must be the *same row on every device*, or
+  /// two devices merge into different tags and then fight about it forever.
+  /// Oldest-then-id is a total order over rows that already agree across
+  /// devices, and it is the same order [TagRepository.getTagByName] resolves
+  /// with, so a lookup and a merge never disagree.
+  ///
+  /// The lowercasing happens in Dart, not in SQL. SQLite's LOWER() only folds
+  /// ASCII, so a Cyrillic or Greek tag would come back unchanged from SQL
+  /// while Dart's toLowerCase() folds it — and the stored value would then
+  /// never match what a lookup normalises to.
+  @visibleForTesting
+  Future<void> foldTagsToLowercase() async {
+    final rows = await customSelect(
+      'SELECT id, user_id, name, created_at, version FROM sync_tags '
+      'WHERE deleted = 0 AND trashed_at IS NULL '
+      'ORDER BY created_at ASC, id ASC',
+    ).get();
+
+    // (userId, lowercased name) -> the rows carrying it, oldest first.
+    final groups = <String, List<QueryRow>>{};
+    for (final row in rows) {
+      final key =
+          '${row.read<String>('user_id')}\u0000${row.read<String>('name').trim().toLowerCase()}';
+      groups.putIfAbsent(key, () => []).add(row);
+    }
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    for (final group in groups.values) {
+      final survivor = group.first.read<String>('id');
+      final duplicates =
+          group.skip(1).map((r) => r.read<String>('id')).toList();
+
+      for (final tagId in duplicates) {
+        for (final (table, _) in _tagJunctionTables) {
+          // Point the relation at the survivor. Rewriting tag_id in place
+          // rather than inserting a replacement row keeps this free of
+          // generated ids, and every device computes the same survivor.
+          await customStatement(
+            'UPDATE $table SET tag_id = ?, updated_at = ?, '
+            'version = version + 1 WHERE tag_id = ? AND deleted = 0',
+            [survivor, now, tagId],
+          );
+        }
+        await customStatement(
+          'UPDATE sync_tags SET deleted = 1, updated_at = ?, '
+          'version = version + 1 WHERE id = ?',
+          [now, tagId],
+        );
+      }
+
+      // Re-pointing can leave one owner holding the survivor twice. Keep the
+      // lowest id and retire the rest, so a tag shows once per item.
+      if (duplicates.isNotEmpty) {
+        for (final (table, ownerColumn) in _tagJunctionTables) {
+          await customStatement(
+            'UPDATE $table SET deleted = 1, updated_at = ?, '
+            'version = version + 1 '
+            'WHERE deleted = 0 AND tag_id = ? AND id NOT IN ('
+            'SELECT MIN(id) FROM $table WHERE deleted = 0 AND tag_id = ? '
+            'GROUP BY $ownerColumn)',
+            [now, survivor, survivor],
+          );
+        }
+      }
+
+    }
+
+    // Lowercase everything else, trashed tags included. They are left out of
+    // the merging above — a tag in the bin has no relations to re-point — but
+    // restoring one later should not bring a capital letter back with it.
+    final remaining = await customSelect(
+      'SELECT id, name FROM sync_tags WHERE deleted = 0',
+    ).get();
+    for (final row in remaining) {
+      final stored = row.read<String>('name');
+      final normalised = stored.trim().toLowerCase();
+      if (stored == normalised) continue;
+      await customStatement(
+        'UPDATE sync_tags SET name = ?, updated_at = ?, '
+        'version = version + 1 WHERE id = ?',
+        [normalised, now, row.read<String>('id')],
+      );
+    }
+  }
+
+  /// Every junction table pointing at sync_tags, and the column naming the
+  /// tagged thing. Mirrors TagRepository's list; both exist because a merge
+  /// that forgets one leaves rows pointing at a deleted tag.
+  static const _tagJunctionTables = <(String, String)>[
+    ('sync_note_tags', 'note_id'),
+    ('sync_song_tags', 'song_id'),
+    ('sync_prayer_tags', 'prayer_id'),
+    ('sync_promise_tags', 'promise_id'),
+  ];
+
   Future<void> clearAllUserData() async {
     // Delete all entity data
     await delete(folders).go();

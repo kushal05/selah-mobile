@@ -340,7 +340,6 @@ class _MoveTargetTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final opacity = isDisabled ? 0.4 : 1.0;
 
     return Material(
@@ -371,7 +370,7 @@ class _MoveTargetTile extends StatelessWidget {
                         child: Icon(
                           Icons.chevron_right_rounded,
                           size: 18,
-                          color: colorScheme.onSurface.withValues(alpha: 0.5),
+                          color: context.mutedText,
                         ),
                       ),
                     ),

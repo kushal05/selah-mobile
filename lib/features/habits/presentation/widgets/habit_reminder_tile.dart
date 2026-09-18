@@ -48,7 +48,7 @@ class HabitReminderSection extends ConsumerWidget {
               children: [
                 Icon(Icons.notifications_outlined,
                     size: 16,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                    color: context.mutedText),
                 const SizedBox(width: AppTheme.spacing6),
                 Text(
                   l10n(context).dailyReminders,

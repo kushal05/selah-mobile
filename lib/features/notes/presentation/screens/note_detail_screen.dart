@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../widgets/tagged_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
@@ -190,7 +192,7 @@ class NoteDetailScreen extends ConsumerWidget {
       case BlockType.heading1:
         return Padding(
           padding: EdgeInsets.only(left: indent, top: 16, bottom: 8),
-          child: Text(
+          child: TaggedText(
             block.content,
             style: AppTheme.noteHeading1,
           ),
@@ -199,7 +201,7 @@ class NoteDetailScreen extends ConsumerWidget {
       case BlockType.heading2:
         return Padding(
           padding: EdgeInsets.only(left: indent, top: 12, bottom: 6),
-          child: Text(
+          child: TaggedText(
             block.content,
             style: AppTheme.noteHeading2,
           ),
@@ -208,7 +210,7 @@ class NoteDetailScreen extends ConsumerWidget {
       case BlockType.heading3:
         return Padding(
           padding: EdgeInsets.only(left: indent, top: 8, bottom: 4),
-          child: Text(
+          child: TaggedText(
             block.content,
             style: AppTheme.noteHeading3,
           ),
@@ -220,7 +222,7 @@ class NoteDetailScreen extends ConsumerWidget {
         }
         return Padding(
           padding: EdgeInsets.only(left: indent, bottom: 8),
-          child: Text(
+          child: TaggedText(
             block.content,
             style: theme.textTheme.bodyLarge,
           ),
@@ -237,7 +239,7 @@ class NoteDetailScreen extends ConsumerWidget {
                 child: Icon(Icons.circle, size: 6),
               ),
               Expanded(
-                child: Text(
+                child: TaggedText(
                   block.content,
                   style: theme.textTheme.bodyLarge,
                 ),
@@ -261,7 +263,7 @@ class NoteDetailScreen extends ConsumerWidget {
                 ),
               ),
               Expanded(
-                child: Text(
+                child: TaggedText(
                   block.content,
                   style: theme.textTheme.bodyLarge,
                 ),
@@ -286,7 +288,7 @@ class NoteDetailScreen extends ConsumerWidget {
                   size: 20,
                   color: isChecked
                       ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      : context.mutedText,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -295,7 +297,7 @@ class NoteDetailScreen extends ConsumerWidget {
                     style: theme.textTheme.bodyLarge?.copyWith(
                       decoration: isChecked ? TextDecoration.lineThrough : null,
                       color: isChecked
-                          ? theme.colorScheme.onSurface.withValues(alpha: 0.6)
+                          ? context.mutedText
                           : null,
                     ),
                   ),

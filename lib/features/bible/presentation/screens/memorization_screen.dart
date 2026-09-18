@@ -7,6 +7,7 @@ import '../../domain/models/memory_verse.dart';
 import '../providers/memory_verse_providers.dart';
 import '../../../../core/services/user_facing_error.dart';
 import '../../../../l10n/l10n.dart';
+import '../../../../core/theme/theme_colors.dart';
 
 /// Home for scripture memorization: lists all cards, surfaces the due count,
 /// links into the review session, and opens an add-card sheet.
@@ -234,7 +235,7 @@ class _Empty extends StatelessWidget {
               l10n(context).addAVerseAndReviewItAcrossSpacedIntervals137,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                color: context.mutedText,
               ),
             ),
             const SizedBox(height: 16),

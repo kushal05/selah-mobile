@@ -33,9 +33,19 @@ class HabitStatsCard extends ConsumerWidget {
     final weekAsync = ref.watch(habitWeeklyStatsProvider(habit));
     final historyAsync = ref.watch(habitHistoryProvider(habit));
 
-    final isDone = todayAsync.valueOrNull?.contains(habit.key) ?? false;
-    final streak = streakAsync.valueOrNull ?? 0;
-    final best = bestAsync.valueOrNull ?? 0;
+    // Nullable: `?? false` made "not read yet" look like "not done", and
+    // toggleToday re-queries the database rather than trusting this — so a
+    // tap in that window finds the existing log and deletes it. Same bug as
+    // the home screen's habits row; this card is the other place it lives.
+    final done = todayAsync.valueOrNull?.contains(habit.key);
+    final isDone = done == true;
+    final known = done != null;
+    // Nullable for the same reason as `done` above: "0 days" is a statement
+    // about the user's record, and a read that failed or has not landed yet
+    // is not entitled to make it. An em dash says "not known" without
+    // claiming the streak is broken.
+    final streak = streakAsync.valueOrNull;
+    final best = bestAsync.valueOrNull;
     final week = weekAsync.valueOrNull ?? List.filled(7, false);
     final history = historyAsync.valueOrNull ?? {};
 
@@ -77,7 +87,7 @@ class HabitStatsCard extends ConsumerWidget {
                   child: Icon(icon, size: 18,
                       color: isDone
                           ? color
-                          : theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                          : context.mutedText),
                 ),
                 const SizedBox(width: AppTheme.spacing12),
                 Expanded(
@@ -88,12 +98,18 @@ class HabitStatsCard extends ConsumerWidget {
                   ),
                 ),
                 Semantics(
-                  button: true,
-                  label: isDone
-                      ? '${habit.label}, done today. Mark not done'
-                      : '${habit.label}, not done. Mark done',
+                  button: known,
+                  label: known
+                      ? (isDone
+                          ? '${habit.label}, done today. Mark not done'
+                          : '${habit.label}, not done. Mark done')
+                      : '${habit.label}, loading',
                   child: GestureDetector(
-                  onTap: () async {
+                  onTap: !known
+                      ? null
+                      : () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    final failed = l10n(context).habitCouldntBeUpdated;
                     try {
                       await ref
                           .read(habitLogRepositoryProvider)
@@ -104,6 +120,12 @@ class HabitStatsCard extends ConsumerWidget {
                       ref.invalidate(habitWeeklyStatsProvider(habit));
                     } catch (e) {
                       SyncLogger.error('[HabitStatsCard] toggleToday failed', e);
+                      // The log is for us. Tell the user too — otherwise the
+                      // chip just does not change and reads as a missed tap.
+                      messenger.showSnackBar(SnackBar(
+                        content: Text(failed),
+                        behavior: SnackBarBehavior.floating,
+                      ));
                     }
                   },
                   child: AnimatedContainer(
@@ -126,18 +148,21 @@ class HabitStatsCard extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          isDone
-                              ? Icons.check_circle_rounded
-                              : Icons.radio_button_unchecked_rounded,
+                          !known
+                              ? Icons.more_horiz_rounded
+                              : isDone
+                                  ? Icons.check_circle_rounded
+                                  : Icons.radio_button_unchecked_rounded,
                           size: 14,
-                          color: isDone
-                              ? color
-                              : theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.4),
+                          color: isDone ? color : context.mutedText,
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          isDone ? 'Done' : 'Mark done',
+                          !known
+                              ? '\u2026'
+                              : isDone
+                                  ? 'Done'
+                                  : 'Mark done',
                           style: theme.textTheme.labelSmall?.copyWith(
                             fontWeight: FontWeight.w600,
                             color: isDone
@@ -160,22 +185,24 @@ class HabitStatsCard extends ConsumerWidget {
               children: [
                 _StatChip(
                   icon: Icons.local_fire_department_rounded,
-                  iconColor: streak > 0
+                  iconColor: (streak ?? 0) > 0
                       ? const Color(0xFFEF4444)
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.3),
-                  label: streak > 0
-                      ? '$streak day${streak == 1 ? '' : 's'}'
-                      : '0 days',
+                      : context.mutedText,
+                  label: streak == null
+                      ? '—'
+                      : streak > 0
+                          ? '$streak day${streak == 1 ? '' : 's'}'
+                          : '0 days',
                   sublabel: l10n(context).currentStreak,
                   theme: theme,
                 ),
                 const SizedBox(width: AppTheme.spacing8),
                 _StatChip(
                   icon: Icons.emoji_events_rounded,
-                  iconColor: best > 0
+                  iconColor: (best ?? 0) > 0
                       ? const Color(0xFFF59E0B)
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.3),
-                  label: best > 0 ? '$best day${best == 1 ? '' : 's'}' : '—',
+                      : context.mutedText,
+                  label: (best ?? 0) > 0 ? '$best day${best == 1 ? '' : 's'}' : '—',
                   sublabel: l10n(context).bestStreak,
                   theme: theme,
                 ),
@@ -248,7 +275,7 @@ class _StatChip extends StatelessWidget {
                       style: theme.textTheme.labelSmall?.copyWith(
                         fontSize: 12,
                         color:
-                            theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                            context.mutedText,
                       )),
                 ],
               ),

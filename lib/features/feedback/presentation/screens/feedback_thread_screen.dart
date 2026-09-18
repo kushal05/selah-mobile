@@ -478,7 +478,7 @@ class _DateHeader extends StatelessWidget {
           ),
           child: Text(
             label,
-            style: TextStyle(fontSize: 13, color: context.subtleFill),
+            style: TextStyle(fontSize: 13, color: context.mutedText),
           ),
         ),
       ),

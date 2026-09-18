@@ -57,9 +57,18 @@ class SelectableChip extends StatelessWidget {
                   Icon(icon, size: AppTheme.iconMD, color: fg),
                   const SizedBox(width: 4),
                 ],
-                Text(
-                  label,
-                  style: TextStyle(fontSize: 15, color: fg),
+                // Flexible + ellipsis: nothing here could yield, so a tag
+                // named longer than the row is wide ran straight off the
+                // edge — 306px on a 320pt screen. The chip is used by four
+                // tag inputs and the Bible search filters, all of which take
+                // names the user types, so the label has to be able to give.
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 15, color: fg),
+                  ),
                 ),
                 if (showDelete && isSelected) ...[
                   const SizedBox(width: 4),

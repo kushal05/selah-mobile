@@ -204,7 +204,6 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
 
   Widget _buildFolderList(BuildContext context, List<FolderModel> folders) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
     // Build hierarchical list
     final rootFolders = folders.where((f) => f.parentId == null).toList();
@@ -258,12 +257,12 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
                 Icon(
                   Icons.folder_open_outlined,
                   size: 48,
-                  color: colorScheme.onSurface.withValues(alpha: 0.3),
+                  color: context.mutedText,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'No ${_entityLabelLower}s yet',
-                  style: TextStyle(color: context.subtleFill),
+                  style: TextStyle(color: context.mutedText),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -369,7 +368,7 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
               child: Text(
                 'Creating $_entityLabelLower in "$parentName"',
                 style: TextStyle(
-                  color: context.subtleFill,
+                  color: context.mutedText,
                   fontSize: 13,
                 ),
               ),
@@ -690,7 +689,6 @@ class _FolderTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final hasActions = onAddSubfolder != null || onRename != null || onDelete != null;
 
     return Material(
@@ -720,7 +718,7 @@ class _FolderTile extends StatelessWidget {
                       child: Icon(
                         Icons.chevron_right_rounded,
                         size: 18,
-                        color: colorScheme.onSurface.withValues(alpha: 0.5),
+                        color: context.mutedText,
                       ),
                     ),
                   ),
@@ -782,7 +780,7 @@ class _FolderTile extends StatelessWidget {
                   icon: Icon(
                     Icons.more_vert,
                     size: 18,
-                    color: colorScheme.onSurface.withValues(alpha: 0.5),
+                    color: context.mutedText,
                   ),
                   padding: EdgeInsets.zero,
                   onSelected: (value) {

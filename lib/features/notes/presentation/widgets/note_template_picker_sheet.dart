@@ -6,6 +6,7 @@ import '../../domain/models/note_template.dart';
 import '../providers/database_provider.dart';
 import '../../../../core/services/user_facing_error.dart';
 import '../../../../l10n/l10n.dart';
+import '../../../../core/theme/theme_colors.dart';
 
 /// Bottom-sheet picker for selecting a [NoteTemplate]. On selection, creates
 /// a seeded note via the notes repository and navigates to its detail page.
@@ -27,7 +28,8 @@ class NoteTemplatePickerSheet extends ConsumerWidget {
             width: 36,
             height: 4,
             decoration: BoxDecoration(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+              // The drag handle is an affordance, not text.
+              color: context.decorativeInk,
               borderRadius: BorderRadius.circular(2),
             ),
           ),

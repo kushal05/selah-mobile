@@ -37,13 +37,42 @@ class TagRepository extends BaseSyncRepository<TagModel> {
     return row != null ? _toModel(row) : null;
   }
 
-  Future<TagModel?> getTagByName(String name, String userId) async {
-    final query = _db.select(_db.syncTags)
-      ..where(
-          (t) => t.name.equals(name) & t.userId.equals(userId) & t.deleted.equals(0) & t.trashedAt.isNull());
+  /// A tag's canonical name.
+  ///
+  /// Tags are lowercase, so "Faith" and "faith" are one tag rather than two.
+  /// Normalising on write is only half of it — the lookup has to be
+  /// case-insensitive too, or a tag stored as "Faith" before this rule existed
+  /// would be missed and a second one created beside it.
+  static String normaliseName(String name) => name.trim().toLowerCase();
 
-    final row = await query.getSingleOrNull();
-    return row != null ? _toModel(row) : null;
+  Future<TagModel?> getTagByName(String name, String userId) async {
+    // LOWER() on both sides rather than an equality on the stored value: rows
+    // written before tags were normalised still carry their original case.
+    final rows = await _db.customSelect(
+      'SELECT * FROM sync_tags '
+      'WHERE LOWER(name) = ? AND user_id = ? AND deleted = 0 '
+      'AND trashed_at IS NULL '
+      // Oldest first, so a collision resolves to the same tag every time
+      // rather than to whichever row the database happened to return.
+      'ORDER BY created_at ASC, id ASC LIMIT 1',
+      variables: [
+        Variable.withString(normaliseName(name)),
+        Variable.withString(userId),
+      ],
+      readsFrom: {_db.syncTags},
+    ).getSingleOrNull();
+
+    if (rows == null) return null;
+    return TagModel(
+      id: rows.read<String>('id'),
+      userId: rows.read<String>('user_id'),
+      name: rows.read<String>('name'),
+      updatedAt: rows.read<int>('updated_at'),
+      version: rows.read<int>('version'),
+      deleted: rows.read<int>('deleted'),
+      trashedAt: rows.read<int?>('trashed_at'),
+      createdAt: rows.read<int>('created_at'),
+    );
   }
 
   Stream<List<TagModel>> watchAllTags(String userId) {
@@ -89,7 +118,7 @@ class TagRepository extends BaseSyncRepository<TagModel> {
     required String userId,
     required String name,
   }) async {
-    final trimmedName = name.trim();
+    final trimmedName = normaliseName(name);
     if (trimmedName.isEmpty) {
       throw const TagValidationException('Tag name cannot be empty');
     }
@@ -186,7 +215,7 @@ class TagRepository extends BaseSyncRepository<TagModel> {
       throw TagNotFoundException(id);
     }
 
-    final trimmed = newName.trim();
+    final trimmed = normaliseName(newName);
     if (trimmed.isEmpty) {
       throw const TagValidationException('Tag name cannot be empty');
     }
@@ -217,8 +246,30 @@ class TagRepository extends BaseSyncRepository<TagModel> {
     return updated;
   }
 
-  /// Merge [sourceTagId] into [targetTagId] for note-tag and song-tag
-  /// relations, then soft-delete the source tag.
+  /// Every junction table that points at [SyncTags], with the column naming
+  /// the thing being tagged.
+  ///
+  /// A merge used to walk only notes and songs, so prayer and promise rows
+  /// kept pointing at a tag that had just been soft-deleted — they resolved to
+  /// nothing and the tag silently fell off those items. Listing the tables in
+  /// one place is what stops the next junction table being forgotten too.
+  /// (table, owner column, the key that column has in the model's JSON, and
+  /// the oplog type the relation syncs under).
+  static const _tagJunctions =
+      <(String, String, String, OplogEntityType)>[
+    ('sync_note_tags', 'note_id', 'noteId', OplogEntityType.noteTag),
+    ('sync_song_tags', 'song_id', 'songId', OplogEntityType.songTag),
+    ('sync_prayer_tags', 'prayer_id', 'prayerId', OplogEntityType.prayerTag),
+    (
+      'sync_promise_tags',
+      'promise_id',
+      'promiseId',
+      OplogEntityType.promiseTag
+    ),
+  ];
+
+  /// Merge [sourceTagId] into [targetTagId] across every junction table, then
+  /// soft-delete the source tag.
   Future<void> mergeTags({
     required String sourceTagId,
     required String targetTagId,
@@ -230,81 +281,16 @@ class TagRepository extends BaseSyncRepository<TagModel> {
     if (source == null) throw TagNotFoundException(sourceTagId);
     if (target == null) throw TagNotFoundException(targetTagId);
 
-    final sourceNoteRelations = await (_db.select(_db.syncNoteTags)
-          ..where((n) =>
-              n.tagId.equals(sourceTagId) & n.deleted.equals(0)))
-        .get();
-
-    final sourceSongRelations = await (_db.select(_db.syncSongTags)
-          ..where((s) =>
-              s.tagId.equals(sourceTagId) & s.deleted.equals(0)))
-        .get();
-
     await _db.transaction(() async {
-      // Migrate note-tag relations
-      for (final relation in sourceNoteRelations) {
-        final duplicate = await (_db.select(_db.syncNoteTags)
-              ..where((n) =>
-                  n.noteId.equals(relation.noteId) &
-                  n.tagId.equals(targetTagId) &
-                  n.deleted.equals(0)))
-            .getSingleOrNull();
-
-        if (duplicate == null) {
-          await _db.into(_db.syncNoteTags).insert(
-                SyncNoteTagsCompanion.insert(
-                  id: generateId(),
-                  noteId: relation.noteId,
-                  tagId: targetTagId,
-                  userId: relation.userId,
-                  updatedAt: TestClock.now(),
-                  createdAt: TestClock.now(),
-                  version: const Value(1),
-                  deleted: const Value(0),
-                ),
-              );
-        }
-
-        final deletedRelation = SyncNoteTagsCompanion(
-          deleted: const Value(1),
-          updatedAt: Value(TestClock.now()),
-          version: Value(relation.version + 1),
+      for (final (table, ownerColumn, ownerKey, type) in _tagJunctions) {
+        await _repointJunction(
+          table: table,
+          ownerColumn: ownerColumn,
+          ownerKey: ownerKey,
+          entityType: type,
+          sourceTagId: sourceTagId,
+          targetTagId: targetTagId,
         );
-        await (_db.update(_db.syncNoteTags)..where((n) => n.id.equals(relation.id)))
-            .write(deletedRelation);
-      }
-
-      // Migrate song-tag relations
-      for (final relation in sourceSongRelations) {
-        final duplicate = await (_db.select(_db.syncSongTags)
-              ..where((s) =>
-                  s.songId.equals(relation.songId) &
-                  s.tagId.equals(targetTagId) &
-                  s.deleted.equals(0)))
-            .getSingleOrNull();
-
-        if (duplicate == null) {
-          await _db.into(_db.syncSongTags).insert(
-                SyncSongTagsCompanion.insert(
-                  id: generateId(),
-                  songId: relation.songId,
-                  tagId: targetTagId,
-                  userId: relation.userId,
-                  updatedAt: TestClock.now(),
-                  createdAt: TestClock.now(),
-                  version: const Value(1),
-                  deleted: const Value(0),
-                ),
-              );
-        }
-
-        final deletedRelation = SyncSongTagsCompanion(
-          deleted: const Value(1),
-          updatedAt: Value(TestClock.now()),
-          version: Value(relation.version + 1),
-        );
-        await (_db.update(_db.syncSongTags)..where((s) => s.id.equals(relation.id)))
-            .write(deletedRelation);
       }
 
       final deletedTag = source.softDelete();
@@ -313,6 +299,126 @@ class TagRepository extends BaseSyncRepository<TagModel> {
           .write(_toCompanion(deletedTag));
       await _db.into(_db.oplog).insert(_oplogToCompanion(deleteOplog));
     });
+  }
+
+  /// Moves every live row in [table] from the source tag to the target,
+  /// skipping owners that already carry the target, then retires the old row.
+  ///
+  /// Raw SQL because the four junction tables are four unrelated Drift types
+  /// with the same shape; writing this once against the shape is what keeps
+  /// them from drifting apart again.
+  Future<void> _repointJunction({
+    required String table,
+    required String ownerColumn,
+    required String ownerKey,
+    required OplogEntityType entityType,
+    required String sourceTagId,
+    required String targetTagId,
+  }) async {
+    final rows = await _db.customSelect(
+      'SELECT id, $ownerColumn AS owner_id, user_id, version FROM $table '
+      'WHERE tag_id = ? AND deleted = 0',
+      variables: [Variable.withString(sourceTagId)],
+    ).get();
+
+    for (final row in rows) {
+      final ownerId = row.read<String>('owner_id');
+      final existing = await _db.customSelect(
+        'SELECT id FROM $table '
+        'WHERE $ownerColumn = ? AND tag_id = ? AND deleted = 0 LIMIT 1',
+        variables: [
+          Variable.withString(ownerId),
+          Variable.withString(targetTagId),
+        ],
+      ).getSingleOrNull();
+
+      final userId = row.read<String>('user_id');
+
+      if (existing == null) {
+        final now = TestClock.now();
+        final newId = generateId();
+        await _db.customStatement(
+          'INSERT INTO $table '
+          '(id, $ownerColumn, tag_id, user_id, updated_at, version, deleted, '
+          'created_at) VALUES (?, ?, ?, ?, ?, 1, 0, ?)',
+          [newId, ownerId, targetTagId, userId, now, now],
+        );
+        await _writeJunctionOp(
+          entityType: entityType,
+          operation: OplogOperation.insert,
+          id: newId,
+          ownerKey: ownerKey,
+          ownerId: ownerId,
+          tagId: targetTagId,
+          userId: userId,
+          timestamp: now,
+          version: 1,
+          deleted: 0,
+        );
+      }
+
+      final retiredAt = TestClock.now();
+      final retiredVersion = row.read<int>('version') + 1;
+      final retiredId = row.read<String>('id');
+      await _db.customStatement(
+        'UPDATE $table SET deleted = 1, updated_at = ?, version = ? '
+        'WHERE id = ?',
+        [retiredAt, retiredVersion, retiredId],
+      );
+      await _writeJunctionOp(
+        entityType: entityType,
+        operation: OplogOperation.delete,
+        id: retiredId,
+        ownerKey: ownerKey,
+        ownerId: ownerId,
+        tagId: sourceTagId,
+        userId: userId,
+        timestamp: retiredAt,
+        version: retiredVersion,
+        deleted: 1,
+      );
+    }
+  }
+
+  /// Records a junction change in the oplog.
+  ///
+  /// Without this a merge stayed on the device it was done on: the tag's own
+  /// delete synced, so other devices lost the tag and kept every relation
+  /// pointing at it — the merge looked like a deletion everywhere else. The
+  /// four junction models share a shape, so one payload builder covers them.
+  Future<void> _writeJunctionOp({
+    required OplogEntityType entityType,
+    required OplogOperation operation,
+    required String id,
+    required String ownerKey,
+    required String ownerId,
+    required String tagId,
+    required String userId,
+    required int timestamp,
+    required int version,
+    required int deleted,
+  }) async {
+    final payload = <String, dynamic>{
+      'id': id,
+      ownerKey: ownerId,
+      'tagId': tagId,
+      'userId': userId,
+      'updatedAt': timestamp,
+      'version': version,
+      'deleted': deleted,
+      'createdAt': timestamp,
+    };
+    final entry = OplogEntry(
+      opId: generateOpId(),
+      entityType: entityType,
+      entityId: id,
+      operation: operation,
+      payload: payload,
+      timestamp: timestamp,
+      deviceId: deviceId,
+      entityVersion: version,
+    );
+    await _db.into(_db.oplog).insert(_oplogToCompanion(entry));
   }
 
   // ==================== HELPERS ====================

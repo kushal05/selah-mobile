@@ -179,7 +179,6 @@ class FolderSection extends ConsumerWidget {
     required bool expanded,
   }) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
     final folderCount = foldersAsync.when(
       data: (folders) => folders.length,
@@ -208,7 +207,10 @@ class FolderSection extends ConsumerWidget {
                 child: Icon(
                   Icons.chevron_right_rounded,
                   size: 20,
-                  color: colorScheme.onSurface.withValues(alpha: 0.5),
+                  // Carried over from the incoming branch's theme-token pass:
+                  // this method was extracted into FolderSection on this side
+                  // while that change landed on it there.
+                  color: context.mutedText,
                 ),
               ),
               const SizedBox(width: 8),

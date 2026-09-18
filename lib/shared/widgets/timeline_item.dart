@@ -106,7 +106,7 @@ class TimelineItem extends StatelessWidget {
                     Text(
                       time,
                       style: TextStyle(
-                          fontSize: 13, color: context.subtleFill),
+                          fontSize: 13, color: context.mutedText),
                     ),
                   ],
                 ),

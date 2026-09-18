@@ -141,6 +141,15 @@ class BibleReference extends Equatable {
   final BibleVerseDisplay display;
   final bool pending;
 
+  /// Tags the user put on this reference, as tag ids.
+  ///
+  /// Stored here rather than in a table of their own so they ride note-block
+  /// sync, which works today — a new synced entity would need a server handler
+  /// that does not exist yet, and would be local-only. The trade is that a
+  /// build of the app older than this field will drop it when it re-saves the
+  /// same note.
+  final List<String> tagIds;
+
   const BibleReference({
     required this.reference,
     required this.text,
@@ -148,6 +157,7 @@ class BibleReference extends Equatable {
     this.insertedAt = 0,
     this.display = const BibleVerseDisplay(),
     this.pending = false,
+    this.tagIds = const [],
   });
 
   /// Create a fallback/error reference
@@ -192,6 +202,10 @@ class BibleReference extends Equatable {
       'insertedAt': insertedAt,
       'display': display.toJson(),
       'pending': pending,
+      // Omitted when empty, so blocks written before verse tags existed keep
+      // byte-identical JSON and the editor's unchanged-check still suppresses
+      // a redundant write on every save.
+      if (tagIds.isNotEmpty) 'tagIds': tagIds,
     };
   }
 
@@ -217,6 +231,10 @@ class BibleReference extends Equatable {
                 json['display'] as Map<String, dynamic>)
             : const BibleVerseDisplay(),
         pending: json['pending'] as bool? ?? false,
+        tagIds: (json['tagIds'] as List<dynamic>?)
+                ?.whereType<String>()
+                .toList(growable: false) ??
+            const [],
       );
     }
 
@@ -268,6 +286,7 @@ class BibleReference extends Equatable {
     int? insertedAt,
     BibleVerseDisplay? display,
     bool? pending,
+    List<String>? tagIds,
   }) {
     return BibleReference(
       reference: reference ?? this.reference,
@@ -276,12 +295,13 @@ class BibleReference extends Equatable {
       insertedAt: insertedAt ?? this.insertedAt,
       display: display ?? this.display,
       pending: pending ?? this.pending,
+      tagIds: tagIds ?? this.tagIds,
     );
   }
 
   @override
   List<Object?> get props =>
-      [reference, text, source, insertedAt, display, pending];
+      [reference, text, source, insertedAt, display, pending, tagIds];
 
   @override
   String toString() => 'BibleReference($displayReference)';

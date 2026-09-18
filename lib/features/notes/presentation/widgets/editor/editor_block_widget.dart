@@ -385,6 +385,12 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
     return BibleReferenceBlockWidget(
       reference: resolved,
       availableTranslations: ref.watch(bibleTranslationsProvider),
+      onTagsChanged: (tagIds) => ref
+          .read(noteEditorProvider(widget.noteId).notifier)
+          .updateBibleReferenceTags(
+            blockId: widget.block.id,
+            tagIds: tagIds,
+          ),
       onEdit: () async {
         final ref_ = reference.reference;
         final existingBook =
