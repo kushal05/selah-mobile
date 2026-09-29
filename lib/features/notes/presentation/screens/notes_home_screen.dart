@@ -328,10 +328,12 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
         );
         break;
       case NotesSortOption.title:
+        // compareNoteTitles, never String.compareTo: the latter orders by code
+        // unit, putting every capital ahead of every lowercase.
         sorted.sort(
           (a, b) => _ui.sortAscending
-              ? a.title.compareTo(b.title)
-              : b.title.compareTo(a.title),
+              ? compareNoteTitles(a.title, b.title)
+              : compareNoteTitles(b.title, a.title),
         );
         break;
       case NotesSortOption.createdDate:
