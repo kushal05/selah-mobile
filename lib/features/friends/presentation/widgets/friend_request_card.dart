@@ -51,10 +51,10 @@ class FriendRequestCard extends StatelessWidget {
                     AppTheme.teal.withValues(alpha: 0.1),
                 child: Text(
                   initial,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.teal,
+                    color: context.accentInk(AppTheme.teal),
                   ),
                 ),
               ),

@@ -359,10 +359,10 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
                 color: AppTheme.brandBlue.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.favorite_border,
                 size: 40,
-                color: AppTheme.brandBlue,
+                color: context.accentInk(AppTheme.brandBlue),
               ),
             ),
             const SizedBox(height: 24),
@@ -408,10 +408,10 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
                   ),
                   Text(
                     '$_loggedCount / ${_todaysPrayers.length}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.brandBlue,
+                      color: context.accentInk(AppTheme.brandBlue),
                     ),
                   ),
                 ],

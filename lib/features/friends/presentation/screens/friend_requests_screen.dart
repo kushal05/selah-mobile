@@ -22,12 +22,12 @@ class FriendRequestsScreen extends ConsumerWidget {
           title: Text(l10n(context).friendRequests),
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           elevation: 0,
-          bottom: const TabBar(
+          bottom: TabBar(
             tabs: [
               Tab(text: 'Incoming'),
               Tab(text: 'Outgoing'),
             ],
-            labelColor: AppTheme.teal,
+            labelColor: context.accentInk(AppTheme.teal),
             unselectedLabelColor: Colors.grey,
             indicatorColor: AppTheme.teal,
           ),

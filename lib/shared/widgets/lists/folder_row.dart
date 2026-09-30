@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../l10n/l10n.dart';
 
 import '../../../core/sync/models/folder_model.dart';
 import '../../../core/theme/theme_colors.dart';
@@ -8,7 +9,17 @@ import '../../../core/theme/theme_colors.dart';
 /// Displays a folder item in the notes list with hierarchical support
 class FolderRow extends StatelessWidget {
   final String title;
-  final int noteCount;
+  /// Null when the notes could not be read.
+  ///
+  /// It was a plain int defaulting to zero from `valueOrNull ?? []`, so a
+  /// failed read labelled every folder "0 notes" — a count of the user's own
+  /// work, stated from a query that never returned.
+  final int? noteCount;
+
+  /// Whether the notes read actually failed, as opposed to not having
+  /// returned yet. Both leave [noteCount] null, but only one of them is
+  /// something to tell the user: every cold open passes through the other.
+  final bool countFailed;
   final int? folderCount;
   final int depth;
   final bool isExpanded;
@@ -31,6 +42,7 @@ class FolderRow extends StatelessWidget {
     this.hasChildren = false,
     this.visibility,
     this.accentColor,
+    this.countFailed = false,
     this.onTap,
     this.onExpandToggle,
     this.onLongPress,
@@ -97,7 +109,7 @@ class FolderRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      _buildMetaText(),
+                      _buildMetaText(context),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: context.mutedText,
                       ),
@@ -108,17 +120,23 @@ class FolderRow extends StatelessWidget {
 
               // Expand/collapse chevron (only if has children)
               if (hasChildren)
-                GestureDetector(
-                  onTap: onExpandToggle,
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Icon(
-                      isExpanded
-                          ? Icons.expand_more_rounded
-                          : Icons.chevron_right_rounded,
-                      size: 20,
-                      color: context.mutedText,
+                Semantics(
+                  button: true,
+                  label: isExpanded
+                      ? l10n(context).collapseFolder
+                      : l10n(context).expandFolder,
+                  child: GestureDetector(
+                    onTap: onExpandToggle,
+                    behavior: HitTestBehavior.opaque,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        isExpanded
+                            ? Icons.expand_more_rounded
+                            : Icons.chevron_right_rounded,
+                        size: 20,
+                        color: context.mutedText,
+                      ),
                     ),
                   ),
                 ),
@@ -129,10 +147,18 @@ class FolderRow extends StatelessWidget {
     );
   }
 
-  String _buildMetaText() {
-    if (folderCount != null && folderCount! > 0) {
-      return '$folderCount folders • $noteCount notes';
-    }
-    return '$noteCount notes';
+  String _buildMetaText(BuildContext context) {
+    // Three states, not two. A null count that merely has not arrived says
+    // nothing at all — announcing "Count unavailable" on every cold open is a
+    // failure message the widget then has to retract.
+    final String? notes = noteCount != null
+        ? '$noteCount notes'
+        : countFailed
+            ? l10n(context).countUnavailable
+            : null;
+    final folders =
+        folderCount != null && folderCount! > 0 ? '$folderCount folders' : null;
+
+    return [folders, notes].whereType<String>().join(' • ');
   }
 }

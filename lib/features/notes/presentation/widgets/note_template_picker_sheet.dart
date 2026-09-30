@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../domain/models/note_template.dart';
 import '../providers/database_provider.dart';
+import '../../../../core/navigation/routes.dart';
 import '../../../../core/services/user_facing_error.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../core/theme/theme_colors.dart';
@@ -55,8 +56,8 @@ class NoteTemplatePickerSheet extends ConsumerWidget {
                 final template = builtInNoteTemplates[i];
                 return ListTile(
                   leading: Icon(template.icon),
-                  title: Text(template.name),
-                  subtitle: Text(template.description),
+                  title: Text(template.localisedName(context)),
+                  subtitle: Text(template.localisedDescription(context)),
                   onTap: () => _onSelect(context, ref, template),
                 );
               },
@@ -90,7 +91,11 @@ class NoteTemplatePickerSheet extends ConsumerWidget {
 
     if (!context.mounted) return;
     navigator.pop();
-    router.push('/notes/${note.id}');
+    // Straight into the editor, not the detail view. The note was created a
+    // line ago and has nothing in it but the template's scaffolding, so a
+    // read-only preview of it is a screen with nothing to read and one more
+    // tap before the user can start writing.
+    router.push(Routes.noteEditFor(note.id));
   }
 }
 

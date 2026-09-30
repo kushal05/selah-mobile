@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/navigation/routes.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../bible/domain/models/bible_version_info.dart';
 import '../../../bible/presentation/providers/bible_providers.dart';
 import '../../domain/models/bible_search_result.dart';
 import '../providers/bible_search_providers.dart';
@@ -49,6 +50,12 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
   bool _hasSearched = false;
   String? _error;
   BibleSearchFilters _filters = BibleSearchFilters.empty;
+
+  /// Set once the user edits the filters, so a late-arriving default does not
+  /// overwrite a deliberate choice.
+  bool _filtersTouched = false;
+  ProviderSubscription<AsyncValue<List<BibleVersionInfo>>>?
+      _defaultTranslationSub;
   BibleSearchSortOption _sortOption = BibleSearchSortOption.frequency;
 
   /// Cached verse count — fetched once from the worker isolate, then
@@ -69,9 +76,24 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
 
     // Pre-select the default translation so searches don't return
     // duplicate results for every installed version.
-    final defaultVersion = ref.read(defaultBibleVersionProvider);
-    if (defaultVersion.isNotEmpty) {
-      _filters = BibleSearchFilters(translations: {defaultVersion});
+    //
+    // Only once the translations are actually known. `defaultBibleVersionProvider`
+    // falls back to NKJV when the version list has not been read yet, and this
+    // runs at screen entry — so opening search soon after launch pinned every
+    // search to NKJV regardless of the user's real default, and never
+    // corrected, because this assignment happens once.
+    if (ref.read(bibleVersionStatesProvider).hasValue) {
+      _applyDefaultTranslation();
+    } else {
+      _defaultTranslationSub = ref.listenManual(
+        bibleVersionStatesProvider,
+        (_, next) {
+          // Only while the user has not chosen for themselves; their choice
+          // outranks a default that arrived late.
+          if (!mounted || _filtersTouched || !next.hasValue) return;
+          setState(_applyDefaultTranslation);
+        },
+      );
     }
 
     // Verse count runs in the background isolate; surface it once ready.
@@ -82,8 +104,16 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
     });
   }
 
+  void _applyDefaultTranslation() {
+    final defaultVersion = ref.read(defaultBibleVersionProvider);
+    if (defaultVersion.isNotEmpty) {
+      _filters = BibleSearchFilters(translations: {defaultVersion});
+    }
+  }
+
   @override
   void dispose() {
+    _defaultTranslationSub?.close();
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -214,6 +244,7 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
   }
 
   void _onFiltersChanged(BibleSearchFilters newFilters) {
+    _filtersTouched = true;
     setState(() => _filters = newFilters);
 
     // Re-run search with new filters only if a search was already submitted.

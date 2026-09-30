@@ -39,6 +39,10 @@ abstract class Routes {
   static const notesHome = '/notes';
   static const noteDetail = '/notes/:noteId';
   static const noteHistory = '/notes/:noteId/history';
+  static const noteEdit = '/notes/:noteId/edit';
+
+  /// The editor for an existing note.
+  static String noteEditFor(String noteId) => '/notes/$noteId/edit';
 
   /* ───────────── Prayers ───────────── */
   static const prayers = '/prayers';

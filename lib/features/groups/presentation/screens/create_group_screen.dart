@@ -99,7 +99,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                       AppTheme.teal.withValues(alpha: 0.15),
                   labelStyle: TextStyle(
                     color: isSelected
-                        ? AppTheme.teal
+                        ? context.accentInk(AppTheme.teal)
                         : context.primaryText,
                     fontWeight:
                         isSelected ? FontWeight.w600 : FontWeight.normal,
@@ -140,7 +140,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                       AppTheme.teal.withValues(alpha: 0.15),
                   labelStyle: TextStyle(
                     color: isSelected
-                        ? AppTheme.teal
+                        ? context.accentInk(AppTheme.teal)
                         : context.primaryText,
                     fontWeight:
                         isSelected ? FontWeight.w600 : FontWeight.normal,

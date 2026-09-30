@@ -33,13 +33,17 @@ class GroupCard extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 28,
+              // The raw brand colour tints the avatar; the initials on top of
+              // it need the tuned one. Raw teal on its own 10% tint measures
+              // 1.81:1 on the light ground and ministryPurple 3.67:1 on the
+              // dark — the initials are the only thing identifying the group.
               backgroundColor: _groupColor.withValues(alpha: 0.1),
               child: Text(
                 group.initials,
                 style: TextStyle(
                   fontSize: AppTheme.headingMedium.fontSize,
                   fontWeight: FontWeight.bold,
-                  color: _groupColor,
+                  color: context.accentInk(_groupColor),
                 ),
               ),
             ),
@@ -107,7 +111,9 @@ class GroupCard extends StatelessWidget {
       case GroupType.ministry:
         return AppTheme.ministryPurple;
       case GroupType.other:
-        return Colors.orange;
+        // AppTheme.orange, not Colors.orange: only design-system tokens have
+        // an accentOnDark/onLight pair for accentInk to reach for.
+        return AppTheme.orange;
     }
   }
 }

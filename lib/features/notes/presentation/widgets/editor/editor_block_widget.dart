@@ -15,6 +15,7 @@ import 'bible_reference_block_widget.dart';
 import 'bible_reference_picker.dart';
 import 'formatted_text_controller.dart';
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../../l10n/l10n.dart';
 import '../../../../../core/theme/theme_colors.dart';
 
 /// Base widget for rendering editor blocks
@@ -474,7 +475,7 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
       final state = ref.read(noteEditorProvider(widget.noteId));
       // Only show if there's just one block (the empty first block)
       if (state.document.blocks.length == 1) {
-        return 'Start writing...';
+        return l10n(context).startWriting;
       }
     }
     return '';

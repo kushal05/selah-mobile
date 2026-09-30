@@ -708,17 +708,23 @@ class _FolderTile extends StatelessWidget {
             children: [
               // Expand/collapse button for folders with children
               if (hasChildren)
-                GestureDetector(
-                  onTap: onExpandToggle,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: AnimatedRotation(
-                      turns: isExpanded ? 0.25 : 0,
-                      duration: context.motion(const Duration(milliseconds: 200)),
-                      child: Icon(
-                        Icons.chevron_right_rounded,
-                        size: 18,
-                        color: context.mutedText,
+                Semantics(
+                  button: true,
+                  label: isExpanded
+                      ? l10n(context).collapseFolder
+                      : l10n(context).expandFolder,
+                  child: GestureDetector(
+                    onTap: onExpandToggle,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: AnimatedRotation(
+                        turns: isExpanded ? 0.25 : 0,
+                        duration: context.motion(const Duration(milliseconds: 200)),
+                        child: Icon(
+                          Icons.chevron_right_rounded,
+                          size: 18,
+                          color: context.mutedText,
+                        ),
                       ),
                     ),
                   ),

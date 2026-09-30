@@ -223,7 +223,7 @@ class _Empty extends StatelessWidget {
             Icon(
               Icons.psychology_outlined,
               size: 48,
-              color: theme.disabledColor,
+              color: context.mutedText,
             ),
             const SizedBox(height: 12),
             Text(

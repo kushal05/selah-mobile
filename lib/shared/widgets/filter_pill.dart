@@ -44,7 +44,7 @@ class FilterPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    final glyph = AppTheme.accentOnTintFor(accent, brightness);
+    final glyph = AppTheme.semanticFor(accent, brightness);
     final ink = AppTheme.inkOnTintFor(accent, brightness);
     final fg = selected ? ink : context.primaryText;
 

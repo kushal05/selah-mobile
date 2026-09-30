@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
 
 /// Completion screen shown when all daily prayers are logged
@@ -34,10 +35,10 @@ class PrayTodayCompletion extends StatelessWidget {
                 color: AppTheme.teal.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.check_circle,
                 size: 48,
-                color: AppTheme.teal,
+                color: context.accentInk(AppTheme.teal),
               ),
             ),
             const SizedBox(height: 24),
@@ -85,7 +86,7 @@ class PrayTodayCompletion extends StatelessWidget {
                 icon: const Icon(Icons.history, size: 20),
                 label: Text(l10n(context).reviewLogs),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.brandBlue,
+                  foregroundColor: context.accentInk(AppTheme.brandBlue),
                   side: const BorderSide(color: AppTheme.brandBlue),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(

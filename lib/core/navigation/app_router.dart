@@ -500,6 +500,18 @@ StatefulShellBranch _notesBranch() {
               final id = state.pathParameters['noteId']!;
               return NoteDetailScreen(noteId: id);
             },
+            routes: [
+              // The editor for a note that already exists. `/notes/new` builds
+              // one from scratch; this opens one that has just been created
+              // from a template, so the user lands on the cursor rather than
+              // on a preview of a note with nothing in it yet.
+              GoRoute(
+                path: 'edit',
+                builder: (context, state) => NoteEditorScreen(
+                  noteId: state.pathParameters['noteId']!,
+                ),
+              ),
+            ],
           ),
         ],
       ),

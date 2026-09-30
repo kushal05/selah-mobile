@@ -51,7 +51,14 @@ class PrayerUpdatesFeedScreen extends ConsumerWidget {
             );
           }
 
-          // Build prayer title lookup
+          // Build prayer title lookup.
+          //
+          // `hasValue`, not just the list: until the prayers land the map is
+          // empty and every row in the feed called its prayer "Unknown
+          // Prayer" — a statement about the user's own data made from a query
+          // that had not returned. An em dash holds the space instead, and the
+          // real label is kept for a prayer that genuinely is not there.
+          final prayersKnown = prayersAsync.hasValue;
           final prayers = prayersAsync.valueOrNull ?? [];
           final prayerMap = {for (final p in prayers) p.id: p.title};
 
@@ -62,8 +69,8 @@ class PrayerUpdatesFeedScreen extends ConsumerWidget {
                 Divider(height: 1, indent: 16, color: context.hairline),
             itemBuilder: (context, index) {
               final update = updates[index];
-              final prayerTitle =
-                  prayerMap[update.prayerId] ?? 'Unknown Prayer';
+              final prayerTitle = prayerMap[update.prayerId] ??
+                  (prayersKnown ? l10n(context).unknownPrayer : '\u2014');
               final date = DateTime.fromMillisecondsSinceEpoch(
                   update.createdAt);
 
@@ -79,15 +86,15 @@ class PrayerUpdatesFeedScreen extends ConsumerWidget {
                   padding: const EdgeInsets.only(top: 4),
                   child: Row(
                     children: [
-                      const Icon(Icons.favorite_border,
-                          size: 14, color: AppTheme.brandPurple),
+                      Icon(Icons.favorite_border,
+                          size: 14, color: context.accentInk(AppTheme.brandPurple)),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           prayerTitle,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
-                            color: AppTheme.brandPurple,
+                            color: context.accentInk(AppTheme.brandPurple),
                             fontWeight: FontWeight.w500,
                           ),
                           maxLines: 1,

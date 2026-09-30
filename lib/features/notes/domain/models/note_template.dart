@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../../l10n/l10n.dart';
+
 import 'block_type.dart';
 import 'editor_block.dart';
 import 'editor_document.dart';
@@ -14,6 +16,11 @@ import 'note.dart';
 /// content; users edit freely from the seed.
 class NoteTemplate {
   final String id;
+
+  /// Non-localised fallback, used for logging and by any caller without a
+  /// BuildContext. Anything the user reads resolves through [localisedName]
+  /// and [localisedDescription] below — the template list is a const, so the
+  /// strings cannot be looked up where they are declared.
   final String name;
   final String description;
   final IconData icon;
@@ -28,6 +35,28 @@ class NoteTemplate {
     required this.defaultTitle,
     required this.blocksBuilder,
   });
+
+  /// The name as the user should see it, in their language.
+  String localisedName(BuildContext context) => switch (id) {
+        'blank' => l10n(context).templateBlankName,
+        'sermon-notes' => l10n(context).templateSermonNotesName,
+        'prayer-journal' => l10n(context).templatePrayerJournalName,
+        'bible-study' => l10n(context).templateBibleStudyName,
+        'examen' => l10n(context).templateExamenName,
+        'gratitude' => l10n(context).templateGratitudeName,
+        _ => name,
+      };
+
+  /// The description as the user should see it, in their language.
+  String localisedDescription(BuildContext context) => switch (id) {
+        'blank' => l10n(context).templateBlankDesc,
+        'sermon-notes' => l10n(context).templateSermonNotesDesc,
+        'prayer-journal' => l10n(context).templatePrayerJournalDesc,
+        'bible-study' => l10n(context).templateBibleStudyDesc,
+        'examen' => l10n(context).templateExamenDesc,
+        'gratitude' => l10n(context).templateGratitudeDesc,
+        _ => description,
+      };
 
   /// Build a fresh [Note] seeded from this template. Each invocation creates
   /// new block IDs so the same template can be used multiple times.

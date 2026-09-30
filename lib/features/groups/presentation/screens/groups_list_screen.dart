@@ -81,27 +81,37 @@ class GroupsListScreen extends ConsumerWidget {
   }
 
   Widget _buildJoinBanner(BuildContext context, WidgetRef ref) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.teal.withValues(alpha: 0.08),
+    // The accent tuned for this theme, not the raw brand teal. On the dark
+    // ground the raw value is the same colour as the tint behind it, which is
+    // what made this banner read as washed out.
+    final accent =
+        AppTheme.accentOnTintFor(AppTheme.teal, Theme.of(context).brightness);
+
+    // Material, not a DecoratedBox. A ListTile paints its ink on the nearest
+    // Material ancestor, so a coloured box between the two hides every splash —
+    // Flutter says so at runtime, and the banner had no tap feedback at all.
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Material(
+        color: AppTheme.teal.withValues(alpha: AppTheme.alphaLight),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppTheme.teal.withValues(alpha: 0.2),
-        ),
-      ),
-      child: ListTile(
-        leading: const Icon(Icons.group_add, color: AppTheme.teal),
-        title: Text(
-          l10n(context).joinAGroup,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: AppTheme.teal,
+        child: ListTile(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: AppTheme.teal.withValues(alpha: 0.2)),
           ),
+          leading: Icon(Icons.group_add, color: accent),
+          title: Text(
+            l10n(context).joinAGroup,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: accent,
+            ),
+          ),
+          subtitle: Text(l10n(context).enterAGroupCodeToJoin),
+          trailing: Icon(Icons.chevron_right, color: accent),
+          onTap: () => showJoinGroupDialog(context, ref),
         ),
-        subtitle: Text(l10n(context).enterAGroupCodeToJoin),
-        trailing: const Icon(Icons.chevron_right, color: AppTheme.teal),
-        onTap: () => showJoinGroupDialog(context, ref),
       ),
     );
   }

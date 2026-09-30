@@ -80,6 +80,14 @@ class AppTheme {
   static const Color rosePinkOnDark = Color(0xFFFF8CA6);
   static const Color orangeOnDark = Color(0xFFFFB067);
   static const Color tealOnDark = Color(0xFF5FD3C9);
+  // Added when accentInk went in: accentOnDark falls back to the raw accent
+  // for anything unmapped, so coral, amber and ministryPurple were passing
+  // straight through — the group card's initials for a prayer group and a
+  // ministry were still the untuned colour. ministryPurple was the one that
+  // actually failed, at 3.67:1 on its own tint.
+  static const Color coralOnDark = Color(0xFFFF8585);
+  static const Color amberOnDark = Color(0xFFE98B39);
+  static const Color ministryPurpleOnDark = Color(0xFFAA72C1);
 
   /// Maps a palette accent to a variant readable on a dark surface.
   static Color accentOnDark(Color accent) => _accentOnDark[accent] ?? accent;
@@ -91,6 +99,9 @@ class AppTheme {
     rosePink: rosePinkOnDark,
     orange: orangeOnDark,
     teal: tealOnDark,
+    coral: coralOnDark,
+    amber: amberOnDark,
+    ministryPurple: ministryPurpleOnDark,
   };
 
   // ── Foreground on light tinted surfaces ─────────────────────────────────
@@ -231,9 +242,22 @@ class AppTheme {
   static const Color brandBlueOnLight = Color(0xFF2564D7);
   static const Color brandPurpleOnLight = Color(0xFF694CFF);
   static const Color emeraldOnLight = Color(0xFF1C7F46);
-  static const Color rosePinkOnLight = Color(0xFFD61D46);
+  // Nudged two points darker: at 0xD61D46 it measured 4.5000:1 on its own
+  // light tint with 8-bit compositing and 4.4992:1 with float compositing, so
+  // whether it met WCAG depended on how the blend was rounded. 4.57:1 either
+  // way, and the two values are indistinguishable on screen.
+  static const Color rosePinkOnLight = Color(0xFFD41D45);
   static const Color orangeOnLight = Color(0xFFB45800);
   static const Color tealOnLight = Color(0xFF247E77);
+  // A deep brick red, not the pure #E00000 this started as. That value met
+  // 4.55:1 and looked wrong beside its siblings: saturation 1.00 at lightness
+  // 0.44 is a vivid alert red, where tealOnLight, amberOnLight and
+  // orangeOnLight all sit at lightness 0.30-0.37. In a list of group avatars
+  // it read as an error rather than as one accent among several. Found by
+  // rendering the screen and looking at it; the arithmetic had passed.
+  static const Color coralOnLight = Color(0xFFA5221D);
+  static const Color amberOnLight = Color(0xFFA85913);
+  static const Color ministryPurpleOnLight = Color(0xFF954EB1);
 
   /// Maps a palette accent to a variant safe to draw as an icon on a light
   /// tinted surface. [brandBlue] already clears 3:1 and is returned unchanged,
@@ -248,6 +272,9 @@ class AppTheme {
     rosePink: rosePinkOnLight,
     orange: orangeOnLight,
     teal: tealOnLight,
+    coral: coralOnLight,
+    amber: amberOnLight,
+    ministryPurple: ministryPurpleOnLight,
   };
 
   // ── Per-tab accent colours (ordered by bottom-nav index) ────────────────
@@ -361,7 +388,10 @@ class AppTheme {
   static const Color successOnLight = Color(0xFF16803D);
   static const Color errorOnLight = Color(0xFFD5190C);
   static const Color warningOnLight = Color(0xFF9B6407);
-  static const Color infoOnLight = Color(0xFF1F75AF);
+  // Nudged for margin, as rosePinkOnLight was: at 0xFF1F75AF it read 4.50:1
+  // on its own light tint with 8-bit compositing and 4.4874:1 with float, so
+  // it met WCAG or missed it depending on the rounding.
+  static const Color infoOnLight = Color(0xFF1F74AD);
   static const Color statusOpenOnLight = Color(0xFF0B72C4);
   static const Color statusInProgressOnLight = Color(0xFFA16000);
   static const Color statusResolvedOnLight = Color(0xFF387E3B);
@@ -748,6 +778,24 @@ class AppTheme {
     height: 1.35,
   );
 
+  /// The space a heading block leaves beneath itself.
+  ///
+  /// Headings were spaced like paragraphs — four pixels, whatever the level —
+  /// so an H1 sat sixteen pixels below the note's title and four above the H2
+  /// under it. It read as part of the H2 rather than as the thing the title
+  /// hands over to. The title's own gap is fixed, so the balance has to come
+  /// from below: an H1 now leaves roughly as much air beneath it as the title
+  /// leaves above it, and each level after that leaves less.
+  ///
+  /// Only the gap changes. The sizes — 24 / 22 / 19 / 17 — already step
+  /// evenly and are not what was wrong.
+  static double noteHeadingGap(int level) => switch (level) {
+        1 => 12,
+        2 => 8,
+        3 => 6,
+        _ => 4,
+      };
+
   static const TextStyle displayLarge = TextStyle(
     fontSize: 32,
     fontWeight: FontWeight.w800,
@@ -941,6 +989,16 @@ class AppTheme {
         outline: outlineLight,
       ),
       scaffoldBackgroundColor: scaffoldGray,
+
+      // Set explicitly in both themes, because dark() is built with
+      // copyWith and a field it does not name keeps the light value.
+      // cardColor is not derived from the colour scheme: it stayed
+      // Colors.white on the dark theme, and the twenty-three places that
+      // read Theme.of(context).cardColor for a surface drew a white card on
+      // the dark ground — the whole of Groups, Friends and the prayer
+      // collaborators list. It mirrors colorScheme.surface, which is what
+      // context.cardSurface returns, so both spellings now agree.
+      cardColor: Colors.white,
 
       // ── Typography ────────────────────────────────────────────────────
       textTheme: const TextTheme(
@@ -1194,6 +1252,7 @@ class AppTheme {
       ),
       scaffoldBackgroundColor: darkScaffold,
       canvasColor: darkSurface,
+      cardColor: darkSurface,
       dividerColor: darkBorder,
 
       textTheme: base.textTheme.apply(

@@ -42,10 +42,10 @@ class FriendCard extends StatelessWidget {
                   AppTheme.teal.withValues(alpha: 0.1),
               child: Text(
                 initials,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.teal,
+                  color: context.accentInk(AppTheme.teal),
                 ),
               ),
             ),

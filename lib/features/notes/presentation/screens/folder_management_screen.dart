@@ -200,7 +200,7 @@ class _FolderManagementScreenState
                     isExpanded
                         ? Icons.folder_open_rounded
                         : Icons.folder_rounded,
-                    color: AppTheme.brandPurple,
+                    color: context.accentInk(AppTheme.brandPurple),
                     size: 24,
                   ),
                   const SizedBox(width: 12),
@@ -531,8 +531,8 @@ class _TrashFoldersSheet extends ConsumerWidget {
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
                   children: [
-                    const Icon(Icons.delete_outline_rounded,
-                        color: AppTheme.brandPurple),
+                    Icon(Icons.delete_outline_rounded,
+                        color: context.accentInk(AppTheme.brandPurple)),
                     const SizedBox(width: 12),
                     Text(
                       l10n(context).deletedFolders,
@@ -599,7 +599,7 @@ class _TrashFoldersSheet extends ConsumerWidget {
                             icon: const Icon(Icons.restore, size: 18),
                             label: Text(l10n(context).restore),
                             style: TextButton.styleFrom(
-                              foregroundColor: AppTheme.brandPurple,
+                              foregroundColor: context.accentInk(AppTheme.brandPurple),
                             ),
                             onPressed: () =>
                                 _restoreFolder(context, ref, folder),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colors.dart';
 
 import '../../../core/sync/models/folder_model.dart';
 import '../../../core/sync/providers/sync_providers.dart';
@@ -65,7 +66,7 @@ class _RenameFolderDialogState extends ConsumerState<RenameFolderDialog> {
     return AlertDialog(
       title: Row(
         children: [
-          const Icon(Icons.edit_rounded, color: AppTheme.brandPurple),
+          Icon(Icons.edit_rounded, color: context.accentInk(AppTheme.brandPurple)),
           const SizedBox(width: AppTheme.spacing12),
           Expanded(child: Text(l10n(context).renameFolder)),
         ],

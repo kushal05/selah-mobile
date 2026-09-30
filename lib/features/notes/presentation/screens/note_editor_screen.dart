@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../domain/models/note_section.dart';
+import '../../domain/models/block_type.dart';
 import '../providers/note_editor_provider.dart';
 import '../widgets/editor/bible_reference_picker.dart';
 import '../widgets/editor/editor_block_widget.dart';
@@ -175,7 +176,28 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
       },
     );
 
-    return Scaffold(
+    // canPop: false so a pending save finishes *before* the route goes away
+    // instead of racing it. The editor saves on a debounce and its provider is
+    // autoDispose, so popping used to cancel the timer and drop the edit; the
+    // only flush on the way out was the app bar's arrow, which the Android
+    // system back button, the predictive-back gesture and the iOS edge swipe
+    // all bypass. The debounce is a second now, so that is a second of typing.
+    //
+    // The await is insurance rather than a demonstrated requirement: `_save`
+    // returns at its first `_disposed` check, so a flush that began during
+    // teardown could write the note body and skip `setTagsForNote`, leaving a
+    // note that looks saved with a tag edit gone. A normal route transition is
+    // slow enough that the write wins that race anyway, so removing the await
+    // does not fail the test — it just removes the guarantee.
+    //
+    // Navigator.pop below is unconditional and does not consult PopScope, so it
+    // cannot re-enter this callback.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _leaveEditor();
+      },
+      child: Scaffold(
       appBar: _buildAppBar(context, editorState),
       body: SafeArea(
         child: Stack(
@@ -262,6 +284,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
               ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -505,7 +528,16 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
           RepaintBoundary(
             key: _getBlockKey(mainBlocks[index].id),
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 4),
+              padding: EdgeInsets.only(
+                bottom: AppTheme.noteHeadingGap(
+                  switch (mainBlocks[index].type) {
+                    BlockType.heading1 => 1,
+                    BlockType.heading2 => 2,
+                    BlockType.heading3 => 3,
+                    _ => 0,
+                  },
+                ),
+              ),
               child: EditorBlockWidget(
                 block: mainBlocks[index],
                 noteId: widget.noteId,
@@ -587,9 +619,13 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
     );
   }
 
-  void _handleBack() {
-    // Force save before navigating back
-    ref.read(noteEditorProvider(widget.noteId).notifier).forceSave();
+  void _handleBack() => _leaveEditor();
+
+  /// Saves, then leaves. Both exits go through here — the app bar's arrow and
+  /// every system-level pop — so neither can be the one that forgets.
+  Future<void> _leaveEditor() async {
+    await ref.read(noteEditorProvider(widget.noteId).notifier).forceSave();
+    if (!mounted) return;
     Navigator.of(context).pop();
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../l10n/l10n.dart';
 import '../../core/theme/theme_colors.dart';
 
 /// One action offered by a list row's overflow menu.
@@ -57,8 +58,8 @@ class RowOverflowButton extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 200),
       padding: const EdgeInsets.all(10),
       tooltip: semanticLabel == null
-          ? 'More actions'
-          : 'More actions for $semanticLabel',
+          ? l10n(context).moreActions2
+          : l10n(context).moreActionsFor(semanticLabel!),
       color: context.cardSurface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppTheme.radius2XL),

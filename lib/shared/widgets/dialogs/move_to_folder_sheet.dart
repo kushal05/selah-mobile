@@ -106,9 +106,9 @@ class _MoveToFolderSheetState extends ConsumerState<MoveToFolderSheet> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.drive_file_move_outlined,
-                      color: AppTheme.brandPurple,
+                      color: context.accentInk(AppTheme.brandPurple),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -360,17 +360,23 @@ class _MoveTargetTile extends StatelessWidget {
             child: Row(
               children: [
                 if (hasChildren)
-                  GestureDetector(
-                    onTap: onExpandToggle,
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 4),
-                      child: AnimatedRotation(
-                        turns: isExpanded ? 0.25 : 0,
-                        duration: context.motion(const Duration(milliseconds: 200)),
-                        child: Icon(
-                          Icons.chevron_right_rounded,
-                          size: 18,
-                          color: context.mutedText,
+                  Semantics(
+                    button: true,
+                    label: isExpanded
+                        ? l10n(context).collapseFolder
+                        : l10n(context).expandFolder,
+                    child: GestureDetector(
+                      onTap: onExpandToggle,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: AnimatedRotation(
+                          turns: isExpanded ? 0.25 : 0,
+                          duration: context.motion(const Duration(milliseconds: 200)),
+                          child: Icon(
+                            Icons.chevron_right_rounded,
+                            size: 18,
+                            color: context.mutedText,
+                          ),
                         ),
                       ),
                     ),
@@ -379,7 +385,7 @@ class _MoveTargetTile extends StatelessWidget {
                   const SizedBox(width: 22),
                 Icon(
                   icon,
-                  color: isSelected ? AppTheme.brandPurple : context.decorativeInk,
+                  color: isSelected ? context.accentInk(AppTheme.brandPurple) : context.decorativeInk,
                   size: 24,
                 ),
                 const SizedBox(width: 12),
@@ -392,7 +398,7 @@ class _MoveTargetTile extends StatelessWidget {
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight:
                               isSelected ? FontWeight.w600 : FontWeight.normal,
-                          color: isSelected ? AppTheme.brandPurple : null,
+                          color: isSelected ? context.accentInk(AppTheme.brandPurple) : null,
                         ),
                       ),
                       if (subtitle != null)
@@ -411,9 +417,9 @@ class _MoveTargetTile extends StatelessWidget {
                   ),
                 ),
                 if (isSelected)
-                  const Icon(
+                  Icon(
                     Icons.check_circle,
-                    color: AppTheme.brandPurple,
+                    color: context.accentInk(AppTheme.brandPurple),
                     size: 20,
                   ),
               ],

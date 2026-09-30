@@ -385,10 +385,10 @@ class _UserCard extends StatelessWidget {
                 AppTheme.teal.withValues(alpha: 0.1),
             child: Text(
               profile.initials,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.teal,
+                color: context.accentInk(AppTheme.teal),
               ),
             ),
           ),

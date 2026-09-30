@@ -128,7 +128,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
         actions: [
           TextButton(
             onPressed: _handleSave,
-            style: TextButton.styleFrom(foregroundColor: AppTheme.rosePink),
+            style: TextButton.styleFrom(foregroundColor: context.accentInk(AppTheme.rosePink)),
             child: Text(l10n(context).actionSave),
           ),
         ],
@@ -188,7 +188,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
                 Icon(
                   Icons.book_outlined,
                   color: hasReference
-                      ? AppTheme.rosePink
+                      ? context.accentInk(AppTheme.rosePink)
                       : context.hintText,
                 ),
                 const SizedBox(width: AppTheme.spacing12),
@@ -475,7 +475,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
                   tooltip: l10n(context).addTag,
                   icon: Icon(
                     Icons.check,
-                    color: AppTheme.rosePink,
+                    color: context.accentInk(AppTheme.rosePink),
                   ),
                   onPressed: () => _submitTag(_tagController.text, userId),
                 ),
@@ -504,7 +504,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
                 _tagInputFocusNode.requestFocus();
               });
             },
-            style: TextButton.styleFrom(foregroundColor: AppTheme.rosePink),
+            style: TextButton.styleFrom(foregroundColor: context.accentInk(AppTheme.rosePink)),
             icon: const Icon(Icons.add, size: 18),
             label: Text(l10n(context).addTag),
           ),
@@ -537,7 +537,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
                 _conditionInputFocusNode.requestFocus();
               });
             },
-            style: TextButton.styleFrom(foregroundColor: AppTheme.rosePink),
+            style: TextButton.styleFrom(foregroundColor: context.accentInk(AppTheme.rosePink)),
             icon: const Icon(Icons.add, size: 18),
             label: Text(l10n(context).addCondition),
           ),

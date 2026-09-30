@@ -278,10 +278,10 @@ class _TopPrayerRow extends StatelessWidget {
               child: Center(
                 child: Text(
                   '$rank',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.brandPurple,
+                    color: context.accentInk(AppTheme.brandPurple),
                   ),
                 ),
               ),
@@ -306,10 +306,10 @@ class _TopPrayerRow extends StatelessWidget {
               ),
               child: Text(
                 '$logCount logs',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: AppTheme.teal,
+                  color: context.accentInk(AppTheme.teal),
                 ),
               ),
             ),

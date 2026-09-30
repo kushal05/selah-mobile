@@ -248,7 +248,29 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
 
   /// Debounce timer for auto-save
   Timer? _saveTimer;
-  static const _saveDebounce = Duration(milliseconds: 300);
+
+  /// How long the editor waits after the last edit before writing.
+  ///
+  /// This is a restarting debounce, so it never fires while someone is typing
+  /// continuously — it fires in the gaps. At 300ms the gap between two words
+  /// was usually long enough, so composing a paragraph wrote the note once
+  /// per word or so. Each of those writes reads the note, reads every block,
+  /// checks the revision window, writes the row and appends an oplog entry —
+  /// and because drift re-emits a watched query on any write to the table, it
+  /// also re-delivers the whole notes list to every screen watching it, which
+  /// is all of them: tabs live in a StatefulShellRoute.indexedStack and stay
+  /// mounted once visited.
+  ///
+  /// One second clears the inter-word pauses and fires at clause and sentence
+  /// boundaries instead, which is where the writes actually belong.
+  ///
+  /// What this costs: on a hard kill — an OOM kill or a crash, not a normal
+  /// exit — up to a second of typing. Every graceful path already force-saves,
+  /// on leaving the screen and on
+  /// AppLifecycleState.paused/inactive/detached, so this window does not apply
+  /// to backgrounding or navigating away. Undo is in memory and unaffected,
+  /// and revisions are separately capped at one per thirty seconds.
+  static const _saveDebounce = Duration(seconds: 1);
 
   /// Block text controllers (managed here, not in widgets)
   final Map<String, TextEditingController> _blockControllers = {};

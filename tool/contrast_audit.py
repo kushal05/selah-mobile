@@ -53,7 +53,11 @@ def luminance(h):
 def ratio(a, b):
     la, lb = luminance(a), luminance(b)
     hi, lo = max(la, lb), min(la, lb)
-    return round((hi + 0.05) / (lo + 0.05), 2)
+    # Unrounded. Rounding here to two decimals before the threshold comparison
+    # gave the audit 0.005 of slack the renderer does not have: a true 4.4996
+    # became 4.50 and passed. Two tokens sat in exactly that band, and it was a
+    # Dart test, not this tool, that caught them. Round for display only.
+    return (hi + 0.05) / (lo + 0.05)
 
 
 def lerp(a, b, t):
@@ -558,6 +562,66 @@ def scan_literals():
     return findings
 
 
+# A brand accent used raw as a foreground.
+#
+# The gap that let the whole Groups feature sit unmigrated behind a green
+# audit. AppTheme.teal is a token, so scan_literals skips it (that rule only
+# knows Colors.*); it is not a surface token, so scan_fill_as_foreground skips
+# it; it carries no alpha, so scan_faded_foregrounds skips it; and no pairing
+# names it, so the pairing table skips it too. Four rules, none of which owned
+# the case.
+#
+# Each brand accent is tuned for a light ground. On the dark ground the raw
+# value is close to the tint drawn behind it — brandBlue measures 3.62:1 on its
+# own 10% tint, against the 4.5:1 text minimum. accentOnLight/accentOnDark
+# exist for exactly this, reached through accentOnTintFor(accent, brightness).
+ACCENT_TOKENS = (
+    'brandBlue', 'brandPurple', 'teal', 'coral', 'emerald', 'orange',
+    'rosePink', 'amber', 'ministryPurple',
+)
+# No `(?!\.withValues)` exclusion. It was there on the assumption that a faded
+# accent is always a tint, but _enclosing already tells a fill from a glyph —
+# and the exclusion hid four foregrounds: a 50% brandPurple chevron at 1.94:1
+# and an 80% orange icon at 1.78:1. Fading an accent does not make it a fill,
+# it makes it a worse foreground.
+ACCENT_RE = re.compile(
+    r'\bAppTheme\.(' + '|'.join(ACCENT_TOKENS) + r')\b')
+
+
+def scan_raw_accent_foregrounds():
+    """Brand accent tokens colouring text or a glyph, untuned for the theme."""
+    findings = []
+    for path in sorted(LIB.rglob('*.dart')):
+        if path.name == 'app_theme.dart':
+            continue
+        src = path.read_text(encoding='utf-8')
+        for m in ACCENT_RE.finditer(src):
+            # A tint fill is the correct use of the raw brand colour, and
+            # `accentOnTintFor(AppTheme.teal, …)` names the token legitimately.
+            head = src[max(0, m.start() - 40):m.start()]
+            if 'accentOnTintFor' in head or 'inkOnTintFor' in head:
+                continue
+            if 'accentOnLight' in head or 'accentOnDark' in head:
+                continue
+            ctor, arg = _enclosing(src, m.start())
+            if arg in BACKGROUND_ARGS:
+                continue
+            # `theme.textTheme.labelSmall?.copyWith(color: …)` never contains
+            # the word TextStyle, so a whole idiom of foreground colours was
+            # invisible here — the same gap scan_literals had to close, three
+            # sites deep by the time this rule was written.
+            is_copy_with = ctor == 'copyWith' and arg == 'color'
+            if (arg not in FOREGROUND_ARGS
+                    and ctor not in FOREGROUND_CTORS
+                    and not is_copy_with):
+                continue
+            line = src[:m.start()].count('\n') + 1
+            findings.append((str(path.relative_to(LIB.parent)), line,
+                             m.group(1), ctor or arg or '?'))
+    return findings
+
+
+
 def main():
     verbose = '--verbose' in sys.argv
     T = load_tokens()
@@ -608,6 +672,19 @@ def main():
               'context.primaryText for body, context.decorativeInk for a '
               'decorative glyph.')
         return 1
+
+    fresh = scan_raw_accent_foregrounds()
+    if fresh:
+        print('\ncontrast_audit: RAW BRAND ACCENTS used as a foreground')
+        for path, line, name, where in fresh:
+            print(f'  AppTheme.{name:16} in {where:12} {path}:{line}')
+        print(f'\ncontrast_audit: {len(fresh)} raw accent(s) colouring text or '
+              'an icon. Each token is tuned for one ground and fails on the '
+              'other — teal reads 1.93:1 on white, brandBlue 3.54:1 on its own '
+              'dark tint. Use context.accentInk(AppTheme.x) for the glyph and '
+              'keep the raw token for the tint behind it.')
+        return 1
+
 
     faded = scan_faded_foregrounds()
     if faded:

@@ -557,8 +557,8 @@ class _SongSearchResultCard extends StatelessWidget {
                 color: AppTheme.orange.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.music_note,
-                  color: AppTheme.orange, size: 18),
+              child: Icon(Icons.music_note,
+                  color: context.accentInk(AppTheme.orange), size: 18),
             ),
             const SizedBox(width: 12),
 
@@ -590,9 +590,9 @@ class _SongSearchResultCard extends StatelessWidget {
                           ),
                           child: Text(
                             'Key: ${song.scale}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: AppTheme.orange,
+                              color: context.accentInk(AppTheme.orange),
                               fontWeight: FontWeight.w500,
                             ),
                           ),

@@ -427,7 +427,7 @@ class _ShortcutTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    final glyph = AppTheme.accentOnTintFor(accent, brightness);
+    final glyph = AppTheme.semanticFor(accent, brightness);
     return Semantics(
       button: true,
       child: Material(

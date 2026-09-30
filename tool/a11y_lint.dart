@@ -144,6 +144,23 @@ void main(List<String> args) {
             'GestureDetector uses onTapUp: without onTap: — no tap action '
             'reaches the semantics tree, so screen readers cannot activate it.'));
       }
+
+      // A GestureDetector that IS the button: it has onTap, nothing inside
+      // supplies semantics of its own, and no Semantics node sits anywhere in
+      // the enclosing class. TalkBack and VoiceOver then see a plain box.
+      //
+      // Scoped to the class rather than the immediately enclosing expression
+      // because the established shape here puts Semantics in build() and the
+      // detector in a _build() helper — a tighter window reported seventeen
+      // controls that were already correct.
+      if (call.body.contains('onTap:') &&
+          !_wrapsARealButton(call.body) &&
+          !call.body.contains('Semantics(') &&
+          !_enclosingClassHasSemantics(src, call.line)) {
+        findings.add(_Finding(file.path, call.line,
+            'GestureDetector acts as a button but nothing in its class supplies '
+            'semantics — wrap it in Semantics(button: true, label: …).'));
+      }
     }
   }
 
@@ -230,6 +247,24 @@ class _Finding {
 /// effect (a press-scale animation, typically) and the real control underneath
 /// is already reachable, so onTapUp without onTap is correct there — adding
 /// onTap would fire the action twice.
+/// Whether the class containing [line] declares any Semantics node.
+///
+/// Deliberately coarse. The alternative is parsing Dart properly, and the
+/// question here is only "did anyone think about semantics in this widget" —
+/// a class with a Semantics node somewhere is one where the author did.
+bool _enclosingClassHasSemantics(String src, int line) {
+  final lines = src.split('\n');
+  final starts = <int>[];
+  for (var i = 0; i < lines.length; i++) {
+    if (RegExp(r'^(?:abstract )?class \w+').hasMatch(lines[i])) starts.add(i);
+  }
+  final idx = line - 1;
+  final start = starts.where((s) => s <= idx).fold<int>(0, (a, b) => b > a ? b : a);
+  final after = starts.where((s) => s > idx);
+  final end = after.isEmpty ? lines.length : after.reduce((a, b) => a < b ? a : b);
+  return lines.sublist(start, end).any((l) => l.contains('Semantics('));
+}
+
 bool _wrapsARealButton(String body) {
   const semanticControls = [
     'ElevatedButton(',

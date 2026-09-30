@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../l10n/l10n.dart';
 import '../../../core/providers/motion_preferences.dart';
 import 'package:flutter/semantics.dart';
 import '../../core/theme/theme_colors.dart';
@@ -52,7 +53,7 @@ class ConnectivityBanner extends ConsumerWidget {
       SemanticsService.sendAnnouncement(
         View.of(context),
         isOnline
-            ? 'Back online. Your changes are syncing.'
+            ? l10n(context).backOnlineSyncing
             : "You're offline. Changes are saved on this device.",
         Directionality.of(context),
       );

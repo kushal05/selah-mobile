@@ -166,7 +166,7 @@ class FriendsListScreen extends ConsumerWidget {
         leading: Stack(
           clipBehavior: Clip.none,
           children: [
-            const Icon(Icons.person_add, color: AppTheme.teal),
+            Icon(Icons.person_add, color: context.accentInk(AppTheme.teal)),
             Positioned(
               top: -4,
               right: -4,
@@ -190,14 +190,14 @@ class FriendsListScreen extends ConsumerWidget {
         ),
         title: Text(
           '$count pending request${count == 1 ? '' : 's'}',
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.w600,
-            color: AppTheme.teal,
+            color: context.accentInk(AppTheme.teal),
           ),
         ),
-        trailing: const Icon(
+        trailing: Icon(
           Icons.chevron_right,
-          color: AppTheme.teal,
+          color: context.accentInk(AppTheme.teal),
         ),
         onTap: () => context.push(Routes.friendRequests),
       ),

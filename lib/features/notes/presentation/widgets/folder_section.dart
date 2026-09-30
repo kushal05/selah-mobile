@@ -74,11 +74,15 @@ class FolderSection extends ConsumerWidget {
                     );
                   }
 
-                  // Get notes to calculate counts per folder
-                  final notes = notesAsync.valueOrNull ?? [];
+                  // Counts are only counts when the notes were actually read.
+                  // foldersAsync is handled by the `when` above; this second
+                  // provider had no branch at all, so a failed notes read
+                  // rendered every folder as empty.
+                  final notes = notesAsync.valueOrNull;
+                  final countsKnown = notes != null;
 
                   final noteCountByFolder = <String?, int>{};
-                  for (final note in notes) {
+                  for (final note in notes ?? const []) {
                     noteCountByFolder[note.folderId] =
                         (noteCountByFolder[note.folderId] ?? 0) + 1;
                   }
@@ -102,7 +106,8 @@ class FolderSection extends ConsumerWidget {
                       if (index == 0) {
                         return FolderRow(
                           title: l10n(context).allNotes,
-                          noteCount: notes.length,
+                          noteCount: countsKnown ? notes.length : null,
+                          countFailed: notesAsync.hasError,
                           depth: 0,
                           hasChildren: false,
                           isExpanded: false,
@@ -118,6 +123,8 @@ class FolderSection extends ConsumerWidget {
                         rows[index - 1],
                         expandedFolders: ui.expandedFolders,
                         selectedFolderId: ui.selectedFolderId,
+                        countsKnown: countsKnown,
+                        countFailed: notesAsync.hasError,
                       );
                     },
                   );
@@ -145,13 +152,20 @@ class FolderSection extends ConsumerWidget {
     FolderTreeRow row, {
     required Set<String> expandedFolders,
     required String? selectedFolderId,
+    required bool countsKnown,
+    required bool countFailed,
   }) {
     final folder = row.folder;
     final isExpanded = expandedFolders.contains(folder.id);
 
     return FolderRow(
       title: folder.name,
-      noteCount: row.totalNoteCount,
+      // flattenFolderTree rolls up from a map that is empty until the notes
+      // land, so every folder reads as "0 notes" during the first frames —
+      // the same false zero this whole finding is about, left behind on the
+      // per-folder rows when the "All notes" row was given a null.
+      noteCount: countsKnown ? row.totalNoteCount : null,
+      countFailed: countFailed,
       depth: row.depth,
       hasChildren: row.hasChildren,
       isExpanded: isExpanded,
@@ -229,7 +243,7 @@ class FolderSection extends ConsumerWidget {
                 tooltip: l10n(context).newFolder,
                 icon: Icon(
                   Icons.create_new_folder_rounded,
-                  color: AppTheme.brandPurple,
+                  color: context.accentInk(AppTheme.brandPurple),
                   size: 20,
                 ),
                 onPressed: () {

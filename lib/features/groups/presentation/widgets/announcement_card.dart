@@ -45,7 +45,7 @@ class AnnouncementCard extends StatelessWidget {
             children: [
               if (announcement.pinned) ...[
                 Icon(Icons.push_pin,
-                    size: 16, color: AppTheme.teal),
+                    size: 16, color: context.accentInk(AppTheme.teal)),
                 const SizedBox(width: 6),
               ],
               Expanded(

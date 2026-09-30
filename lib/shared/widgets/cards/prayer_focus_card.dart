@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colors.dart';
 import '../../../l10n/l10n.dart';
 
 /// Displays a prayer focus card in the prayers dashboard
@@ -38,9 +39,9 @@ class PrayerFocusCard extends StatelessWidget {
                 color: AppTheme.brandBlue.withValues(alpha: AppTheme.alphaLightMed),
                 borderRadius: AppTheme.borderRadiusXL,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.favorite,
-                color: AppTheme.brandBlue,
+                color: context.accentInk(AppTheme.brandBlue),
               ),
             ),
             const SizedBox(width: AppTheme.spacing16),

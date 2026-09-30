@@ -191,7 +191,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
         actions: [
           TextButton(
             onPressed: _isLoading ? null : _handleSave,
-            style: TextButton.styleFrom(foregroundColor: AppTheme.orange),
+            style: TextButton.styleFrom(foregroundColor: context.accentInk(AppTheme.orange)),
             child: Text(l10n(context).actionSave),
           ),
         ],
@@ -212,7 +212,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                       ),
                       child: TabBar(
                         controller: _tabController,
-                        labelColor: AppTheme.orange,
+                        labelColor: context.accentInk(AppTheme.orange),
                         unselectedLabelColor: context.mutedText,
                         indicatorColor: AppTheme.orange,
                         tabs: const [
@@ -472,7 +472,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                   size: 16,
                   color: isPlaceholder
                       ? context.mutedText
-                      : AppTheme.orange),
+                      : context.accentInk(AppTheme.orange)),
               const SizedBox(width: 6),
               Text(
                 label,
@@ -481,7 +481,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                   fontWeight: FontWeight.w500,
                   color: isPlaceholder
                       ? context.mutedText
-                      : AppTheme.orange,
+                      : context.accentInk(AppTheme.orange),
                 ),
               ),
               const SizedBox(width: 4),
@@ -489,7 +489,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                   size: 16,
                   color: isPlaceholder
                       ? context.mutedText
-                      : AppTheme.orange),
+                      : context.accentInk(AppTheme.orange)),
             ],
           ),
         ),
@@ -519,16 +519,20 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
             ),
           ),
           const SizedBox(width: 4),
-          GestureDetector(
-            onTap: () {
-              FocusScope.of(context).unfocus();
-              setState(() {
-                _tagIds.remove(tagId);
-                _tagNames.remove(tagId);
-              });
-            },
-            child: Icon(Icons.close,
-                size: 16, color: Colors.white.withValues(alpha: 0.8)),
+          Semantics(
+            button: true,
+            label: l10n(context).removeTag,
+            child: GestureDetector(
+              onTap: () {
+                FocusScope.of(context).unfocus();
+                setState(() {
+                  _tagIds.remove(tagId);
+                  _tagNames.remove(tagId);
+                });
+              },
+              child: Icon(Icons.close,
+                  size: 16, color: Colors.white.withValues(alpha: 0.8)),
+            ),
           ),
         ],
       ),
@@ -625,7 +629,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
           ),
           child: Row(
             children: [
-              Icon(Icons.info_outline, size: 18, color: AppTheme.orange),
+              Icon(Icons.info_outline, size: 18, color: context.accentInk(AppTheme.orange)),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -682,11 +686,11 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                         fontFamily: 'monospace',
                       ),
                     ),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       fontFamily: 'monospace',
-                      color: AppTheme.orange,
+                      color: context.accentInk(AppTheme.orange),
                     ),
                     textCapitalization: TextCapitalization.words,
                     autocorrect: false,
@@ -830,7 +834,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                             ? Icons.check_circle
                             : Icons.circle_outlined,
                         color: _scale.isEmpty
-                            ? AppTheme.orange
+                            ? context.accentInk(AppTheme.orange)
                             : context.mutedText,
                       ),
                       title: Text(l10n(context).noKeySet),
@@ -855,7 +859,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                                 ? Icons.check_circle
                                 : Icons.circle_outlined,
                             color: _scale == key
-                                ? AppTheme.orange
+                                ? context.accentInk(AppTheme.orange)
                                 : context.mutedText,
                           ),
                           title: Text(key),
@@ -881,7 +885,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                                 ? Icons.check_circle
                                 : Icons.circle_outlined,
                             color: _scale == key
-                                ? AppTheme.orange
+                                ? context.accentInk(AppTheme.orange)
                                 : context.mutedText,
                           ),
                           title: Text(key),
@@ -932,7 +936,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                         ? Icons.check_circle
                         : Icons.circle_outlined,
                     color: lang == _language
-                        ? AppTheme.orange
+                        ? context.accentInk(AppTheme.orange)
                         : context.mutedText,
                   ),
                   title: Text(lang),
@@ -958,7 +962,21 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
   }
 
   void _showFolderPicker() {
-    final folders = ref.read(songFoldersStreamProvider).valueOrNull ?? [];
+    // A failed read used to open a picker with nothing in it, which reads as
+    // "you have no songbooks" — a statement about the user's data made from a
+    // query that never returned.
+    final foldersAsync = ref.read(songFoldersStreamProvider);
+    if (foldersAsync.hasError) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(UserFacingError.forLoad(
+          foldersAsync.error,
+          what: l10n(context).songbooks.toLowerCase(),
+        )),
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+    final folders = foldersAsync.valueOrNull ?? [];
     showModalBottomSheet(
       // Defaults to false: a scroll-controlled sheet otherwise draws its
       // top edge behind the notch or Dynamic Island.
@@ -986,7 +1004,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
               leading: Icon(
                 _folderId == null ? Icons.check_circle : Icons.circle_outlined,
                 color:
-                    _folderId == null ? AppTheme.orange : context.decorativeInk,
+                    _folderId == null ? context.accentInk(AppTheme.orange) : context.decorativeInk,
               ),
               title: Text(l10n(context).noSongbook),
               onTap: () {
@@ -1000,7 +1018,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                         ? Icons.check_circle
                         : Icons.circle_outlined,
                     color: _folderId == folder.id
-                        ? AppTheme.orange
+                        ? context.accentInk(AppTheme.orange)
                         : context.mutedText,
                   ),
                   title: Text(folder.name),

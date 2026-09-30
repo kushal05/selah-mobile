@@ -132,7 +132,12 @@ class _FeedbackThreadScreenState extends ConsumerState<FeedbackThreadScreen> {
   }
 
   Widget _buildInputBar(AsyncValue<FeedbackThreadModel?> threadAsync) {
-    final isClosed = threadAsync.valueOrNull?.isClosed ?? false;
+    // A thread whose state could not be read is treated as closed, not open.
+    // The reply box is the destructive direction here: offering it on a closed
+    // thread invites the user to type a message the server will reject.
+    final isClosed = threadAsync.hasError
+        ? true
+        : threadAsync.valueOrNull?.isClosed ?? false;
 
     if (isClosed) {
       return Container(

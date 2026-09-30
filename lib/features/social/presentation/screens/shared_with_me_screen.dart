@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/theme/theme_colors.dart';
 import '../../../../core/sync/models/entity_access_model.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/services/user_facing_error.dart';
@@ -256,7 +257,7 @@ class _EmptyTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 24),
       child: Column(
         children: [
-          Icon(icon, size: 40, color: Theme.of(context).disabledColor),
+          Icon(icon, size: 40, color: context.mutedText),
           const SizedBox(height: 8),
           Text(message, style: Theme.of(context).textTheme.bodyMedium),
         ],

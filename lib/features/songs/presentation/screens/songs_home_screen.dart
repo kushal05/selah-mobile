@@ -122,6 +122,11 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
                     .toList();
 
             // Resolve selected folder name
+            // `hasValue` matters: with a folder selected but the folders not
+            // yet read, the lookup below missed and the header announced "all
+            // songs" — naming a different scope than the list underneath was
+            // actually showing, then correcting itself a frame later.
+            final foldersKnown = foldersAsync.hasValue;
             final folders = foldersAsync.valueOrNull ?? [];
             // The songbook list below labels this same option with
             // l10n.allSongs; a second hardcoded copy meant the header and the
@@ -133,7 +138,7 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
                         .where((f) => f.id == _selectedFolderId)
                         .map((f) => f.name)
                         .firstOrNull ??
-                    l10n(context).allSongs;
+                    (foldersKnown ? l10n(context).allSongs : '\u2014');
 
             return CustomScrollView(
               slivers: [
@@ -251,7 +256,15 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
                                         ),
                                       ],
                                     ),
-                                    child: GestureDetector(
+                                    // Semantics carries the long press too:
+                                    // a GestureDetector's onLongPress is not
+                                    // exposed to TalkBack or VoiceOver, so
+                                    // entering select mode was unreachable
+                                    // without sighted gestures.
+                                    child: Semantics(
+                                      onLongPress: () => _enterSelectMode(
+                                          initialSongId: song.id),
+                                      child: GestureDetector(
                                       onLongPress: () =>
                                           _enterSelectMode(
                                               initialSongId: song.id),
@@ -267,6 +280,7 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
                                         onFavoriteToggle: () =>
                                             _toggleFavorite(song.id),
                                       ),
+                                    ),
                                     ),
                                   ),
                           );
@@ -544,7 +558,7 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
                   Icon(
                     Icons.library_books_rounded,
                     size: 20,
-                    color: AppTheme.orange.withValues(alpha: 0.8),
+                    color: context.accentInk(AppTheme.orange),
                   ),
                   const SizedBox(width: 8),
                   // Expanded, not a fixed Text plus a Spacer: the Spacer only
@@ -560,12 +574,16 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
                     ),
                   ),
                   if (_isFolderSectionExpanded)
-                    GestureDetector(
-                      onTap: () => _createSongbook(),
-                      child: Icon(
-                        Icons.add_rounded,
-                        size: 20,
-                        color: AppTheme.orange,
+                    Semantics(
+                      button: true,
+                      label: l10n(context).createSongbook,
+                      child: GestureDetector(
+                        onTap: () => _createSongbook(),
+                        child: Icon(
+                          Icons.add_rounded,
+                          size: 20,
+                          color: context.accentInk(AppTheme.orange),
+                        ),
                       ),
                     ),
                   const SizedBox(width: 4),
@@ -921,7 +939,7 @@ class _FavoriteCard extends StatelessWidget {
                         l10n(context).chords,
                         style: TextStyle(
                           fontSize: 12,
-                          color: AppTheme.orange,
+                          color: context.accentInk(AppTheme.orange),
                           fontWeight: FontWeight.w500,
                         ),
                       ),

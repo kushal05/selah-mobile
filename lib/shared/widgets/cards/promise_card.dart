@@ -47,9 +47,9 @@ class PromiseCard extends StatelessWidget {
                     color: AppTheme.rosePink.withValues(alpha: AppTheme.alphaLightMed),
                     borderRadius: AppTheme.borderRadiusLG,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.bookmark_outlined,
-                    color: AppTheme.rosePink,
+                    color: context.accentInk(AppTheme.rosePink),
                     size: AppTheme.iconLG,
                   ),
                 ),

@@ -492,7 +492,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
                 ),
               ),
               labelStyle: TextStyle(
-                color: _recurrence == 'Daily' ? AppTheme.brandBlue : context.mutedText,
+                color: _recurrence == 'Daily' ? context.accentInk(AppTheme.brandBlue) : context.mutedText,
                 fontWeight: _recurrence == 'Daily' ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
@@ -517,7 +517,7 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
                 ),
               ),
               labelStyle: TextStyle(
-                color: _recurrence == 'Weekly' ? AppTheme.brandPurple : context.mutedText,
+                color: _recurrence == 'Weekly' ? context.accentInk(AppTheme.brandPurple) : context.mutedText,
                 fontWeight: _recurrence == 'Weekly' ? FontWeight.w600 : FontWeight.normal,
               ),
             ),

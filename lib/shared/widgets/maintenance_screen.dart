@@ -21,7 +21,7 @@ class MaintenanceScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.build_circle_outlined,
-                  size: 72, color: AppTheme.brandBlue),
+                  size: 72, color: context.accentInk(AppTheme.brandBlue)),
               const SizedBox(height: 24),
               Text(
                 l10n(context).underMaintenance,

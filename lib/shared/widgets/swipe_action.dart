@@ -55,7 +55,7 @@ CustomSlidableAction buildSwipeAction({
         // at 8%, with a 25% edge. A saturated fill made the actions the
         // loudest thing on the screen; at this weight they read as part of
         // the list rather than as an alert stamped over it.
-        final tint = AppTheme.accentOnTintFor(accent, brightness);
+        final tint = AppTheme.semanticFor(accent, brightness);
         return Container(
           margin: EdgeInsets.only(
             left: isFirst ? AppTheme.spacing8 : 3,
@@ -90,7 +90,7 @@ CustomSlidableAction buildSwipeAction({
                     Icon(
                       icon,
                       size: AppTheme.iconBase,
-                      color: AppTheme.accentOnTintFor(accent,
+                      color: AppTheme.semanticFor(accent,
                           isDark ? Brightness.dark : Brightness.light),
                     ),
                     const SizedBox(height: AppTheme.spacing6),

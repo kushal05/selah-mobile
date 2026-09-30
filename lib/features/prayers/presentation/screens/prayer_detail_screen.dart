@@ -275,7 +275,7 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
                   Icon(
                     isChecked ? Icons.check_box : Icons.check_box_outline_blank,
                     size: 18,
-                    color: isChecked ? AppTheme.teal : context.mutedText,
+                    color: isChecked ? context.accentInk(AppTheme.teal) : context.mutedText,
                   ),
                   const SizedBox(width: 6),
                   Expanded(
@@ -553,7 +553,7 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    const Icon(Icons.group_add, color: AppTheme.brandBlue),
+                    Icon(Icons.group_add, color: context.accentInk(AppTheme.brandBlue)),
                     const SizedBox(width: 12),
                     Text(
                       l10n(context).shareToGroup,
@@ -573,10 +573,10 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
                           AppTheme.brandBlue.withValues(alpha: 0.1),
                       child: Text(
                         group.initials,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.brandBlue,
+                          color: context.accentInk(AppTheme.brandBlue),
                         ),
                       ),
                     ),
@@ -760,8 +760,22 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
     final userId = ref.read(currentUserIdProvider);
     final promiseRepo = ref.read(promiseRepositoryProvider);
     final allPromises = await promiseRepo.getAllPromises(userId);
-    final linkedIds =
-        ref.read(linkedPromiseIdsProvider(widget.prayerId)).valueOrNull ?? [];
+    // The exclusion set for the picker below. On a failed read it came back
+    // empty, so promises already linked reappeared as choices and could be
+    // linked a second time.
+    final linkedAsync = ref.read(linkedPromiseIdsProvider(widget.prayerId));
+    if (linkedAsync.hasError) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(UserFacingError.forLoad(
+          linkedAsync.error,
+          what: l10n(context).navPromises.toLowerCase(),
+        )),
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+    final linkedIds = linkedAsync.valueOrNull ?? [];
 
     if (!mounted) return;
 
@@ -1128,7 +1142,7 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
                         icon: const Icon(Icons.check, size: 16),
                         label: Text(l10n(context).actionSave),
                         style: TextButton.styleFrom(
-                          foregroundColor: AppTheme.teal,
+                          foregroundColor: context.accentInk(AppTheme.teal),
                           visualDensity: VisualDensity.compact,
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                         ),
@@ -1375,7 +1389,21 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
   }
 
   void _showAddPersonSheet(List<String> currentIds) {
-    final allPeople = ref.read(peopleStreamProvider).valueOrNull ?? [];
+    // Without this, a failed read produced an empty `available` list and the
+    // branch below told the user there is nobody left to add — a claim about
+    // their data drawn from a query that never returned.
+    final peopleAsync = ref.read(peopleStreamProvider);
+    if (peopleAsync.hasError) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(UserFacingError.forLoad(
+          peopleAsync.error,
+          what: l10n(context).people.toLowerCase(),
+        )),
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+    final allPeople = peopleAsync.valueOrNull ?? [];
     final available = allPeople.where((p) => !currentIds.contains(p.id)).toList();
 
     if (available.isEmpty) {
@@ -1450,7 +1478,7 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
                           ? Icons.radio_button_checked
                           : Icons.radio_button_unchecked,
                       color: freq == prayer.frequency
-                          ? AppTheme.brandPurple
+                          ? context.accentInk(AppTheme.brandPurple)
                           : context.hintText,
                     ),
                     title: Text(freq.displayName),
@@ -1797,7 +1825,7 @@ class _PrayerAction extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     final enabled = onPressed != null;
     final glyph = enabled
-        ? AppTheme.accentOnTintFor(accent, brightness)
+        ? AppTheme.semanticFor(accent, brightness)
         : context.hintText;
     final ink = enabled
         ? AppTheme.inkOnTintFor(accent, brightness)

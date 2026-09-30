@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../l10n/l10n.dart';
 import '../../../core/theme/theme_colors.dart';
 
 /// Card widget for displaying a song in a list
@@ -93,7 +94,9 @@ class SongCard extends StatelessWidget {
                           ),
                         ),
                         if (scale.isNotEmpty) _badge(scale, Theme.of(context).brightness),
-                        if (hasChords) _badge('Chords', Theme.of(context).brightness),
+                        if (hasChords)
+                          _badge(l10n(context).chords,
+                              Theme.of(context).brightness),
                       ],
                     ),
                     if (preview.isNotEmpty) ...[
@@ -114,7 +117,9 @@ class SongCard extends StatelessWidget {
 
               if (onFavoriteToggle != null)
                 IconButton(
-                  tooltip: isFavorite ? 'Remove from favourites' : 'Add to favourites',
+                  tooltip: isFavorite
+                      ? l10n(context).removeFromFavourites
+                      : l10n(context).addToFavourites,
                   icon: Icon(
                     isFavorite ? Icons.favorite : Icons.favorite_border,
                     color: isFavorite ? context.favoriteInk : Theme.of(context).colorScheme.onSurfaceVariant,

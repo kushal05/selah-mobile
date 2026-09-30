@@ -94,7 +94,7 @@ class _SharePrayerSheetState extends ConsumerState<SharePrayerSheet> {
         children: [
           Row(
             children: [
-              const Icon(Icons.share, color: AppTheme.brandBlue),
+              Icon(Icons.share, color: context.accentInk(AppTheme.brandBlue)),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -184,7 +184,7 @@ class _SharePrayerSheetState extends ConsumerState<SharePrayerSheet> {
         children: [
           Row(
             children: [
-              const Icon(Icons.link, color: AppTheme.brandBlue),
+              Icon(Icons.link, color: context.accentInk(AppTheme.brandBlue)),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -231,11 +231,11 @@ class _SharePrayerSheetState extends ConsumerState<SharePrayerSheet> {
                       const SizedBox(height: 4),
                       Text(
                         shared.shareCode,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 2,
-                          color: AppTheme.brandBlue,
+                          color: context.accentInk(AppTheme.brandBlue),
                         ),
                       ),
                     ],
@@ -243,7 +243,7 @@ class _SharePrayerSheetState extends ConsumerState<SharePrayerSheet> {
                 ),
                 IconButton(
                   tooltip: l10n(context).copyLink,
-                  icon: const Icon(Icons.copy, color: AppTheme.brandBlue),
+                  icon: Icon(Icons.copy, color: context.accentInk(AppTheme.brandBlue)),
                   onPressed: () {
                     Clipboard.setData(
                         ClipboardData(text: shared.shareCode));
@@ -257,7 +257,7 @@ class _SharePrayerSheetState extends ConsumerState<SharePrayerSheet> {
                   },
                 ),
                 IconButton(
-                  icon: const Icon(Icons.share, color: AppTheme.brandBlue),
+                  icon: Icon(Icons.share, color: context.accentInk(AppTheme.brandBlue)),
                   tooltip: l10n(context).shareLink,
                   onPressed: () {
                     final link =
@@ -293,8 +293,8 @@ class _SharePrayerSheetState extends ConsumerState<SharePrayerSheet> {
           // Manage collaborators
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.people_outline,
-                color: AppTheme.brandBlue),
+            leading: Icon(Icons.people_outline,
+                color: context.accentInk(AppTheme.brandBlue)),
             title: Text(l10n(context).manageCollaborators),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {

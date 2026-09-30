@@ -191,7 +191,12 @@ class NoteDetailScreen extends ConsumerWidget {
     switch (block.type) {
       case BlockType.heading1:
         return Padding(
-          padding: EdgeInsets.only(left: indent, top: 16, bottom: 8),
+          // top 8, not 16: the title already leaves 16 beneath itself, and the
+          // two stacked put an H1 thirty-two pixels below the title and twenty
+          // above the H2 under it — so it read as part of the H2 rather than
+          // as the section the title hands over to. Eight evens that out.
+          padding: EdgeInsets.only(
+              left: indent, top: 8, bottom: AppTheme.noteHeadingGap(1)),
           child: TaggedText(
             block.content,
             style: AppTheme.noteHeading1,
@@ -200,7 +205,8 @@ class NoteDetailScreen extends ConsumerWidget {
 
       case BlockType.heading2:
         return Padding(
-          padding: EdgeInsets.only(left: indent, top: 12, bottom: 6),
+          padding: EdgeInsets.only(
+              left: indent, top: 12, bottom: AppTheme.noteHeadingGap(2)),
           child: TaggedText(
             block.content,
             style: AppTheme.noteHeading2,
@@ -209,7 +215,8 @@ class NoteDetailScreen extends ConsumerWidget {
 
       case BlockType.heading3:
         return Padding(
-          padding: EdgeInsets.only(left: indent, top: 8, bottom: 4),
+          padding: EdgeInsets.only(
+              left: indent, top: 8, bottom: AppTheme.noteHeadingGap(3)),
           child: TaggedText(
             block.content,
             style: AppTheme.noteHeading3,

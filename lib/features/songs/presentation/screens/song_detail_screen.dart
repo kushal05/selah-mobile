@@ -369,10 +369,10 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
+          Icon(
             Icons.music_note,
             size: AppTheme.iconMD,
-            color: AppTheme.orange,
+            color: context.accentInk(AppTheme.orange),
           ),
           const SizedBox(width: AppTheme.spacing8),
           Text(
@@ -424,7 +424,7 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
                 displayedKey,
                 style: AppTheme.bodyBase.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.orange,
+                  color: context.accentInk(AppTheme.orange),
                 ),
               ),
             ),
@@ -490,7 +490,7 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
                 fontSize: _isFullscreen ? 15 : 13,
                 fontWeight: FontWeight.bold,
                 fontFamily: 'monospace',
-                color: AppTheme.orange,
+                color: context.accentInk(AppTheme.orange),
                 height: 1.6,
               ),
             ),
@@ -567,7 +567,7 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
                     fontWeight: FontWeight.bold,
                     fontFamily: 'monospace',
                     color: seg.chord != null
-                        ? AppTheme.orange
+                        ? context.accentInk(AppTheme.orange)
                         : Colors.transparent,
                     height: 1.4,
                   ),
@@ -875,32 +875,37 @@ class _ModeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppTheme.spacing16,
-          vertical: AppTheme.spacing8,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: AppTheme.borderRadiusSM,
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: AppTheme.bodySmallStyle.fontSize,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-            color: isSelected ? AppTheme.orange : context.mutedText,
+    return Semantics(
+      button: true,
+      label: label,
+      selected: isSelected,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.spacing16,
+            vertical: AppTheme.spacing8,
+          ),
+          decoration: BoxDecoration(
+            color: isSelected ? context.cardSurface : Colors.transparent,
+            borderRadius: AppTheme.borderRadiusSM,
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: AppTheme.bodySmallStyle.fontSize,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              color: isSelected ? context.accentInk(AppTheme.orange) : context.mutedText,
+            ),
           ),
         ),
       ),
@@ -925,7 +930,7 @@ class _TransposeButton extends StatelessWidget {
         customBorder: const CircleBorder(),
         child: Padding(
           padding: const EdgeInsets.all(AppTheme.spacing6),
-          child: Icon(icon, size: 18, color: AppTheme.orange),
+          child: Icon(icon, size: 18, color: context.accentInk(AppTheme.orange)),
         ),
       ),
     );

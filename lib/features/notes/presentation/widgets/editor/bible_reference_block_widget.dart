@@ -165,7 +165,7 @@ class _BibleReferenceBlockWidgetState
                     child: Icon(
                       Icons.local_offer_outlined,
                       size: 18,
-                      color: AppTheme.brandPurple,
+                      color: context.accentInk(AppTheme.brandPurple),
                     ),
                   ),
                 ),
@@ -222,10 +222,10 @@ class _BibleReferenceBlockWidgetState
                   color: AppTheme.brandPurple.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.menu_book,
                   size: 18,
-                  color: AppTheme.brandPurple,
+                  color: context.accentInk(AppTheme.brandPurple),
                 ),
               ),
               const SizedBox(width: 12),
@@ -237,10 +237,10 @@ class _BibleReferenceBlockWidgetState
                     // Reference line (e.g., "John 3:16-18")
                     Text(
                       ref.displayReference,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.brandPurple,
+                        color: context.accentInk(AppTheme.brandPurple),
                         letterSpacing: 0.2,
                       ),
                     ),
@@ -292,7 +292,7 @@ class _BibleReferenceBlockWidgetState
                       child: Icon(
                         Icons.expand_more,
                         size: 20,
-                        color: AppTheme.brandPurple.withValues(alpha: 0.5),
+                        color: context.accentInk(AppTheme.brandPurple),
                       ),
                     ),
                 ],
@@ -342,7 +342,7 @@ class _BibleReferenceBlockWidgetState
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   fontStyle: FontStyle.normal,
-                  color: AppTheme.brandPurple.withValues(alpha: 0.7),
+                  color: context.accentInk(AppTheme.brandPurple),
                 ),
               ),
               TextSpan(text: '${vt.content} '),
@@ -476,7 +476,7 @@ class _BibleReferenceBlockWidgetState
                   ),
                 ),
                 if (isSelected)
-                  const Icon(Icons.check, color: AppTheme.brandPurple, size: 20),
+                  Icon(Icons.check, color: context.accentInk(AppTheme.brandPurple), size: 20),
               ],
             ),
           );
@@ -513,7 +513,7 @@ class _ActionIcon extends StatelessWidget {
           child: Icon(
             icon,
             size: 16,
-            color: color ?? AppTheme.brandPurple.withValues(alpha: 0.5),
+            color: color ?? context.accentInk(AppTheme.brandPurple),
           ),
         ),
       ),

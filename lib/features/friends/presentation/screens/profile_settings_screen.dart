@@ -61,7 +61,7 @@ class _ProfileSettingsScreenState
                 : Text(
                     l10n(context).actionSave,
                     style: TextStyle(
-                      color: AppTheme.teal,
+                      color: context.accentInk(AppTheme.teal),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -83,10 +83,10 @@ class _ProfileSettingsScreenState
                           AppTheme.teal.withValues(alpha: 0.1),
                       child: Text(
                         _getInitials(),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.teal,
+                          color: context.accentInk(AppTheme.teal),
                         ),
                       ),
                     ),

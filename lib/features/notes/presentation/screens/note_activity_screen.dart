@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/theme/theme_colors.dart';
 import '../../../../core/sync/services/public_share_api_service.dart';
 import '../providers/note_attribution_providers.dart';
 import '../../../../l10n/l10n.dart';
@@ -95,7 +96,7 @@ class _EmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.history_outlined,
-                size: 48, color: theme.disabledColor),
+                size: 48, color: context.mutedText),
             const SizedBox(height: 12),
             Text(l10n(context).noActivityYet, style: theme.textTheme.titleMedium),
             const SizedBox(height: 6),

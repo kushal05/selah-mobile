@@ -71,9 +71,9 @@ class NoteRow extends StatelessWidget {
                     color: AppTheme.brandPurple.withValues(alpha: AppTheme.alphaLightMed),
                     borderRadius: AppTheme.borderRadiusLG,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.description_outlined,
-                    color: AppTheme.brandPurple,
+                    color: context.accentInk(AppTheme.brandPurple),
                     size: AppTheme.iconLG,
                   ),
                 ),

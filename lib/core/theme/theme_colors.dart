@@ -58,6 +58,22 @@ extension ThemeColors on BuildContext {
   Color get infoText => AppTheme.semanticFor(AppTheme.info, _brightness);
 
   /// The surface a card or sheet paints itself with.
+  /// A design-system colour tuned for the current theme, for text or a glyph.
+  ///
+  /// The raw tokens are tuned for one ground and fail on the other: teal as
+  /// text measures 1.93:1 on white, and brandBlue 3.54:1 on its own dark tint.
+  /// Pass the colour you want and get the readable version of it. The raw
+  /// token stays correct for the *tint behind* the text — only the foreground
+  /// needs tuning.
+  ///
+  /// semanticFor, not accentOnTintFor: the accent maps hold the nine brand
+  /// hues, and a caller with a `Color accent` parameter also hands over
+  /// AppTheme.error and AppTheme.mutedGrey. accentOnTintFor returns those
+  /// unchanged — mutedGrey measures 2.36:1 as a glyph on its own light tint.
+  /// semanticFor covers error, warning, success, info, mutedGrey and the
+  /// status colours, and falls through to the accent maps for the rest.
+  Color accentInk(Color accent) => AppTheme.semanticFor(accent, _brightness);
+
   Color get cardSurface => _scheme.surface;
 
   /// A surface raised above [cardSurface] — sheets over pages, menus.

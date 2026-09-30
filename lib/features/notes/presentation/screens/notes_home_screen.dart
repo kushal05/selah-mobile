@@ -10,10 +10,10 @@ import '../../domain/models/note_section.dart';
 import '../../domain/models/notes_sort_option.dart';
 import '../../../bible/domain/models/bible_reference.dart';
 import '../../../../core/navigation/routes.dart';
-import '../../../../core/sync/models/note_model.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../domain/models/note.dart' as domain;
 import '../providers/database_provider.dart';
+import '../providers/visible_notes_provider.dart';
 import '../providers/note_display_lookups.dart';
 import '../providers/notes_home_ui_state.dart';
 import '../../../../shared/widgets/dialogs/folder_selection_dialog.dart';
@@ -134,8 +134,13 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
         folderId: _ui.selectedFolderId,
       );
 
-      // Convert NoteModel to domain Note using the existing provider's mapping
-      final allNotes = ref.read(notesStreamProvider).valueOrNull ?? [];
+      // Convert NoteModel to domain Note using the existing provider's mapping.
+      // Throwing rather than defaulting to []: the catch below already reports
+      // a failed filter, and an empty list here would instead render as "your
+      // filter matched nothing" over notes that were never read.
+      final notesAsync = ref.read(notesStreamProvider);
+      if (notesAsync.hasError) throw notesAsync.error!;
+      final allNotes = notesAsync.valueOrNull ?? [];
       final filteredIds = results.map((n) => n.id).toSet();
       if (!mounted) return;
       _uiCtl.setFilteredNotes(
@@ -143,6 +148,12 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       );
     } catch (e) {
       debugPrint('Failed to apply filters: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(UserFacingError.forLoad(e, what: 'notes')),
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
     }
   }
 
@@ -316,36 +327,6 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
         NotesSortOption.title => l10n(context).notesSortTitle,
         NotesSortOption.createdDate => l10n(context).notesSortCreatedDate,
       };
-
-  List<domain.Note> _sortNotes(List<domain.Note> notes) {
-    final sorted = List<domain.Note>.from(notes);
-    switch (_ui.sortOption) {
-      case NotesSortOption.lastEdited:
-        sorted.sort(
-          (a, b) => _ui.sortAscending
-              ? a.updatedAt.compareTo(b.updatedAt)
-              : b.updatedAt.compareTo(a.updatedAt),
-        );
-        break;
-      case NotesSortOption.title:
-        // compareNoteTitles, never String.compareTo: the latter orders by code
-        // unit, putting every capital ahead of every lowercase.
-        sorted.sort(
-          (a, b) => _ui.sortAscending
-              ? compareNoteTitles(a.title, b.title)
-              : compareNoteTitles(b.title, a.title),
-        );
-        break;
-      case NotesSortOption.createdDate:
-        sorted.sort(
-          (a, b) => _ui.sortAscending
-              ? a.createdAt.compareTo(b.createdAt)
-              : b.createdAt.compareTo(a.createdAt),
-        );
-        break;
-    }
-    return sorted;
-  }
 
   /// Returns a preview string from the first non-empty block in the main section.
   /// Prayer and personal application blocks are excluded.
@@ -569,46 +550,27 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
 
   /// Builds the folder section
   Widget _buildNotesSection(BuildContext context) {
-    final notesAsync = ref.watch(notesStreamProvider);
 
     // Both lookups are derived providers, so they are rebuilt when a person or
     // folder actually changes rather than on every rebuild of this screen.
     final peopleMap = ref.watch(personNamesByIdProvider);
     final folderMap = ref.watch(folderNamesByIdProvider);
 
-    // Smart collection data (only fetch when active)
-    final smartNotes = _ui.activeSmartCollection != null
-        ? _getSmartCollectionNotes(ref)
-        : null;
+    // The filter-and-sort pipeline lives in visibleNotesProvider now. It used
+    // to run inside the `data:` branch below, which meant a full copy and sort
+    // of every note on every rebuild of this screen — including rebuilds that
+    // had nothing to do with order, like expanding a folder.
+    final visibleAsync = ref.watch(visibleNotesProvider);
 
     return Container(
       // The list sits directly on the page, as it does on every other tab. A
       // white block here put the rows on a different ground from the folder
       // band above them.
       color: context.pageGround,
-      child: notesAsync.when(
+      child: visibleAsync.when(
         loading: () => const ListTileSkeletonList(count: 8, hasLeading: false),
         error: (e, _) => Center(child: Text(UserFacingError.forLoad(e))),
-        data: (notes) {
-          // Smart collection overrides folder/filter selection
-          final List<domain.Note> baseNotes;
-          if (_ui.activeSmartCollection != null && smartNotes != null) {
-            final smartIds = smartNotes.map((n) => n.id).toSet();
-            baseNotes = notes.where((n) => smartIds.contains(n.id)).toList();
-          } else if (_ui.hasActiveFilters && _ui.filteredNotes != null) {
-            baseNotes = _ui.selectedFolderId == null
-                ? _ui.filteredNotes!
-                : _ui.filteredNotes!
-                      .where((n) => n.folderId == _ui.selectedFolderId)
-                      .toList();
-          } else {
-            baseNotes = _ui.selectedFolderId == null
-                ? notes
-                : notes
-                      .where((n) => n.folderId == _ui.selectedFolderId)
-                      .toList();
-          }
-          final sortedNotes = _sortNotes(baseNotes);
+        data: (sortedNotes) {
 
           // Determine header title based on selection
           final String headerTitle;
@@ -787,41 +749,45 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
 
   /// Builds the filter toggle button with active count badge
   Widget _buildFilterButton(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        _uiCtl.setFilterBarVisible(!_ui.filterBarVisible);
-      },
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            _ui.filterBarVisible
-                ? Icons.filter_list_rounded
-                : Icons.filter_list_off_rounded,
-            size: 18,
-            color: _ui.hasActiveFilters
-                ? AppTheme.brandPurple
-                : context.mutedText,
-          ),
-          if (_ui.hasActiveFilters) ...[
-            const SizedBox(width: 2),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-              decoration: BoxDecoration(
-                color: AppTheme.brandPurple,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '${_ui.activeFilterCount}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+    return Semantics(
+      button: true,
+      label: l10n(context).toggleFilters,
+      child: GestureDetector(
+        onTap: () {
+          _uiCtl.setFilterBarVisible(!_ui.filterBarVisible);
+        },
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _ui.filterBarVisible
+                  ? Icons.filter_list_rounded
+                  : Icons.filter_list_off_rounded,
+              size: 18,
+              color: _ui.hasActiveFilters
+                  ? context.accentInk(AppTheme.brandPurple)
+                  : context.mutedText,
+            ),
+            if (_ui.hasActiveFilters) ...[
+              const SizedBox(width: 2),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: AppTheme.brandPurple,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${_ui.activeFilterCount}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -897,16 +863,20 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
           // Clear all
           if (_ui.hasActiveFilters) ...[
             const SizedBox(width: 8),
-            GestureDetector(
-              onTap: _clearFilters,
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+            Semantics(
+              button: true,
+              label: l10n(context).clearFilters,
+              child: GestureDetector(
+                onTap: _clearFilters,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                  ),
+                  child: Icon(Icons.close, size: 16, color: context.dangerText),
                 ),
-                child: Icon(Icons.close, size: 16, color: context.dangerText),
               ),
             ),
           ],
@@ -1079,7 +1049,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                             ? Icons.radio_button_checked
                             : Icons.radio_button_unchecked,
                         color: _ui.filterPreacherId == null
-                            ? AppTheme.brandPurple
+                            ? context.accentInk(AppTheme.brandPurple)
                             : context.mutedText,
                         size: 20,
                       ),
@@ -1099,7 +1069,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                               ? Icons.radio_button_checked
                               : Icons.radio_button_unchecked,
                           color: isSelected
-                              ? AppTheme.brandPurple
+                              ? context.accentInk(AppTheme.brandPurple)
                               : context.mutedText,
                           size: 20,
                         ),
@@ -1195,7 +1165,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                                   ? Icons.radio_button_checked
                                   : Icons.radio_button_unchecked,
                               color: _ui.filterDateRange == null
-                                  ? AppTheme.brandPurple
+                                  ? context.accentInk(AppTheme.brandPurple)
                                   : context.mutedText,
                               size: 20,
                             ),
@@ -1222,7 +1192,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                                     ? Icons.radio_button_checked
                                     : Icons.radio_button_unchecked,
                                 color: isSelected
-                                    ? AppTheme.brandPurple
+                                    ? context.accentInk(AppTheme.brandPurple)
                                     : context.mutedText,
                                 size: 20,
                               ),
@@ -1297,28 +1267,32 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   Widget _buildSortControl(BuildContext context) {
     final theme = Theme.of(context);
 
-    return GestureDetector(
-      onTap: () {
-        _showSortOptions(context);
-      },
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            _sortLabel(context, _ui.sortOption),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: AppTheme.brandPurple,
+    return Semantics(
+      button: true,
+      label: l10n(context).sortNotes,
+      child: GestureDetector(
+        onTap: () {
+          _showSortOptions(context);
+        },
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _sortLabel(context, _ui.sortOption),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: context.accentInk(AppTheme.brandPurple),
+              ),
             ),
-          ),
-          const SizedBox(width: 4),
-          Icon(
-            _ui.sortAscending
-                ? Icons.arrow_upward_rounded
-                : Icons.arrow_downward_rounded,
-            size: 14,
-            color: AppTheme.brandPurple,
-          ),
-        ],
+            const SizedBox(width: 4),
+            Icon(
+              _ui.sortAscending
+                  ? Icons.arrow_upward_rounded
+                  : Icons.arrow_downward_rounded,
+              size: 14,
+              color: context.accentInk(AppTheme.brandPurple),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1351,7 +1325,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                             ? Icons.radio_button_checked
                             : Icons.radio_button_unchecked,
                         color: isSelected
-                            ? AppTheme.brandPurple
+                            ? context.accentInk(AppTheme.brandPurple)
                             : context.decorativeInk,
                         size: 20,
                       ),
@@ -1385,108 +1359,116 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                           ),
                         ),
                         const Spacer(),
-                        GestureDetector(
-                          onTap: () {
-                            setSheetState(
-                              () => _uiCtl.setSort(
-                                _ui.sortOption,
-                                ascending: true,
+                        Semantics(
+                          button: true,
+                          label: l10n(context).sortAscending,
+                          child: GestureDetector(
+                            onTap: () {
+                              setSheetState(
+                                () => _uiCtl.setSort(
+                                  _ui.sortOption,
+                                  ascending: true,
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
                               ),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _ui.sortAscending
-                                  ? AppTheme.brandPurple.withValues(alpha: 0.1)
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
+                              decoration: BoxDecoration(
                                 color: _ui.sortAscending
-                                    ? AppTheme.brandPurple
-                                    : context.hairline,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.arrow_upward_rounded,
-                                  size: 14,
+                                    ? AppTheme.brandPurple.withValues(alpha: 0.1)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
                                   color: _ui.sortAscending
                                       ? AppTheme.brandPurple
-                                      : context.mutedText,
+                                      : context.hairline,
                                 ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  l10n(context).asc,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: _ui.sortAscending
-                                        ? FontWeight.w600
-                                        : FontWeight.normal,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.arrow_upward_rounded,
+                                    size: 14,
                                     color: _ui.sortAscending
-                                        ? AppTheme.brandPurple
+                                        ? context.accentInk(AppTheme.brandPurple)
                                         : context.mutedText,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    l10n(context).asc,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: _ui.sortAscending
+                                          ? FontWeight.w600
+                                          : FontWeight.normal,
+                                      color: _ui.sortAscending
+                                          ? context.accentInk(AppTheme.brandPurple)
+                                          : context.mutedText,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        GestureDetector(
-                          onTap: () {
-                            setSheetState(
-                              () => _uiCtl.setSort(
-                                _ui.sortOption,
-                                ascending: false,
+                        Semantics(
+                          button: true,
+                          label: l10n(context).sortDescending,
+                          child: GestureDetector(
+                            onTap: () {
+                              setSheetState(
+                                () => _uiCtl.setSort(
+                                  _ui.sortOption,
+                                  ascending: false,
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
                               ),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: !_ui.sortAscending
-                                  ? AppTheme.brandPurple.withValues(alpha: 0.1)
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
+                              decoration: BoxDecoration(
                                 color: !_ui.sortAscending
-                                    ? AppTheme.brandPurple
-                                    : context.hairline,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.arrow_downward_rounded,
-                                  size: 14,
+                                    ? AppTheme.brandPurple.withValues(alpha: 0.1)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
                                   color: !_ui.sortAscending
                                       ? AppTheme.brandPurple
-                                      : context.mutedText,
+                                      : context.hairline,
                                 ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  l10n(context).desc,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: !_ui.sortAscending
-                                        ? FontWeight.w600
-                                        : FontWeight.normal,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.arrow_downward_rounded,
+                                    size: 14,
                                     color: !_ui.sortAscending
-                                        ? AppTheme.brandPurple
+                                        ? context.accentInk(AppTheme.brandPurple)
                                         : context.mutedText,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    l10n(context).desc,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: !_ui.sortAscending
+                                          ? FontWeight.w600
+                                          : FontWeight.normal,
+                                      color: !_ui.sortAscending
+                                          ? context.accentInk(AppTheme.brandPurple)
+                                          : context.mutedText,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -1580,20 +1562,6 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     );
   }
 
-  /// Returns NoteModel list for the active smart collection, or null.
-  List<NoteModel>? _getSmartCollectionNotes(WidgetRef ref) {
-    switch (_ui.activeSmartCollection) {
-      case 'Recently Edited':
-        return ref.watch(recentlyEditedNotesProvider).valueOrNull;
-      case 'Untagged':
-        return ref.watch(untaggedNotesProvider).valueOrNull;
-      case 'No Activity 30d':
-        return ref.watch(staleNotesProvider).valueOrNull;
-      default:
-        return null;
-    }
-  }
-
   /// Smart collections horizontal chip bar.
   Widget _buildSmartCollectionsBar(BuildContext context) {
     final collections = [
@@ -1632,61 +1600,65 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
           final countAsync = ref.watch(c.provider);
           final count = countAsync.valueOrNull?.length;
 
-          return GestureDetector(
-            onTap: () {
-              _uiCtl.setSmartCollection(isActive ? null : c.name);
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                // Was Colors.white, which stayed a white pill in dark mode.
-                color: isActive ? AppTheme.brandPurple : context.cardSurface,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: isActive ? AppTheme.brandPurple : context.hairline,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    c.icon,
-                    size: 14,
-                    color: isActive ? Colors.white : context.mutedText,
+          return Semantics(
+            button: true,
+            label: l10n(context).filterBy(c.name),
+            child: GestureDetector(
+              onTap: () {
+                _uiCtl.setSmartCollection(isActive ? null : c.name);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  // Was Colors.white, which stayed a white pill in dark mode.
+                  color: isActive ? AppTheme.brandPurple : context.cardSurface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isActive ? AppTheme.brandPurple : context.hairline,
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    c.name,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      c.icon,
+                      size: 14,
                       color: isActive ? Colors.white : context.mutedText,
                     ),
-                  ),
-                  if (count != null) ...[
                     const SizedBox(width: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isActive
-                            ? Colors.white.withValues(alpha: 0.25)
-                            : context.subtleFill,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        '$count',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: isActive ? Colors.white : context.mutedText,
-                        ),
+                    Text(
+                      c.name,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: isActive ? Colors.white : context.mutedText,
                       ),
                     ),
+                    if (count != null) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? Colors.white.withValues(alpha: 0.25)
+                              : context.subtleFill,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '$count',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isActive ? Colors.white : context.mutedText,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           );

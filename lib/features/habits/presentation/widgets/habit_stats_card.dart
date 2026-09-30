@@ -47,7 +47,10 @@ class HabitStatsCard extends ConsumerWidget {
     final streak = streakAsync.valueOrNull;
     final best = bestAsync.valueOrNull;
     final week = weekAsync.valueOrNull ?? List.filled(7, false);
-    final history = historyAsync.valueOrNull ?? {};
+    // Nullable like streak and best above it: an empty map and a failed read
+    // draw the same blank chart, and the blank one reads as "you have logged
+    // nothing" rather than "this could not be loaded".
+    final history = historyAsync.valueOrNull;
 
     return Container(
       margin: const EdgeInsets.symmetric(
@@ -219,6 +222,7 @@ class HabitStatsCard extends ConsumerWidget {
               habit: habit,
               color: color,
               completedDays: history,
+              failed: historyAsync.hasError,
             ),
           ],
         ),

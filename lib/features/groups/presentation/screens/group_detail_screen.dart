@@ -124,7 +124,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
             ],
             bottom: TabBar(
               controller: _tabController,
-              labelColor: AppTheme.teal,
+              labelColor: context.accentInk(AppTheme.teal),
               unselectedLabelColor: context.mutedText,
               indicatorColor: AppTheme.teal,
               isScrollable: true,
@@ -174,11 +174,11 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
               ),
               child: Text(
                 joinCode,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 4,
-                  color: AppTheme.teal,
+                  color: context.accentInk(AppTheme.teal),
                 ),
               ),
             ),
@@ -376,10 +376,10 @@ class _OverviewTab extends ConsumerWidget {
                           AppTheme.teal.withValues(alpha: 0.1),
                       child: Text(
                         group.initials,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.teal,
+                          color: context.accentInk(AppTheme.teal),
                         ),
                       ),
                     ),
@@ -539,7 +539,7 @@ class _OverviewStatCard extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Icon(icon, size: 24, color: AppTheme.teal),
+            Icon(icon, size: 24, color: context.accentInk(AppTheme.teal)),
             const SizedBox(height: 8),
             Text(
               count.toString(),
@@ -685,8 +685,7 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
                       child: Row(
                         children: [
                           Icon(Icons.volunteer_activism,
-                              color: AppTheme.teal
-                                  .withValues(alpha: 0.7)),
+                              color: context.accentInk(AppTheme.teal)),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
@@ -773,8 +772,8 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
                     color: AppTheme.teal.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.add,
-                      color: AppTheme.teal, size: 20),
+                  child: Icon(Icons.add,
+                      color: context.accentInk(AppTheme.teal), size: 20),
                 ),
                 title: Text(l10n(context).createNewPrayer),
                 subtitle: Text(
@@ -794,8 +793,8 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
                     color: AppTheme.teal.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.playlist_add,
-                      color: AppTheme.teal, size: 20),
+                  child: Icon(Icons.playlist_add,
+                      color: context.accentInk(AppTheme.teal), size: 20),
                 ),
                 title: Text(l10n(context).addExistingPrayer),
                 subtitle: Text(
@@ -940,8 +939,7 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
                       return ListTile(
                         leading: Icon(
                           Icons.volunteer_activism,
-                          color: AppTheme.teal
-                              .withValues(alpha: 0.7),
+                          color: context.accentInk(AppTheme.teal),
                         ),
                         title: Text(
                           prayer.title,
@@ -952,12 +950,12 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
                           prayer.status.displayName,
                           style: TextStyle(
                             fontSize: 13,
-                            color: _statusColor(prayer.status),
+                            color: _statusInk(prayer.status),
                           ),
                         ),
-                        trailing: const Icon(
+                        trailing: Icon(
                             Icons.add_circle_outline,
-                            color: AppTheme.teal),
+                            color: context.accentInk(AppTheme.teal)),
                         onTap: () => Navigator.pop(context, prayer),
                       );
                     },
@@ -975,6 +973,8 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
     }
   }
 
+  /// The colour that tints a status chip. Correct as the raw brand value —
+  /// a tint of the brand hue is what it is for.
   Color _statusColor(PrayerStatus status) {
     return switch (status) {
       PrayerStatus.active => AppTheme.brandBlue,
@@ -982,6 +982,16 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
       PrayerStatus.archived => AppTheme.mutedGrey,
     };
   }
+
+  /// The colour that writes a status, readable on that tint in both themes.
+  ///
+  /// Archived is not a brand accent and has no tuned pair, so accentInk hands
+  /// mutedGrey straight back — 2.36:1 on its own light tint, which is what the
+  /// archived label measured. The per-theme muted text colour is the right one
+  /// for a deliberately quiet status.
+  Color _statusInk(PrayerStatus status) => status == PrayerStatus.archived
+      ? context.mutedText
+      : context.accentInk(_statusColor(status));
 
   Future<void> _addPrayerToGroup(String prayerId) async {
     try {
@@ -1022,6 +1032,10 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
+        // The raw brand colour is right for the tint behind the label; the
+        // label itself needs the tuned one. brandBlue on its own 10% tint
+        // measures 3.54:1 on the dark ground, under the 4.5:1 text minimum —
+        // and the badge is the only thing marking a prayer active.
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
       ),
@@ -1030,7 +1044,7 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: color,
+          color: _statusInk(status),
         ),
       ),
     );
@@ -1469,10 +1483,10 @@ class _MembersTab extends ConsumerWidget {
                         AppTheme.teal.withValues(alpha: 0.1),
                     child: Text(
                       initial,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.teal,
+                        color: context.accentInk(AppTheme.teal),
                       ),
                     ),
                   ),
@@ -1513,7 +1527,7 @@ class _MembersTab extends ConsumerWidget {
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: member.isAdmin
-                            ? AppTheme.teal
+                            ? context.accentInk(AppTheme.teal)
                             : context.mutedText,
                       ),
                     ),
@@ -1566,10 +1580,10 @@ class _InfoTab extends ConsumerWidget {
                               .withValues(alpha: 0.1),
                           child: Text(
                             group.initials,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.teal,
+                              color: context.accentInk(AppTheme.teal),
                             ),
                           ),
                         ),
@@ -1678,10 +1692,10 @@ class _InfoTab extends ConsumerWidget {
                               .withValues(alpha: 0.1),
                           child: Text(
                             initial,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.teal,
+                              color: context.accentInk(AppTheme.teal),
                             ),
                           ),
                         ),
@@ -1723,7 +1737,7 @@ class _InfoTab extends ConsumerWidget {
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                               color: member.isAdmin
-                                  ? AppTheme.teal
+                                  ? context.accentInk(AppTheme.teal)
                                   : context.mutedText,
                             ),
                           ),
@@ -1927,7 +1941,7 @@ class _FeedItemCard extends StatelessWidget {
             color: AppTheme.teal.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(Icons.volunteer_activism, size: 18, color: AppTheme.teal),
+          child: Icon(Icons.volunteer_activism, size: 18, color: context.accentInk(AppTheme.teal)),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -1966,7 +1980,7 @@ class _FeedItemCard extends StatelessWidget {
           child: Icon(
             item.pinned == true ? Icons.push_pin : Icons.campaign_outlined,
             size: 18,
-            color: AppTheme.brandPurple,
+            color: context.accentInk(AppTheme.brandPurple),
           ),
         ),
         const SizedBox(width: 12),

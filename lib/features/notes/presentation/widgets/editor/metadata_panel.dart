@@ -195,7 +195,7 @@ class _DatePickerField extends StatelessWidget {
             Icon(
               Icons.calendar_today,
               size: 20,
-              color: AppTheme.brandPurple,
+              color: context.accentInk(AppTheme.brandPurple),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -356,7 +356,7 @@ class _AddPersonButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return TextButton.icon(
       onPressed: () => _showAddPersonDialog(context, ref),
-      style: TextButton.styleFrom(foregroundColor: AppTheme.brandPurple),
+      style: TextButton.styleFrom(foregroundColor: context.accentInk(AppTheme.brandPurple)),
       icon: const Icon(Icons.person_add, size: 18),
       label: Text(l10n(context).addPerson),
     );
@@ -396,7 +396,7 @@ class _AddPersonButton extends ConsumerWidget {
                   Navigator.of(context).pop(name);
                 }
               },
-              style: TextButton.styleFrom(foregroundColor: AppTheme.brandPurple),
+              style: TextButton.styleFrom(foregroundColor: context.accentInk(AppTheme.brandPurple)),
               child: Text(l10n(context).add),
             ),
           ],
@@ -559,7 +559,7 @@ class _AddNewButtonState extends State<_AddNewButton> {
           _focusNode.requestFocus();
         });
       },
-      style: TextButton.styleFrom(foregroundColor: AppTheme.brandPurple),
+      style: TextButton.styleFrom(foregroundColor: context.accentInk(AppTheme.brandPurple)),
       icon: const Icon(Icons.add, size: 18),
       label: Text(widget.label),
     );

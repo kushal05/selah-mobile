@@ -165,7 +165,7 @@ class _RevisionTile extends ConsumerWidget {
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: AppTheme.brandPurple,
+                                  color: context.accentInk(AppTheme.brandPurple),
                                 ),
                               ),
                             ),
@@ -288,8 +288,8 @@ class _RevisionTile extends ConsumerWidget {
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
                   children: [
-                    const Icon(Icons.history,
-                        color: AppTheme.brandPurple, size: 20),
+                    Icon(Icons.history,
+                        color: context.accentInk(AppTheme.brandPurple), size: 20),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(

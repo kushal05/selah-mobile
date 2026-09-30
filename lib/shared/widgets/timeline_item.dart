@@ -32,9 +32,9 @@ class TimelineItem extends StatelessWidget {
       }
       spans.add(TextSpan(
         text: match.group(0),
-        style: const TextStyle(
+        style: TextStyle(
           fontWeight: FontWeight.w600,
-          color: AppTheme.brandPurple,
+          color: context.accentInk(AppTheme.brandPurple),
         ),
       ));
       lastEnd = match.end;

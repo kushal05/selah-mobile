@@ -306,7 +306,7 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
                   icon: Icon(Icons.add, size: AppTheme.headingMedium.fontSize),
                   label: Text(l10n(context).add),
                   style: TextButton.styleFrom(
-                    foregroundColor: AppTheme.rosePink,
+                    foregroundColor: context.accentInk(AppTheme.rosePink),
                     visualDensity: VisualDensity.compact,
                   ),
                 ),
@@ -487,7 +487,7 @@ class _LinkedPrayerTile extends ConsumerWidget {
           dense: true,
           contentPadding: EdgeInsets.zero,
           leading: Icon(Icons.volunteer_activism,
-              size: AppTheme.iconBase, color: AppTheme.rosePink),
+              size: AppTheme.iconBase, color: context.accentInk(AppTheme.rosePink)),
           title: Text(
             prayer.title,
             maxLines: 1,

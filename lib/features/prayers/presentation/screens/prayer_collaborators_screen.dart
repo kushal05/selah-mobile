@@ -321,10 +321,10 @@ class _CollaboratorCard extends StatelessWidget {
                 AppTheme.brandBlue.withValues(alpha: 0.1),
             child: Text(
               initial,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.brandBlue,
+                color: context.accentInk(AppTheme.brandBlue),
               ),
             ),
           ),

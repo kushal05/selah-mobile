@@ -102,7 +102,7 @@ class _TagTile extends ConsumerWidget {
 
     return ListTile(
       leading: Icon(Icons.label_outline,
-          color: AppTheme.brandPurple, size: AppTheme.iconLG),
+          color: context.accentInk(AppTheme.brandPurple), size: AppTheme.iconLG),
       title: Text(tag.name),
       subtitle: Text(
         '$usageCount ${usageCount == 1 ? 'use' : 'uses'}',
@@ -236,8 +236,8 @@ class _TagTile extends ConsumerWidget {
             const SizedBox(height: AppTheme.spacing8),
             ...targets.map(
               (target) => ListTile(
-                leading: const Icon(Icons.label_outline,
-                    color: AppTheme.brandPurple),
+                leading: Icon(Icons.label_outline,
+                    color: context.accentInk(AppTheme.brandPurple)),
                 title: Text(target.name),
                 onTap: () async {
                   Navigator.pop(ctx);

@@ -386,18 +386,22 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
               ),
             )
           else
-            GestureDetector(
-              onTap: () => _startEditing('name', _nameFocus),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    person.name,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(Icons.edit, size: 16, color: context.hintText),
-                ],
+            Semantics(
+              button: true,
+              label: l10n(context).editName,
+              child: GestureDetector(
+                onTap: () => _startEditing('name', _nameFocus),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      person.name,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(Icons.edit, size: 16, color: context.hintText),
+                  ],
+                ),
               ),
             ),
           if (person.relation.isNotEmpty) ...[
@@ -581,56 +585,68 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
             ),
             const Spacer(),
             if (!isEditing)
-              GestureDetector(
-                onTap: () => _startEditing('notes', _notesFocus),
-                child: Icon(Icons.edit, size: 16, color: context.hintText),
+              Semantics(
+                button: true,
+                label: l10n(context).editNotes,
+                child: GestureDetector(
+                  onTap: () => _startEditing('notes', _notesFocus),
+                  child: Icon(Icons.edit, size: 16, color: context.hintText),
+                ),
               ),
             if (isEditing)
-              GestureDetector(
-                onTap: () => _saveField('notes'),
-                child: const Icon(Icons.check,
-                    size: 20, color: AppTheme.teal),
+              Semantics(
+                button: true,
+                label: l10n(context).saveNotes,
+                child: GestureDetector(
+                  onTap: () => _saveField('notes'),
+                  child: Icon(Icons.check,
+                      size: 20, color: context.accentInk(AppTheme.teal)),
+                ),
               ),
           ],
         ),
         const SizedBox(height: 8),
-        GestureDetector(
-          onTap: isEditing ? null : () => _startEditing('notes', _notesFocus),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: isEditing ? Colors.white : Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: isEditing
-                  ? Border.all(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withValues(alpha: 0.3),
+        Semantics(
+          button: true,
+          label: l10n(context).editNotes,
+          child: GestureDetector(
+            onTap: isEditing ? null : () => _startEditing('notes', _notesFocus),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isEditing ? Colors.white : Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: isEditing
+                    ? Border.all(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withValues(alpha: 0.3),
+                      )
+                    : null,
+              ),
+              child: isEditing
+                  ? TextField(
+                      controller: _notesController,
+                      focusNode: _notesFocus,
+                      maxLines: null,
+                      minLines: 3,
+                      textCapitalization: TextCapitalization.sentences,
+                      style: const TextStyle(fontSize: 16, height: 1.5),
+                      decoration: AppTheme.inlineInput(hint: l10n(context).addNotesAboutThisPerson),
                     )
-                  : null,
-            ),
-            child: isEditing
-                ? TextField(
-                    controller: _notesController,
-                    focusNode: _notesFocus,
-                    maxLines: null,
-                    minLines: 3,
-                    textCapitalization: TextCapitalization.sentences,
-                    style: const TextStyle(fontSize: 16, height: 1.5),
-                    decoration: AppTheme.inlineInput(hint: l10n(context).addNotesAboutThisPerson),
-                  )
-                : Text(
-                    hasNotes ? _notesController.text : 'Tap to add notes...',
-                    style: TextStyle(
-                      fontSize: 16,
-                      height: 1.5,
-                      color: hasNotes
-                          ? context.primaryText
-                          : context.hintText,
+                  : Text(
+                      hasNotes ? _notesController.text : 'Tap to add notes...',
+                      style: TextStyle(
+                        fontSize: 16,
+                        height: 1.5,
+                        color: hasNotes
+                            ? context.primaryText
+                            : context.hintText,
+                      ),
                     ),
-                  ),
+            ),
           ),
         ),
       ],
@@ -690,8 +706,8 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.favorite_outline,
-                            size: 18, color: AppTheme.brandPurple),
+                        Icon(Icons.favorite_outline,
+                            size: 18, color: context.accentInk(AppTheme.brandPurple)),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
