@@ -379,7 +379,12 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
             l10n(context).transpose,
             style: AppTheme.bodySmallStyle.copyWith(
               fontWeight: FontWeight.w600,
-              color: context.subtleFill,
+              // The chip behind this is a tint of orange and the icon beside it is
+              // accentInk(orange), so grey here read as a mismatch once it became
+              // visible. inkOnTintFor is the text weight of that pair — semanticFor
+              // is the glyph one, which is why the icon and the label differ.
+              color: AppTheme.inkOnTintFor(
+                  AppTheme.orange, Theme.of(context).brightness),
             ),
           ),
           const SizedBox(width: AppTheme.spacing12),
@@ -658,7 +663,7 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
                 l10n(context).navNotes,
                 style: AppTheme.bodySmallStyle.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: context.subtleFill,
+                  color: context.mutedText,
                 ),
               ),
             ],

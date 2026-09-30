@@ -199,6 +199,7 @@ class NoteDetailScreen extends ConsumerWidget {
               left: indent, top: 8, bottom: AppTheme.noteHeadingGap(1)),
           child: TaggedText(
             block.content,
+            formats: block.formats,
             style: AppTheme.noteHeading1,
           ),
         );
@@ -209,6 +210,7 @@ class NoteDetailScreen extends ConsumerWidget {
               left: indent, top: 12, bottom: AppTheme.noteHeadingGap(2)),
           child: TaggedText(
             block.content,
+            formats: block.formats,
             style: AppTheme.noteHeading2,
           ),
         );
@@ -219,6 +221,7 @@ class NoteDetailScreen extends ConsumerWidget {
               left: indent, top: 8, bottom: AppTheme.noteHeadingGap(3)),
           child: TaggedText(
             block.content,
+            formats: block.formats,
             style: AppTheme.noteHeading3,
           ),
         );
@@ -231,6 +234,7 @@ class NoteDetailScreen extends ConsumerWidget {
           padding: EdgeInsets.only(left: indent, bottom: 8),
           child: TaggedText(
             block.content,
+            formats: block.formats,
             style: theme.textTheme.bodyLarge,
           ),
         );
@@ -248,6 +252,7 @@ class NoteDetailScreen extends ConsumerWidget {
               Expanded(
                 child: TaggedText(
                   block.content,
+                  formats: block.formats,
                   style: theme.textTheme.bodyLarge,
                 ),
               ),
@@ -272,6 +277,7 @@ class NoteDetailScreen extends ConsumerWidget {
               Expanded(
                 child: TaggedText(
                   block.content,
+                  formats: block.formats,
                   style: theme.textTheme.bodyLarge,
                 ),
               ),
@@ -299,8 +305,13 @@ class NoteDetailScreen extends ConsumerWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
+                  // TaggedText, like every other text-bearing block: a plain Text here
+                  // dropped this item's bold and italic and its #tag tint, while the
+                  // paragraph directly above it kept both. The strikethrough for a
+                  // ticked item rides on the base style, so each run inherits it.
+                  child: TaggedText(
                     block.content,
+                    formats: block.formats,
                     style: theme.textTheme.bodyLarge?.copyWith(
                       decoration: isChecked ? TextDecoration.lineThrough : null,
                       color: isChecked

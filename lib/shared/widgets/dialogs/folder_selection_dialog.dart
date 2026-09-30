@@ -268,7 +268,7 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
                 Text(
                   'Create a $_entityLabelLower to organize your ${_contentLabelLower}s',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: context.subtleFill,
+                    color: context.mutedText,
                   ),
                 ),
               ],

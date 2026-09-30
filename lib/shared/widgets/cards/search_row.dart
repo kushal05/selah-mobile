@@ -80,7 +80,7 @@ class SearchRow extends StatelessWidget {
                           Text(
                             subtitle,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: context.subtleFill,
+                              color: context.mutedText,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

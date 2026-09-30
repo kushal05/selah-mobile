@@ -30,7 +30,7 @@ class ChangelogScreen extends ConsumerWidget {
             children: [
               Text(
                 l10n(context).couldNotLoadChangelog,
-                style: AppTheme.bodyBase.copyWith(color: context.subtleFill),
+                style: AppTheme.bodyBase.copyWith(color: context.mutedText),
               ),
               const SizedBox(height: 12),
               TextButton(
@@ -100,7 +100,10 @@ class _VersionCard extends StatelessWidget {
                   child: Text(
                     'v${entry.version}',
                     style: AppTheme.caption.copyWith(
-                      color: context.cardSurface,
+                      // onPrimary, not cardSurface: the chip behind this is colorScheme.primary,
+                      // and cardSurface is white only in the light theme — in dark it painted
+                      // dark text on a blue chip.
+                      color: Theme.of(context).colorScheme.onPrimary,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.3,
                     ),

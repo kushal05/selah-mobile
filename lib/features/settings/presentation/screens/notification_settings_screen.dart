@@ -49,7 +49,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(l10n(context).couldNotLoadPreferences,
-                  style: AppTheme.bodyBase.copyWith(color: context.subtleFill)),
+                  style: AppTheme.bodyBase.copyWith(color: context.mutedText)),
               const SizedBox(height: 12),
               TextButton(
                 onPressed: () =>

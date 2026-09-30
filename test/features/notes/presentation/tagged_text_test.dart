@@ -31,7 +31,7 @@ Future<void> pump(WidgetTester tester, String text,
   await tester.pumpWidget(MaterialApp(
     key: ValueKey(brightness),
     theme: brightness == Brightness.dark ? AppTheme.dark() : AppTheme.light(),
-    home: Scaffold(body: TaggedText(text)),
+    home: Scaffold(body: TaggedText(text, formats: const [])),
   ));
   await tester.pump();
 }
@@ -58,7 +58,12 @@ void main() {
     expect(tinted, ['#faith']);
   });
 
-  testWidgets('plain text renders as a plain Text', (tester) async {
+  testWidgets('plain text is tinted nowhere and still findable',
+      (tester) async {
+    // Renamed: it used to say "renders as a plain Text". Every TaggedText
+    // is a Text.rich now that one span builder serves both the editor and
+    // the preview. What it pins is unchanged: nothing is tinted, and the
+    // words are still findable.
     await pump(tester, 'no tags here');
 
     expect(runs(tester).where((r) => r.$2?.backgroundColor != null), isEmpty);

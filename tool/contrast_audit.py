@@ -425,7 +425,7 @@ def _enclosing(src, pos):
                 j = i - 1
                 while j >= 0 and (src[j].isalnum() or src[j] == '_'):
                     j -= 1
-                return src[j + 1:i], arg
+                return src[j + 1:i], arg, i
             depth -= 1
         elif c == ':' and depth == 0 and arg is None:
             # Only a named argument's colon counts. A ternary's colon sits at
@@ -448,8 +448,25 @@ def _enclosing(src, pos):
             if name.isidentifier() and (k < 0 or src[k] in '(,{'):
                 arg = name
         i -= 1
-    return None, arg
+    return None, arg, None
 
+
+# How far out to look for a `style:` before giving up.
+#
+# `copyWith` is not a foreground constructor on its own — BoxDecoration has one
+# too — and `color:` is not a foreground argument, because it paints the
+# background of every Container in the app. So
+#
+#     style: theme.textTheme.bodySmall?.copyWith(color: context.subtleFill)
+#
+# passed the audit while painting body text in a container fill; three lines of
+# the group feed were unreadable until someone looked at them.
+#
+# Walking outward rather than matching a window of text: the first version of
+# this rule required no comma between `style:` and `color:`, which caught the
+# five sites that happened to be written that way and missed the same bug with
+# the arguments in the other order.
+STYLE_WALK_LIMIT = 4
 
 def scan_fill_as_foreground():
     """Surface tokens used to colour text or an icon."""
@@ -459,14 +476,31 @@ def scan_fill_as_foreground():
             continue
         src = path.read_text(encoding='utf-8')
         for m in FILL_RE.finditer(src):
-            ctor, arg = _enclosing(src, m.start())
+            ctor, arg, open_at = _enclosing(src, m.start())
             if arg in BACKGROUND_ARGS:
                 continue
             if arg not in FOREGROUND_ARGS and ctor not in FOREGROUND_CTORS:
-                continue
+                # Not conclusive here. Step out through the enclosing calls
+                # looking for a `style:` argument — that is what makes a
+                # `copyWith(color: ...)` a foreground.
+                in_style = False
+                for _ in range(STYLE_WALK_LIMIT):
+                    if open_at is None:
+                        break
+                    ctor, arg, open_at = _enclosing(src, open_at)
+                    if arg in BACKGROUND_ARGS:
+                        break
+                    if arg == 'style' or arg in FOREGROUND_ARGS \
+                            or ctor in FOREGROUND_CTORS:
+                        in_style = True
+                        break
+                if not in_style:
+                    continue
+                ctor = 'style:'
             line = src[:m.start()].count('\n') + 1
             findings.append((str(path.relative_to(LIB.parent)), line,
                              m.group(1), ctor or '?'))
+
     return findings
 
 
@@ -499,7 +533,7 @@ def scan_faded_foregrounds():
         for m in FADE_RE.finditer(src):
             if float(m.group(2)) >= FADE_FLOOR:
                 continue
-            ctor, arg = _enclosing(src, m.start())
+            ctor, arg, _ = _enclosing(src, m.start())
             # Flag unless this is plainly a fill. The default has to be this
             # way round for two reasons. onSurface names a foreground role —
             # it is the colour of what sits *on* the surface — so a fill built
@@ -603,7 +637,7 @@ def scan_raw_accent_foregrounds():
                 continue
             if 'accentOnLight' in head or 'accentOnDark' in head:
                 continue
-            ctor, arg = _enclosing(src, m.start())
+            ctor, arg, _ = _enclosing(src, m.start())
             if arg in BACKGROUND_ARGS:
                 continue
             # `theme.textTheme.labelSmall?.copyWith(color: …)` never contains

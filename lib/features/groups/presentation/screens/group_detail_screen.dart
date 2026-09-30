@@ -1956,7 +1956,7 @@ class _FeedItemCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   'by ${item.userId}',
-                  style: theme.textTheme.bodySmall?.copyWith(color: context.subtleFill),
+                  style: theme.textTheme.bodySmall?.copyWith(color: context.mutedText),
                 ),
               ],
             ],
@@ -1998,7 +1998,7 @@ class _FeedItemCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   item.content!,
-                  style: theme.textTheme.bodySmall?.copyWith(color: context.subtleFill),
+                  style: theme.textTheme.bodySmall?.copyWith(color: context.mutedText),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -2007,7 +2007,7 @@ class _FeedItemCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'by @${item.authorUsername}',
-                  style: theme.textTheme.bodySmall?.copyWith(color: context.subtleFill),
+                  style: theme.textTheme.bodySmall?.copyWith(color: context.mutedText),
                 ),
               ],
             ],
