@@ -336,8 +336,8 @@ class _FocusCarouselState extends State<_FocusCarousel> {
         // six seconds for the life of the app to start an animation that
         // could not run. Measured: the position does not move while inactive,
         // so this is wasted work rather than a visible fault.
-        final visible =
-            TickerMode.of(context) && !MediaQuery.of(context).disableAnimations;
+        final visible = TickerMode.valuesOf(context).enabled &&
+            !MediaQuery.of(context).disableAnimations;
         if (!visible) {
           // Going out of view ends the visit, so the reader's takeover ends
           // with it. Home stays mounted inside the IndexedStack for the life
@@ -511,7 +511,10 @@ class _FocusCarouselState extends State<_FocusCarousel> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  slide.eyebrow,
+                  // Uppercased here, not in the catalogue: an ALL CAPS value
+                  // asks a translator to shout in a script where case may not
+                  // exist, and the same words are read normally elsewhere.
+                  slide.eyebrow.toUpperCase(),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.7),
                     fontSize: AppTheme.tiny.fontSize,

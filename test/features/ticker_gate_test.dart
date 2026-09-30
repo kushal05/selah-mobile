@@ -264,7 +264,7 @@ void main() {
     // the promise and reading ones vanishing.
     // The row pads with a clone of the first and last slide, so each
     // label can legitimately appear more than once.
-    expect(find.text('Add Prayer'), findsWidgets);
+    expect(find.text('Add prayer'), findsWidgets);
     expect(
       find.text('Add a promise'),
       findsWidgets,

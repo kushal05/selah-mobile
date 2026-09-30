@@ -23,8 +23,12 @@ class SearchSection extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 8),
+          // Uppercased here rather than in the string catalogue, as
+          // SectionLabel already does. An ALL CAPS value gives a translator a
+          // second copy of a word to keep in step with the first, in a form
+          // that is wrong in the languages where case does not work this way.
           child: Text(
-            title,
+            title.toUpperCase(),
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,

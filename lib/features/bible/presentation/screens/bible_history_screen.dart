@@ -58,7 +58,7 @@ class BibleHistoryScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(l10n(context).failedToLoadHistory,
+              Text(l10n(context).couldNotLoadHistory,
                   style: TextStyle(color: theme.colorScheme.error)),
               const SizedBox(height: 8),
               TextButton(

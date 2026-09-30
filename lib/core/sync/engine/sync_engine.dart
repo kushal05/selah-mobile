@@ -14,6 +14,7 @@ import 'oplog_compressor.dart';
 import '../utils/sync_logger.dart';
 import 'conflict_resolver.dart';
 import 'field_level_merger.dart';
+import 'sync_clock.dart';
 import 'sync_state_machine.dart';
 import '../../testing/test_clock.dart';
 
@@ -2855,6 +2856,15 @@ class SyncEngine {
     List<PushOpResult> results,
   ) async {
     if (results.isEmpty) return 0;
+
+    // The server stamped these as it applied them, moments ago, which makes
+    // this the one place the client gets to read a clock it can trust. Merges
+    // compare timestamps across devices and need it; see SyncClock.
+    final serverNow = results
+        .map((r) => r.serverTimestamp)
+        .whereType<int>()
+        .fold<int?>(null, (a, b) => a == null || b > a ? b : a);
+    if (serverNow != null) SyncClock.observeServerTime(serverNow);
 
     final byId = {for (final op in pushed) op.opId: op};
     var accepted = 0;

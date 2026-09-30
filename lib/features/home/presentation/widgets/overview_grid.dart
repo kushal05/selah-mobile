@@ -11,6 +11,15 @@ import '../../../../core/navigation/tab_navigation.dart';
 class OverviewGrid extends ConsumerWidget {
   const OverviewGrid({super.key});
 
+  /// The count when it has been read, an em dash when it has not.
+  ///
+  /// Nought is a real answer and has to be able to mean it. Substituting it for
+  /// a read that failed put "0" on all four cards at once — the first thing the
+  /// user sees on opening the app, telling them their prayers, notes, promises
+  /// and people were gone.
+  static String _count(AsyncValue<int> value) =>
+      value.hasValue ? value.value.toString() : '—';
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
 
@@ -18,11 +27,10 @@ class OverviewGrid extends ConsumerWidget {
     // this widget from rebuilding, but the watches underneath still decoded
     // every note, prayer, promise and person into a model on each change just
     // to produce four numbers.
-    final activePrayersCount =
-        ref.watch(activePrayerCountProvider).valueOrNull ?? 0;
-    final notesCount = ref.watch(noteCountProvider).valueOrNull ?? 0;
-    final promisesCount = ref.watch(promiseCountProvider).valueOrNull ?? 0;
-    final peopleCount = ref.watch(personCountProvider).valueOrNull ?? 0;
+    final activePrayersCount = ref.watch(activePrayerCountProvider);
+    final notesCount = ref.watch(noteCountProvider);
+    final promisesCount = ref.watch(promiseCountProvider);
+    final peopleCount = ref.watch(personCountProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -51,28 +59,28 @@ class OverviewGrid extends ConsumerWidget {
           children: [
             OverviewCard(
               title: l10n(context).activePrayers,
-              count: activePrayersCount.toString(),
+              count: _count(activePrayersCount),
               icon: Icons.favorite,
               color: AppTheme.brandBlue,
               onTap: () => goToTab(context, 2), // Prayers tab
             ),
             OverviewCard(
               title: l10n(context).recentNotes,
-              count: notesCount.toString(),
+              count: _count(notesCount),
               icon: Icons.description,
               color: AppTheme.brandPurple,
               onTap: () => goToTab(context, 1), // Notes tab
             ),
             OverviewCard(
               title: l10n(context).navPromises,
-              count: promisesCount.toString(),
+              count: _count(promisesCount),
               icon: Icons.bookmark,
               color: AppTheme.rosePink,
               onTap: () => goToTab(context, 4), // Promises tab
             ),
             OverviewCard(
               title: l10n(context).people,
-              count: peopleCount.toString(),
+              count: _count(peopleCount),
               icon: Icons.people,
               color: AppTheme.teal,
               onTap: () => goToTab(context, 6), // People tab

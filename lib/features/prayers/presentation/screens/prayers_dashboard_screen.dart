@@ -364,12 +364,16 @@ class PrayersDashboardScreen extends ConsumerWidget {
                         // with the session it exists to motivate. It reads
                         // better as one line on the thing you are about to do.
                         Builder(builder: (context) {
-                          final streak =
-                              ref.watch(prayerStreakProvider).valueOrNull ?? 0;
+                          final streakAsync = ref.watch(prayerStreakProvider);
+                          // `?? 0` invited someone forty days in to "start"
+                          // their streak when the read had merely failed.
+                          final streak = streakAsync.valueOrNull ?? 0;
                           return Text(
-                            streak > 0
-                                ? l10n(context).nDayStreak(streak)
-                                : l10n(context).startYourDailyPrayerSession,
+                            streakAsync.hasError
+                                ? l10n(context).streakUnavailable
+                                : streak > 0
+                                    ? l10n(context).nDayStreak(streak)
+                                    : l10n(context).startYourDailyPrayerSession,
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.85),
                               fontSize: 14,

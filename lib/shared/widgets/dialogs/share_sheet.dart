@@ -418,7 +418,7 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
                 padding: EdgeInsets.symmetric(vertical: 8),
                 child: LinearProgressIndicator(),
               ),
-              error: (_, _) => Text(l10n(context).failedToLoadFriends),
+              error: (_, _) => Text(l10n(context).couldNotLoadFriends),
               data: _buildFriendChips,
             ),
           ),
@@ -441,7 +441,7 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
             padding: const EdgeInsets.only(left: 56, top: 8, bottom: 8),
             child: groupsAsync.when(
               loading: () => const CircularProgressIndicator(),
-              error: (_, _) => Text(l10n(context).failedToLoadGroups),
+              error: (_, _) => Text(l10n(context).couldNotLoadGroups),
               data: (groups) {
                 if (groups.isEmpty) {
                   return Text(l10n(context).noGroupsAvailableCreateOneFirst);

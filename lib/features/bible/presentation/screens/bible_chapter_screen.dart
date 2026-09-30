@@ -300,7 +300,7 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(l10n(context).failedToSavePromise),
+            content: Text(l10n(context).couldNotSavePromise),
             behavior: SnackBarBehavior.floating,
           ),
         );

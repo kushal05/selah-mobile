@@ -278,7 +278,7 @@ void main() {
         size: const Size(402, 874), textScale: 1.0, overrides: empty);
 
     // The three that were only reachable behind the "More" tab.
-    expect(find.text('New Promise'), findsOneWidget);
+    expect(find.text('New promise'), findsOneWidget);
     expect(find.text('Songs'), findsOneWidget);
     expect(find.text('Add person'), findsOneWidget);
     expect(find.text('See more'), findsOneWidget);

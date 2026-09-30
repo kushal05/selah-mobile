@@ -18,7 +18,14 @@ except Exception:
     pass
 
 path = "pubspec.yaml"
-text = open(path).read()
+# Explicit utf-8 and newline="": on Windows the default encoding is not
+# utf-8, and the default text mode translates every "\n" written back out
+# into "\r\n". pubspec.yaml is LF here and there is no .gitattributes to
+# normalise it, so a bump run on Windows rewrites all 80 lines and a bump
+# on macOS rewrites them back — a whole-file diff each way, for a one-line
+# change.
+with open(path, encoding="utf-8", newline="") as fh:
+    text = fh.read()
 
 m = re.search(r"^version:\s*(\S+?)\+(\d+)", text, flags=re.MULTILINE)
 if not m:
@@ -85,6 +92,7 @@ if new_build <= cur_build:
 
 new_line = f"version: {new_name}+{new_build}"
 new_text = text[:m.start()] + new_line + text[m.end():]
-open(path, "w").write(new_text)
+with open(path, "w", encoding="utf-8", newline="") as fh:
+    fh.write(new_text)
 
 print(f"Bumped → {new_name}+{new_build}")

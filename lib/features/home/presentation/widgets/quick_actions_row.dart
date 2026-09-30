@@ -108,7 +108,7 @@ class QuickActionsRow extends ConsumerStatefulWidget {
       ),
       QuickActionSpec(
         icon: Icons.library_music_outlined,
-        label: l10n(context).viewSongs,
+        label: l10n(context).navSongs,
         color: AppTheme.orange,
         onTap: (context) => context.go(Routes.songs),
       ),

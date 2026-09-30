@@ -9,6 +9,10 @@ import '../../../../core/sync/utils/sync_logger.dart';
 import '../../../notes/domain/models/note.dart' as domain;
 import '../../../notes/presentation/providers/database_provider.dart';
 
+/// The five collections a global search reads, named so that a failure in one
+/// of them can be reported rather than passed off as an empty result.
+enum SearchArea { notes, prayers, promises, people, songs }
+
 /// State for the global search screen.
 class GlobalSearchState {
   final List<domain.Note> notes;
@@ -19,6 +23,11 @@ class GlobalSearchState {
   final bool isLoading;
   final bool hasSearched;
 
+  /// The areas whose query threw. Their lists are empty here because they were
+  /// never read, which is a different thing from having nothing to show, and
+  /// the screen has to be able to tell the difference.
+  final Set<SearchArea> failedAreas;
+
   const GlobalSearchState({
     this.notes = const [],
     this.prayers = const [],
@@ -27,6 +36,7 @@ class GlobalSearchState {
     this.songs = const [],
     this.isLoading = false,
     this.hasSearched = false,
+    this.failedAreas = const {},
   });
 
   bool get hasResults =>
@@ -44,6 +54,7 @@ class GlobalSearchState {
     List<SongModel>? songs,
     bool? isLoading,
     bool? hasSearched,
+    Set<SearchArea>? failedAreas,
   }) {
     return GlobalSearchState(
       notes: notes ?? this.notes,
@@ -53,6 +64,7 @@ class GlobalSearchState {
       songs: songs ?? this.songs,
       isLoading: isLoading ?? this.isLoading,
       hasSearched: hasSearched ?? this.hasSearched,
+      failedAreas: failedAreas ?? this.failedAreas,
     );
   }
 }
@@ -91,11 +103,40 @@ class GlobalSearchNotifier extends StateNotifier<GlobalSearchState> {
     List<PersonModel> people = [];
     List<SongModel> songs = [];
 
-    try { notes = await notesFuture; } catch (e) { SyncLogger.warning('[Search] notes query failed: $e'); }
-    try { prayers = await prayersFuture; } catch (e) { SyncLogger.warning('[Search] prayers query failed: $e'); }
-    try { promises = await promisesFuture; } catch (e) { SyncLogger.warning('[Search] promises query failed: $e'); }
-    try { people = await peopleFuture; } catch (e) { SyncLogger.warning('[Search] people query failed: $e'); }
-    try { songs = await songsFuture; } catch (e) { SyncLogger.warning('[Search] songs query failed: $e'); }
+    // Each failure is recorded as well as logged. Swallowing it into an empty
+    // list was how "No results found" came to cover a query that never ran —
+    // the user reads that as "your note isn't here" and stops looking.
+    final failed = <SearchArea>{};
+    try {
+      notes = await notesFuture;
+    } catch (e) {
+      failed.add(SearchArea.notes);
+      SyncLogger.warning('[Search] notes query failed: $e');
+    }
+    try {
+      prayers = await prayersFuture;
+    } catch (e) {
+      failed.add(SearchArea.prayers);
+      SyncLogger.warning('[Search] prayers query failed: $e');
+    }
+    try {
+      promises = await promisesFuture;
+    } catch (e) {
+      failed.add(SearchArea.promises);
+      SyncLogger.warning('[Search] promises query failed: $e');
+    }
+    try {
+      people = await peopleFuture;
+    } catch (e) {
+      failed.add(SearchArea.people);
+      SyncLogger.warning('[Search] people query failed: $e');
+    }
+    try {
+      songs = await songsFuture;
+    } catch (e) {
+      failed.add(SearchArea.songs);
+      SyncLogger.warning('[Search] songs query failed: $e');
+    }
 
     // Only update state if the notifier is still mounted
     if (!mounted) return;
@@ -107,6 +148,7 @@ class GlobalSearchNotifier extends StateNotifier<GlobalSearchState> {
       songs: songs,
       isLoading: false,
       hasSearched: true,
+      failedAreas: failed,
     );
   }
 

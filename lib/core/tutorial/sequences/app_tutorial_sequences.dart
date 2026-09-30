@@ -13,7 +13,7 @@ import '../tutorial_step.dart';
 List<TutorialStep> homeTutorialSteps() => [
       TutorialStep(
         targetKey: tutorialKey(TutorialKeyId.quickActionsRow),
-        title: 'Quick Actions',
+        title: 'Quick actions',
         description:
             'Tap here to quickly create a note, log a prayer, add a promise, or search — all in one tap.',
         shape: TutorialSpotlightShape.roundedRect,

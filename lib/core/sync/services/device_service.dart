@@ -74,56 +74,6 @@ class DeviceService {
   }
 }
 
-/// Service locator for sync services
-///
-/// Provides centralized access to sync components
-class SyncServiceLocator {
-  static SyncServiceLocator? _instance;
-  static SyncServiceLocator get instance => _instance ??= SyncServiceLocator._();
-
-  SyncServiceLocator._();
-
-  SyncDatabase? _database;
-  DeviceService? _deviceService;
-
-  /// Initialize the service locator
-  Future<void> initialize(SyncDatabase database) async {
-    _database = database;
-    _deviceService = DeviceService(database);
-
-    // Ensure device is registered
-    await _deviceService!.getDeviceId();
-
-    // Create indexes
-    await database.createIndexes();
-  }
-
-  /// Get the sync database
-  SyncDatabase get database {
-    if (_database == null) {
-      throw StateError('SyncServiceLocator not initialized');
-    }
-    return _database!;
-  }
-
-  /// Get the device service
-  DeviceService get deviceService {
-    if (_deviceService == null) {
-      throw StateError('SyncServiceLocator not initialized');
-    }
-    return _deviceService!;
-  }
-
-  /// Get current device ID
-  Future<String> getDeviceId() => deviceService.getDeviceId();
-
-  /// Reset for testing
-  void reset() {
-    _database = null;
-    _deviceService = null;
-    _instance = null;
-  }
-}
 
 /// UUID generator utility
 class IdGenerator {

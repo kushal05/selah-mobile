@@ -47,7 +47,7 @@ class DevicesScreen extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                l10n(context).failedToLoadDevices,
+                l10n(context).couldNotLoadDevices,
                 style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 8),

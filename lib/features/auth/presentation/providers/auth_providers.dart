@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../../core/sync/engine/sync_clock.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/sync/services/auth_service.dart';
 import '../../../../core/sync/engine/sync_state_machine.dart';
@@ -465,6 +466,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
     }
     _ref.read(currentUserIdProvider.notifier).state = 'default-user-id';
     _ref.read(profileCompleteProvider.notifier).state = null;
+    // Outside the try, with the other resets: the offset was learnt from this
+    // account's server, and the next sign-in may not be the same one.
+    SyncClock.reset();
     state = const AsyncValue.data(null);
   }
 

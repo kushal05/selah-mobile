@@ -171,6 +171,17 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
   String? _selectedVersion;
   late Set<BibleBook> _selectedBooks;
 
+  /// Owned rather than left implicit so the Scrollbar below attaches to this
+  /// list and nothing else: the picker has three tabs with their own grids,
+  /// and an ambiguous controller throws at paint time rather than at compile.
+  final _bookScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _bookScrollController.dispose();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -530,19 +541,28 @@ class _PickerContentState extends ConsumerState<_PickerContent> {
     final otBooks = BibleBooks.books.sublist(0, 39);
     final ntBooks = BibleBooks.books.sublist(39);
 
-    return SingleChildScrollView(
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(
-        AppTheme.spacing16, AppTheme.spacing8,
-        AppTheme.spacing16, AppTheme.spacing8,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildTestamentChips('Old Testament', otBooks, 0, cs),
-          const SizedBox(height: AppTheme.spacing12),
-          _buildTestamentChips('New Testament', ntBooks, 39, cs),
-        ],
+    // Scrolls, and says so. It was built with NeverScrollableScrollPhysics
+    // inside an Expanded + ClipRect, so the sixty-six books were laid out in
+    // full and then clipped to the dialog's height — which cuts off the end of
+    // the New Testament. Jude and Revelation were in the tree and off the
+    // glass. The scrollbar is the other half of the report: with the list
+    // ending flush at the clip there was nothing to suggest it continued.
+    return Scrollbar(
+      controller: _bookScrollController,
+      child: SingleChildScrollView(
+        controller: _bookScrollController,
+        padding: const EdgeInsets.fromLTRB(
+          AppTheme.spacing16, AppTheme.spacing8,
+          AppTheme.spacing16, AppTheme.spacing8,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildTestamentChips('Old Testament', otBooks, 0, cs),
+            const SizedBox(height: AppTheme.spacing12),
+            _buildTestamentChips('New Testament', ntBooks, 39, cs),
+          ],
+        ),
       ),
     );
   }

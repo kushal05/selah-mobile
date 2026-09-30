@@ -190,8 +190,8 @@ echo "  Updated: s3://${S3_BUCKET}/${METADATA_KEY}"
 #
 # manifest.json keeps the most recent 3 builds for the in-app QA build picker.
 # We rebuild it by prepending this build to the existing manifest and trimming
-# to MANIFEST_KEEP. python3 is required (already used elsewhere in this repo's
-# tooling) for safe JSON editing.
+# to MANIFEST_KEEP. Python 3 is required for safe JSON editing; it is invoked
+# through scripts/python.sh so the interpreter name is resolved per platform.
 
 MANIFEST_KEEP=3
 
@@ -214,7 +214,9 @@ aws s3 cp \
 
 NEW_MANIFEST_FILE="/tmp/manifest_new.json"
 
-python3 - "$EXISTING_MANIFEST_FILE" "$NEW_MANIFEST_FILE" \
+# Through scripts/python.sh, not a bare `python3`: that name does not exist
+# on a stock Windows Python install, and this script is run from both.
+bash "$(dirname "$0")/python.sh" - "$EXISTING_MANIFEST_FILE" "$NEW_MANIFEST_FILE" \
   "$FLAVOR" "$APP_VERSION" "$BUILD_NUMBER" "$APK_URL" \
   "$RELEASE_NOTES" "$CREATED_AT" "$MANIFEST_KEEP" <<'PYEOF'
 import json, os, sys

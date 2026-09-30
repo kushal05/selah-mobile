@@ -76,7 +76,7 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
           padding: const EdgeInsets.only(
               bottom: AppTheme.spacing16, left: AppTheme.spacing4),
           child: Text(
-            l10n(context).nkjvIsDownloadedOnFirstLaunchDownloadAdditio2,
+            l10n(context).bibleVersionsIntro,
             style:
                 AppTheme.caption.copyWith(color: context.mutedText),
           ),
@@ -123,7 +123,7 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
           padding:
               const EdgeInsets.symmetric(horizontal: AppTheme.spacing4),
           child: Text(
-            l10n(context).removingAVersionFreesUp8MbNotesReferencingTh2,
+            l10n(context).bibleVersionRemovalNote,
             style:
                 AppTheme.caption.copyWith(color: context.mutedText),
           ),
@@ -173,7 +173,7 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
     final messenger = ScaffoldMessenger.of(context);
     // Resolved before the await: every read of context after the dialog is a
     // use across an async gap.
-    final failureMessage = l10n(context).failedToRemoveVersion(info.name);
+    final failureMessage = l10n(context).couldNotRemoveVersion(info.name);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(

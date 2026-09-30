@@ -616,23 +616,23 @@
 <div class="wrap">
 
   <header class="mast">
-    <p class="eyebrow">Static audit · notify/ · 2026-09-17</p>
+    <p class="eyebrow">Static audit · notify/ · 2026-09-17, second pass 2026-09-29</p>
     <h1>Selah Mobile Audit</h1>
     <p class="standfirst">
       The Flutter client is in <strong>good structural health</strong> — the analyzer is clean,
-      all 559 tests pass, and the expensive JSON work already runs off the UI isolate. What's
-      left are not lint-visible defects. They are <strong>two credential-at-rest exposures</strong> and a
-      cluster of rebuild costs concentrated in a single screen.
+      all 638 tests pass, and the expensive JSON work already runs off the UI isolate. What's
+      left are not lint-visible defects. They are <strong>two credential-at-rest exposures</strong> and
+      a cluster of rebuild costs concentrated in a single screen.
     </p>
 
     <div class="facts">
-      <div class="fact ok"><span class="n">1</span><span class="k">Analyzer issue</span></div>
-      <div class="fact ok"><span class="n">559</span><span class="k">Tests passing</span></div>
-      <div class="fact"><span class="n">476</span><span class="k">Dart files</span></div>
-      <div class="fact"><span class="n">107,313</span><span class="k">Lines (non-generated)</span></div>
+      <div class="fact ok"><span class="n">0</span><span class="k">Analyzer issues</span></div>
+      <div class="fact ok"><span class="n">638</span><span class="k">Tests passing</span></div>
+      <div class="fact"><span class="n">471</span><span class="k">Dart files</span></div>
+      <div class="fact"><span class="n">107,824</span><span class="k">Lines (non-generated)</span></div>
       <div class="fact"><span class="n">36</span><span class="k">Drift schema version</span></div>
     </div>
-    <p class="runnote">flutter analyze — 1 deprecation · flutter test — 559 passed, 0 failed</p>
+    <p class="runnote">flutter analyze — clean · flutter test — 638 passed, 0 failed</p>
   </header>
 
   <section>
@@ -642,7 +642,7 @@
       Flutter codebase this size are already handled, so none of the findings below are cleanup debt.
     </p>
     <ul class="passes">
-      <li><span class="v">0</span><span><code>TODO</code>, <code>FIXME</code> or <code>HACK</code> markers across all 476 files</span></li>
+      <li><span class="v">0</span><span><code>TODO</code>, <code>FIXME</code> or <code>HACK</code> markers across all 471 files</span></li>
       <li><span class="v">0</span><span>empty or swallowing <code>catch</code> blocks</span></li>
       <li><span class="v">0</span><span><code>use_build_context_synchronously</code> suppressions, against 168 explicit <code>mounted</code> guards</span></li>
       <li><span class="v">0</span><span>deprecated <code>withOpacity()</code> calls left — all 444 sites migrated to <code>withValues()</code></span></li>
@@ -657,11 +657,20 @@
 
   <section>
     <h2>Findings</h2>
+    <p class="sublede">
+      01–09 are the first pass, 17 September, with the seven that have since been fixed removed.
+      10–16 are a second pass on 29 September covering migrations and upgrade, sync under adverse
+      conditions, failure behaviour, security beyond storage, accessibility at large type, and copy.
+      Both passes are static plus test-harness work on this machine. <strong>Not reached by either:</strong>
+      device profiling and frame timing, screen readers, a real network being interrupted, and a genuine
+      old-schema database file — the migration chain was read and its steps counted, not replayed against
+      a database built by an older build.
+    </p>
 
     <div class="ledger">
-      <span class="tally"><i class="dot" style="background:var(--sev-high)"></i><span class="c">2</span><span class="l">High</span></span>
-      <span class="tally"><i class="dot" style="background:var(--sev-med)"></i><span class="c">4</span><span class="l">Medium</span></span>
-      <span class="tally"><i class="dot" style="background:var(--sev-low)"></i><span class="c">3</span><span class="l">Low</span></span>
+      <span class="tally"><i class="dot" style="background:var(--sev-high)"></i><span class="c">3</span><span class="l">High</span></span>
+      <span class="tally"><i class="dot" style="background:var(--sev-med)"></i><span class="c">7</span><span class="l">Medium</span></span>
+      <span class="tally"><i class="dot" style="background:var(--sev-low)"></i><span class="c">6</span><span class="l">Low</span></span>
     </div>
 
     <!-- ===== HIGH ===== -->
@@ -863,12 +872,16 @@
           <h3>Thirty-seven UI files still carry hardcoded strings, and only English ships</h3>
           <span class="tag">i18n</span>
         </div>
-        <p class="loc">37 files under features/ and shared/ with no l10n reference · lib/l10n/ contains only app_en.arb</p>
+        <p class="loc">24 files under features/ and shared/ with no l10n reference · lib/l10n/ contains only app_en.arb</p>
         <p>
-          Adoption is strong (1,271 call sites), which makes the holdouts conspicuous — including
-          user-visible section headers such as <code>headerTitle = 'ALL NOTES'</code> in
-          <code>notes_home_screen.dart:768</code>. Mixed-language UI is worse than uniformly
-          untranslated UI, so these become visible the moment a second locale ships.
+          Adoption is strong (1,271 call sites), which makes the holdouts conspicuous. The
+          largest are <code>daily_scripture_widget.dart</code> (34 literals) and
+          <code>note_template.dart</code> (19); a third of the rest are domain models and
+          constants rather than screens — <code>bible_books.dart</code>,
+          <code>suggested_prayers.dart</code> — which have no <code>BuildContext</code> and need a
+          different approach from a <code>l10n(context)</code> sweep.
+          Mixed-language UI is worse than uniformly untranslated UI, so these become visible the
+          moment a second locale ships.
         </p>
         <p class="fix"><b>Fix</b>
           Sweep the 37 files into the ARB before adding any locale. The
@@ -902,32 +915,22 @@
         </p>
       </div>
     </article>
-
+    
     <article class="find sev-low">
       <div class="stripe"></div>
       <div class="body">
         <div class="find-head">
-          <span class="fno">09</span>
+          <span class="fno">13</span>
           <span class="badge">Low</span>
-          <h3>Debug logging ships in release paths</h3>
-          <span class="tag">Hygiene</span>
+          <h3>Twenty-five reads still collapse a failure into an empty result</h3>
+          <span class="tag">Correctness</span>
         </div>
-        <p class="loc">71 print / debugPrint call sites outside generated code</p>
-        <p>
-          <code>debugPrint</code> is not compiled out of release builds. Several sites log sync and
-          auth state, which both leaks detail into device logs and costs string interpolation on
-          paths that run often.
-        </p>
-        <p class="fix"><b>Fix</b>
-          Route them through the existing <code>SyncLogger</code>, or gate on
-          <code>kDebugMode</code>. The infrastructure is already there — this is just the call sites
-          that never adopted it.
-        </p>
+        <p class="loc">25 <code>valueOrNull ?? []</code> / <code>?? 0</code>, in pickers, selectors and link sheets</p>
+        <p>What is left is the set the empty list only misleads in: a folder picker, a people selector, a link sheet. The read fails, the list comes up empty, and the user sees a chooser with nothing in it rather than a reason — but nothing is written on the strength of it, so no data moves.</p>
+        <p>Two shapes recur. A picker that excludes what is already linked loses its exclusion set, so an item can be picked and linked twice. A filter that maps results against a full list gets an empty list, so a filter appears to match nothing.</p>
+        <p class="fix"><b>Fix</b> For each: decide what the picker should say when the read fails, and say it. <code>ErrorState</code> already does this with a retry. Worth doing per screen as each is next touched rather than as one sweep — the reads are independent and none is urgent.</p>
       </div>
     </article>
-
-    
-
   </section>
 
   <section>
@@ -957,8 +960,8 @@
   <section>
     <h2>Work plan — for review</h2>
     <p class="sublede">
-      Every one of the 9 findings maps to a task below. Phases A, C, D and E are bounded and
-      verifiable against the existing 559-test suite. Phase F is structural and wants an explicit
+      Every one of the 9 findings maps to a task below. Phases A–E are bounded and
+      verifiable against the existing 638-test suite. Phase F is structural and wants an explicit
       decision, because it touches the screen with the most state.
     </p>
 
@@ -1025,12 +1028,36 @@
 
     
 
+    <!-- PHASE B -->
+    <div class="phase">
+      <div class="phase-head">
+        <span class="pid">B</span>
+        <h3>Say the true thing</h3>
+        <span class="pnote">~1 day</span>
+      </div>
+
+      <div class="task">
+        <span class="box"></span>
+        <span class="tid">T04</span>
+        <div class="main">
+          <div class="tt">Give the remaining pickers something to say when a read fails</div>
+          <p class="td">Twenty-five <code>valueOrNull ?? []</code> reads in pickers, selectors and link sheets. Independent of one another; take each as its screen is next touched.</p>
+          <p class="tf">25 call sites, listed by <code>grep -rnE "valueOrNull[^;]*\?\? *(\[\]|0)" lib</code></p>
+          <div class="chips">
+            <span class="chip cov">Covers 13</span>
+            <span class="chip">1 day</span>
+            <span class="chip r-low">Low risk</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- PHASE C -->
     <div class="phase">
       <div class="phase-head">
         <span class="pid">C</span>
         <h3>Performance</h3>
-        <span class="pnote">~3 days</span>
+        <span class="pnote">~1 day</span>
       </div>
 
       
@@ -1039,7 +1066,7 @@
 
       <div class="task">
         <span class="box"></span>
-        <span class="tid">T03</span>
+        <span class="tid">T07</span>
         <div class="main">
           <div class="tt">Lift the notes filter, sort and lookup maps into providers</div>
           <p class="td">
@@ -1063,12 +1090,12 @@
       <div class="phase-head">
         <span class="pid">D</span>
         <h3>Accessibility</h3>
-        <span class="pnote">~1 day</span>
+        <span class="pnote">~1.25 days</span>
       </div>
 
       <div class="task">
         <span class="box"></span>
-        <span class="tid">T04</span>
+        <span class="tid">T09</span>
         <div class="main">
           <div class="tt">Clamp <code>textScaler</code> globally</div>
           <p class="td">
@@ -1088,7 +1115,7 @@
 
       <div class="task">
         <span class="box"></span>
-        <span class="tid">T05</span>
+        <span class="tid">T10</span>
         <div class="main">
           <div class="tt">Give custom tap targets semantics and a 48×48 hit area</div>
           <p class="td">
@@ -1112,14 +1139,14 @@
       <div class="phase-head">
         <span class="pid">E</span>
         <h3>Hygiene</h3>
-        <span class="pnote">~2 days</span>
+        <span class="pnote">~1 day</span>
       </div>
 
       
 
       <div class="task">
         <span class="box"></span>
-        <span class="tid">T06</span>
+        <span class="tid">T12</span>
         <div class="main">
           <div class="tt">Sweep the 37 remaining files into the ARB</div>
           <p class="td">
@@ -1137,26 +1164,6 @@
       </div>
 
       
-
-      <div class="task">
-        <span class="box"></span>
-        <span class="tid">T07</span>
-        <div class="main">
-          <div class="tt">Route debug logging through the existing logger</div>
-          <p class="td">
-            Move the 71 <code>print</code> / <code>debugPrint</code> sites onto
-            <code>SyncLogger</code> or gate them on <code>kDebugMode</code>, so sync and auth detail
-            stops reaching release device logs.
-          </p>
-          <p class="tf">71 call sites across lib/</p>
-          <div class="chips">
-            <span class="chip cov">Covers 09</span>
-            <span class="chip">Half a day</span>
-            <span class="chip r-low">Low risk</span>
-          </div>
-        </div>
-      </div>
-
       
     </div>
 
@@ -1165,12 +1172,12 @@
       <div class="phase-head">
         <span class="pid">F</span>
         <h3>Structural — needs your decision</h3>
-        <span class="pnote">~6 days</span>
+        <span class="pnote">~5 days</span>
       </div>
 
       <div class="task">
         <span class="box"></span>
-        <span class="tid">T08</span>
+        <span class="tid">T15</span>
         <div class="main">
           <div class="tt">Split <code>notes_home_screen.dart</code> into per-section widgets</div>
           <p class="td">
@@ -1190,7 +1197,7 @@
 
       <div class="task">
         <span class="box"></span>
-        <span class="tid">T09</span>
+        <span class="tid">T16</span>
         <div class="main">
           <div class="tt">Page the unbounded watch streams</div>
           <p class="td">
@@ -1243,7 +1250,7 @@
 
   <footer>
     Static audit of <span class="mono">d:\Work\PersonalNotify\notify</span> at Flutter analyzer-clean state, 17 September 2026.<br>
-    Evidence: <span class="mono">flutter analyze</span> (1 deprecation) · <span class="mono">flutter test</span> (559 passed) · source scan of 476 non-generated Dart files, 107,313 lines.<br>
+    Evidence: <span class="mono">flutter analyze</span> (clean) · <span class="mono">flutter test</span> (638 passed) · source scan of 471 non-generated Dart files, 107,824 lines.<br>
     Findings are from static reading only — no profiling run, no device trace. Performance claims describe algorithmic cost, not measured frame times.
   </footer>
 

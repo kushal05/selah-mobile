@@ -29,7 +29,7 @@ class ChangelogScreen extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                l10n(context).failedToLoadChangelog,
+                l10n(context).couldNotLoadChangelog,
                 style: AppTheme.bodyBase.copyWith(color: context.subtleFill),
               ),
               const SizedBox(height: 12),

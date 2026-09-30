@@ -210,7 +210,7 @@ class _MoveToFolderSheetState extends ConsumerState<MoveToFolderSheet> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
-              l10n(context).folders,
+              l10n(context).folders.toUpperCase(),
               style: theme.textTheme.labelSmall?.copyWith(
                 color: context.mutedText,
                 fontWeight: FontWeight.w600,
@@ -297,7 +297,7 @@ class _MoveToFolderSheetState extends ConsumerState<MoveToFolderSheet> {
     String folderName;
 
     if (_selectedFolderId == 'root') {
-      folderName = 'No Folder';
+      folderName = l10n(context).noFolder;
     } else {
       final folder =
           folders.where((f) => f.id == _selectedFolderId).firstOrNull;

@@ -48,7 +48,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(l10n(context).failedToLoadPreferences,
+              Text(l10n(context).couldNotLoadPreferences,
                   style: AppTheme.bodyBase.copyWith(color: context.subtleFill)),
               const SizedBox(height: 12),
               TextButton(
@@ -90,7 +90,7 @@ class _Body extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(AppTheme.spacing16,
               AppTheme.spacing20, AppTheme.spacing16, AppTheme.spacing8),
-          child: SectionLabel('SOCIAL'),
+          child: SectionLabel(l10n(context).social),
         ),
         _NotifGroup(tiles: [
           _ToggleTile(
@@ -141,7 +141,7 @@ class _Body extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(AppTheme.spacing16,
               AppTheme.spacing20, AppTheme.spacing16, AppTheme.spacing8),
-          child: SectionLabel('PRAYER'),
+          child: SectionLabel(l10n(context).prayer),
         ),
         _NotifGroup(tiles: [
           _ToggleTile(
@@ -157,7 +157,7 @@ class _Body extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(AppTheme.spacing16,
               AppTheme.spacing20, AppTheme.spacing16, AppTheme.spacing8),
-          child: SectionLabel('DAILY HABITS'),
+          child: SectionLabel(l10n(context).dailyHabits),
         ),
         _NotifGroup(tiles: [
           _HabitTile(
@@ -182,7 +182,7 @@ class _Body extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(AppTheme.spacing16,
               AppTheme.spacing20, AppTheme.spacing16, AppTheme.spacing8),
-          child: SectionLabel('ACCOUNT'),
+          child: SectionLabel(l10n(context).account),
         ),
         _NotifGroup(tiles: [
           _ToggleTile(

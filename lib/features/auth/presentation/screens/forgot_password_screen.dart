@@ -99,15 +99,26 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
 
     setState(() => _isLoading = true);
 
-    await ref.read(authNotifierProvider.notifier).forgotPassword(
+    // forgotPassword returns false both when the request throws and when the
+    // server rejects it. Discarding that was how this screen came to promise a
+    // reset email it had not sent — the success panel played either way, and
+    // the user waited for a link that was never going to arrive.
+    final sent = await ref.read(authNotifierProvider.notifier).forgotPassword(
       _emailController.text.trim(),
     );
 
     if (!mounted) return;
-    setState(() {
-      _isLoading = false;
-      _emailSent = true;
-    });
+    setState(() => _isLoading = false);
+
+    if (!sent) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(l10n(context).couldNotSendResetLink),
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+
+    setState(() => _emailSent = true);
     _successController.forward();
   }
 

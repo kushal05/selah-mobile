@@ -113,7 +113,7 @@ class _SharePrayerSheetState extends ConsumerState<SharePrayerSheet> {
 
           // Permissions
           Text(
-            l10n(context).permissions,
+            l10n(context).permissions.toUpperCase(),
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,

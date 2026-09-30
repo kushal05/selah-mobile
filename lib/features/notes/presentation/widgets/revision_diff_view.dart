@@ -76,7 +76,7 @@ class _RevisionDiffViewState extends ConsumerState<RevisionDiffView> {
           if (revisionData == null) {
             return Center(
               child: Text(
-                l10n(context).unableToReadThisRevision,
+                l10n(context).couldNotReadRevision,
                 style: TextStyle(color: cs.error),
               ),
             );

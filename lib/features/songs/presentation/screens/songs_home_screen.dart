@@ -123,13 +123,17 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
 
             // Resolve selected folder name
             final folders = foldersAsync.valueOrNull ?? [];
+            // The songbook list below labels this same option with
+            // l10n.allSongs; a second hardcoded copy meant the header and the
+            // row it corresponds to could disagree, and after the catalogue
+            // moved to sentence case they did.
             final selectedFolderName = _selectedFolderId == null
-                ? 'All Songs'
+                ? l10n(context).allSongs
                 : folders
                         .where((f) => f.id == _selectedFolderId)
                         .map((f) => f.name)
                         .firstOrNull ??
-                    'All Songs';
+                    l10n(context).allSongs;
 
             return CustomScrollView(
               slivers: [
@@ -543,13 +547,18 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
                     color: AppTheme.orange.withValues(alpha: 0.8),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    l10n(context).songbooks,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                  // Expanded, not a fixed Text plus a Spacer: the Spacer only
+                  // takes space that is left over, so at 200% type the label
+                  // grew past the row and it overflowed by 53px. Expanded
+                  // gives the label the slack and lets it wrap instead.
+                  Expanded(
+                    child: Text(
+                      l10n(context).songbooks,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
                   ),
-                  const Spacer(),
                   if (_isFolderSectionExpanded)
                     GestureDetector(
                       onTap: () => _createSongbook(),

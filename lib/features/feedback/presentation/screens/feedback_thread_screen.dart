@@ -77,7 +77,7 @@ class _FeedbackThreadScreenState extends ConsumerState<FeedbackThreadScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(l10n(context).errorLoadingMessages,
+                    Text(l10n(context).couldNotLoadMessages,
                         style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                     TextButton(
                       onPressed: () => ref.invalidate(

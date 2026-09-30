@@ -72,7 +72,7 @@ Iterable<Semantics> tileSemantics(WidgetTester tester) => tester
       of: find.byType(DailyHabitsWidget),
       matching: find.byType(Semantics),
     ))
-    .where((s) => (s.properties.label ?? '').contains('Bible Reading'));
+    .where((s) => (s.properties.label ?? '').contains('Bible reading'));
 
 /// Whether any habit tile presents itself as something you can act on.
 bool anyTileTappable(WidgetTester tester) =>
@@ -111,7 +111,7 @@ void main() {
         tester, Stream<Set<String>>.error(Exception('db unavailable')));
     await tester.pump();
 
-    await tester.tap(find.text('Bible Reading'), warnIfMissed: false);
+    await tester.tap(find.text('Bible reading'), warnIfMissed: false);
     await tester.pump();
 
     expect(spy.toggled, isEmpty,

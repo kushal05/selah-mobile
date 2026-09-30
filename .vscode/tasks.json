@@ -16,17 +16,33 @@
       "label": "Deploy: Production",
       "detail": "Bump build number → build production APK → upload to S3",
       "type": "shell",
-      "command": "python3 scripts/bump_version.py && bash scripts/build_and_upload.sh production \"${input:releaseNotes}\"",
+      "command": "bash scripts/python.sh scripts/bump_version.py && bash scripts/build_and_upload.sh production \"${input:releaseNotes}\"",
       "options": {
         "cwd": "${workspaceFolder}",
-        "shell": {
-          "executable": "C:\\Program Files\\Git\\bin\\bash.exe",
-          "args": ["-c"]
-        },
         "env": {
           "AWS_PROFILE": "selah",
           "S3_BUCKET": "selah-app-builds",
           "S3_REGION": "ap-south-1"
+        }
+      },
+      // Windows has no bash on PATH, so point at Git Bash there. macOS and
+      // Linux use the default shell, which already runs these scripts.
+      //
+      // Restated in full rather than inherited: VS Code replaces `options`
+      // wholesale for a platform-specific override, so cwd and env have to be
+      // repeated or they are lost on Windows.
+      "windows": {
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "executable": "C:\\Program Files\\Git\\bin\\bash.exe",
+            "args": ["-c"]
+          },
+          "env": {
+            "AWS_PROFILE": "selah",
+            "S3_BUCKET": "selah-app-builds",
+            "S3_REGION": "ap-south-1"
+          }
         }
       },
       "group": "build",
@@ -44,17 +60,33 @@
       "label": "Deploy: QA",
       "detail": "Bump build number → build QA APK → upload to S3",
       "type": "shell",
-      "command": "python3 scripts/bump_version.py && bash scripts/build_and_upload.sh qa \"${input:releaseNotes}\"",
+      "command": "bash scripts/python.sh scripts/bump_version.py && bash scripts/build_and_upload.sh qa \"${input:releaseNotes}\"",
       "options": {
         "cwd": "${workspaceFolder}",
-        "shell": {
-          "executable": "C:\\Program Files\\Git\\bin\\bash.exe",
-          "args": ["-c"]
-        },
         "env": {
           "AWS_PROFILE": "selah",
           "S3_BUCKET": "selah-app-builds",
           "S3_REGION": "ap-south-1"
+        }
+      },
+      // Windows has no bash on PATH, so point at Git Bash there. macOS and
+      // Linux use the default shell, which already runs these scripts.
+      //
+      // Restated in full rather than inherited: VS Code replaces `options`
+      // wholesale for a platform-specific override, so cwd and env have to be
+      // repeated or they are lost on Windows.
+      "windows": {
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "executable": "C:\\Program Files\\Git\\bin\\bash.exe",
+            "args": ["-c"]
+          },
+          "env": {
+            "AWS_PROFILE": "selah",
+            "S3_BUCKET": "selah-app-builds",
+            "S3_REGION": "ap-south-1"
+          }
         }
       },
       "group": "build",
@@ -73,17 +105,33 @@
       "label": "Deploy: Both Flavors",
       "detail": "Bump build number once → build production + QA APKs → upload both to S3",
       "type": "shell",
-      "command": "python3 scripts/bump_version.py && bash scripts/build_and_upload.sh production \"${input:releaseNotes}\" && bash scripts/build_and_upload.sh qa \"${input:releaseNotes}\"",
+      "command": "bash scripts/python.sh scripts/bump_version.py && bash scripts/build_and_upload.sh production \"${input:releaseNotes}\" && bash scripts/build_and_upload.sh qa \"${input:releaseNotes}\"",
       "options": {
         "cwd": "${workspaceFolder}",
-        "shell": {
-          "executable": "C:\\Program Files\\Git\\bin\\bash.exe",
-          "args": ["-c"]
-        },
         "env": {
           "AWS_PROFILE": "selah",
           "S3_BUCKET": "selah-app-builds",
           "S3_REGION": "ap-south-1"
+        }
+      },
+      // Windows has no bash on PATH, so point at Git Bash there. macOS and
+      // Linux use the default shell, which already runs these scripts.
+      //
+      // Restated in full rather than inherited: VS Code replaces `options`
+      // wholesale for a platform-specific override, so cwd and env have to be
+      // repeated or they are lost on Windows.
+      "windows": {
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "executable": "C:\\Program Files\\Git\\bin\\bash.exe",
+            "args": ["-c"]
+          },
+          "env": {
+            "AWS_PROFILE": "selah",
+            "S3_BUCKET": "selah-app-builds",
+            "S3_REGION": "ap-south-1"
+          }
         }
       },
       "group": {

@@ -179,7 +179,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(l10n(context).failedToMoveNote),
+          content: Text(l10n(context).couldNotMoveNote),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -228,7 +228,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       _exitSelectMode();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(l10n(context).failedToMoveNotes),
+          content: Text(l10n(context).couldNotMoveNotes),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -287,7 +287,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       _exitSelectMode();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(l10n(context).failedToMoveNotesToTrash),
+          content: Text(l10n(context).couldNotMoveNotesToTrash),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -613,11 +613,11 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
           // Determine header title based on selection
           final String headerTitle;
           if (_ui.activeSmartCollection != null) {
-            headerTitle = _ui.activeSmartCollection!.toUpperCase();
+            headerTitle = _ui.activeSmartCollection!;
           } else if (_ui.selectedFolderId == null) {
-            headerTitle = l10n(context).allNotesUpper;
+            headerTitle = l10n(context).allNotes;
           } else {
-            headerTitle = l10n(context).notesInFolderUpper;
+            headerTitle = l10n(context).notesInFolder;
           }
 
           return Column(
@@ -767,8 +767,11 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       ),
       child: Row(
         children: [
+          // Uppercased here, not in the string catalogue: two of the three
+          // titles below arrived pre-shouted from the ARB and the third was
+          // uppercased in Dart, so the same heading was styled in two places.
           Text(
-            '$title ($count)',
+            '${title.toUpperCase()} ($count)',
             style: theme.textTheme.labelMedium?.copyWith(
               fontWeight: FontWeight.w600,
               color: context.mutedText,
@@ -956,7 +959,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _buildFilterSheetHeader(context, 'Filter by Tags'),
+                  _buildFilterSheetHeader(context, l10n(context).filterByTags),
                   if (tags.isEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 32),
@@ -1036,7 +1039,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _buildFilterSheetHeader(context, 'Filter by Preacher'),
+                  _buildFilterSheetHeader(context, l10n(context).filterByPreacher),
                   if (people.isEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 32),
@@ -1177,7 +1180,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _buildFilterSheetHeader(context, 'Filter by Date'),
+                  _buildFilterSheetHeader(context, l10n(context).filterByDate),
                   Flexible(
                     child: SingleChildScrollView(
                       child: Column(
@@ -1338,7 +1341,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _buildFilterSheetHeader(context, 'Sort by'),
+                  _buildFilterSheetHeader(context, l10n(context).sortBy),
                   ...NotesSortOption.values.map((option) {
                     final isSelected = _ui.sortOption == option;
                     return ListTile(
@@ -1538,7 +1541,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(l10n(context).failedToMoveNoteToTrash),
+          content: Text(l10n(context).couldNotMoveNoteToTrash),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -1816,7 +1819,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(l10n(context).failedToRestoreNote),
+          content: Text(l10n(context).couldNotRestoreNote),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -1862,7 +1865,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(l10n(context).failedToDeleteNote),
+          content: Text(l10n(context).couldNotDeleteNote),
           behavior: SnackBarBehavior.floating,
         ),
       );

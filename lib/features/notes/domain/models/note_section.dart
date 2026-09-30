@@ -29,7 +29,7 @@ extension NoteSectionExtension on NoteSection {
       case NoteSection.main:
         return 'Content';
       case NoteSection.personalApplication:
-        return 'Personal Application';
+        return 'Personal application';
       case NoteSection.prayer:
         return 'Prayer';
     }
@@ -53,7 +53,7 @@ extension NoteSectionExtension on NoteSection {
       case NoteSection.main:
         return 'Note';
       case NoteSection.personalApplication:
-        return 'Personal Application';
+        return 'Personal application';
       case NoteSection.prayer:
         return 'Prayer';
     }

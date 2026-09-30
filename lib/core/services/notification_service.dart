@@ -61,7 +61,7 @@ class NotificationService {
       ),
       AndroidNotificationChannel(
         'notify_prayer_reminders',
-        'Prayer Reminders',
+        'Prayer reminders',
         description: 'Reminders for your prayer times',
         importance: Importance.high,
       ),
@@ -287,7 +287,7 @@ class NotificationService {
     return const NotificationDetails(
       android: AndroidNotificationDetails(
         'notify_prayer_reminders',
-        'Prayer Reminders',
+        'Prayer reminders',
         channelDescription: 'Reminders for your prayer times',
         importance: Importance.high,
         priority: Priority.high,

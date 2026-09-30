@@ -82,13 +82,22 @@ class DeepLinkService {
       final chapter = int.tryParse(segments[2]);
       if (bookId == null || chapter == null) return null;
 
-      final translation = uri.queryParameters['t'] ?? 'KJV';
+      // Built with Uri, not string concatenation. The translation is the one
+      // value here that is not parsed into a number, and interpolating it let
+      // a crafted link smuggle in extra parameters: `?t=KJV%26verse=999`
+      // became `…&translation=KJV&verse=999`, a parameter the link's author
+      // never wrote. Uri percent-encodes it instead.
       final verseStr = uri.queryParameters['v'];
       final verse = verseStr != null ? int.tryParse(verseStr) : null;
-      var path = '/bible/chapter?bookId=$bookId&chapter=$chapter'
-          '&translation=$translation';
-      if (verse != null && verse > 0) path += '&verse=$verse';
-      return path;
+      return Uri(
+        path: '/bible/chapter',
+        queryParameters: <String, String>{
+          'bookId': '$bookId',
+          'chapter': '$chapter',
+          'translation': uri.queryParameters['t'] ?? 'KJV',
+          if (verse != null && verse > 0) 'verse': '$verse',
+        },
+      ).toString();
     }
 
     // All other paths map directly: the external URL path matches the

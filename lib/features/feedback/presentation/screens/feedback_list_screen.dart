@@ -28,7 +28,7 @@ class FeedbackListScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(l10n(context).errorLoadingFeedback, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+              Text(l10n(context).couldNotLoadFeedback, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
               const SizedBox(height: 8),
               TextButton(
                 onPressed: () => ref.invalidate(feedbackThreadsStreamProvider),

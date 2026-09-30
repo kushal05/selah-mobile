@@ -93,7 +93,32 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     _navigate();
   }
 
+  /// How long the splash will wait for the profile check before going on
+  /// without it.
+  ///
+  /// The HTTP timeout is 12 seconds and a token refresh can precede the call,
+  /// so on a bad connection the splash could hold the logo for the best part of
+  /// half a minute with nothing to say for itself. Leaving early costs nothing:
+  /// [profileCompleteProvider] is corrected by its watcher as soon as the
+  /// profile does arrive.
+  static const _profileCheckBudget = Duration(seconds: 4);
+
   Future<void> _navigate() async {
+    try {
+      await _resolveDestination();
+    } catch (e, st) {
+      // The splash is the one screen with no way out: everything after this
+      // point is reached by navigating away from it, so an exception here used
+      // to leave the user watching the logo forever. Login is the safe
+      // destination — it is reachable from a cold start in any account state,
+      // and it is where a returning user whose token could not be read needs
+      // to be anyway.
+      debugPrint('Splash could not resolve a destination: $e\n$st');
+      if (mounted) context.go(Routes.login);
+    }
+  }
+
+  Future<void> _resolveDestination() async {
     final authService = ref.read(authServiceProvider);
     final prefs = ref.read(sharedPreferencesProvider);
     final hasUser = authService.currentToken != null;
@@ -106,7 +131,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     // Start profile fetch early (only if logged in) so it runs during
     // the splash animation instead of after it.
-    final profileCheck = hasUser ? _checkProfile() : Future.value();
+    // On timeout profileCompleteProvider stays null, which the router reads as
+    // "not known yet" — only an explicit false sends the user to complete
+    // their profile, so leaving early cannot strand them there.
+    final profileCheck = hasUser
+        ? _checkProfile().timeout(_profileCheckBudget, onTimeout: () {})
+        : Future.value();
 
     await Future.wait([minDelay, profileCheck]);
     if (!mounted) return;

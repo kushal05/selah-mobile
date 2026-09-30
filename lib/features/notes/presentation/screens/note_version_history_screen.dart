@@ -260,7 +260,7 @@ class _RevisionTile extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.all(32),
                 child: Text(
-                  l10n(context).unableToReadThisRevision,
+                  l10n(context).couldNotReadRevision,
                   style: TextStyle(color: cs.error),
                 ),
               ),
@@ -406,7 +406,7 @@ class _RevisionTile extends ConsumerWidget {
       builder: (dialogContext) => AlertDialog(
         title: Text(l10n(context).restoreRevision),
         content: Text(
-          l10n(context).thisWillReplaceTheCurrentNoteWithThisRevisio2,
+          l10n(context).restoreRevisionWarning,
         ),
         actions: [
           TextButton(

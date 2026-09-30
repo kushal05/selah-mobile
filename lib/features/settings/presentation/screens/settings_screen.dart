@@ -66,7 +66,7 @@ class SettingsScreen extends ConsumerWidget {
           // ── Notifications ─────────────────────────────────────────
           _SettingsSection(
             id: 'notifications',
-            title: l10n(context).notifications2,
+            title: l10n(context).notifications,
             tiles: [
               _SettingsTile(
                 icon: Icons.notifications_outlined,
@@ -84,7 +84,7 @@ class SettingsScreen extends ConsumerWidget {
             tiles: [
               _SettingsTile(
                 icon: Icons.format_size_rounded,
-                title: l10n(context).textSize2,
+                title: l10n(context).textSize,
                 subtitle: l10n(context).makeBiblePassagesNotesAndLyricsBigger,
                 onTap: () => showReadingTextSizeSheet(context),
                 showChevron: false,
@@ -102,7 +102,7 @@ class SettingsScreen extends ConsumerWidget {
           // ── Bible ────────────────────────────────────────────────
           _SettingsSection(
             id: 'bible',
-            title: l10n(context).bible,
+            title: l10n(context).navBible,
             tiles: [
               _SettingsTile(
                 icon: Icons.menu_book_outlined,
@@ -116,7 +116,7 @@ class SettingsScreen extends ConsumerWidget {
           // ── Support ───────────────────────────────────────────────
           _SettingsSection(
             id: 'support',
-            title: l10n(context).support2,
+            title: l10n(context).support,
             tiles: [
               _SettingsTile(
                 icon: Icons.feedback_outlined,
@@ -150,7 +150,7 @@ class SettingsScreen extends ConsumerWidget {
           // ── Data ──────────────────────────────────────────────────
           _SettingsSection(
             id: 'data',
-            title: l10n(context).data2,
+            title: l10n(context).data,
             tiles: [
               _SettingsTile(
                 icon: Icons.label_outline,
@@ -196,7 +196,7 @@ class SettingsScreen extends ConsumerWidget {
               AppTheme.spacing16,
               AppTheme.spacing8,
             ),
-            child: const SectionLabel('USAGE'),
+            child: SectionLabel(l10n(context).usage),
           ),
           Consumer(
             builder: (context, ref, _) {
@@ -214,7 +214,7 @@ class SettingsScreen extends ConsumerWidget {
                     _SettingsTile(
                       icon: Icons.error_outline,
                       iconColor: context.hintText,
-                      title: l10n(context).unableToLoadStats,
+                      title: l10n(context).couldNotLoadStats,
                       subtitle: l10n(context).tapToRetry,
                       onTap: () => ref.invalidate(userStatsProvider),
                       showChevron: false,
@@ -249,7 +249,7 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     _SettingsTile(
                       icon: Icons.favorite_outline,
-                      title: l10n(context).totalPrayers2,
+                      title: l10n(context).totalPrayers,
                       showChevron: false,
                       trailing: Text(
                         '${stats.prayerCount}',
@@ -274,7 +274,7 @@ class SettingsScreen extends ConsumerWidget {
               AppTheme.spacing16,
               AppTheme.spacing8,
             ),
-            child: const SectionLabel('ABOUT'),
+            child: SectionLabel(l10n(context).about),
           ),
           Consumer(
             builder: (context, ref, _) {
@@ -292,7 +292,7 @@ class SettingsScreen extends ConsumerWidget {
                 tiles: [
                   _SettingsTile(
                     icon: Icons.history_outlined,
-                    title: "What's New",
+                    title: l10n(context).whatsNew,
                     subtitle: l10n(context).viewRecentChangesAndUpdates,
                     onTap: () => context.push(Routes.changelog),
                   ),
@@ -1101,7 +1101,7 @@ class _SilentUpdateDialogState extends State<_SilentUpdateDialog> {
       statusText = 'Update failed: $_error';
     } else if (_needsPermission) {
       statusText =
-          'Enable "Install unknown apps" for Selah on the Settings page that just opened, then tap Retry Install.';
+          'Enable "Install unknown apps" for Selah on the Settings page that just opened, then tap Retry install.';
     } else if (p == null) {
       statusText = 'Starting download…';
     } else if (p.isDone) {

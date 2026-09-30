@@ -72,7 +72,7 @@ void main() {
     await pumpHero(tester, const Stream<List<PrayerModel>>.empty());
 
     expect(find.text('No active prayers'), findsNothing);
-    expect(find.text('Add Prayer'), findsNothing,
+    expect(find.text('Add prayer'), findsNothing,
         reason: 'offering to add one implies we know there are none');
   });
 

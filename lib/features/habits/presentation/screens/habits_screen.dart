@@ -34,7 +34,6 @@ class HabitsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final prayerStreakAsync = ref.watch(prayerStreakProvider);
-    final prayerStreak = prayerStreakAsync.valueOrNull ?? 0;
 
     return Scaffold(
       backgroundColor: context.pageGround,
@@ -58,7 +57,7 @@ class HabitsScreen extends ConsumerWidget {
 
           SectionLabel(l10n(context).prayer),
           _PrayerActivityBanner(
-            streak: prayerStreak,
+            streak: prayerStreakAsync,
             onTap: () => context.push(Routes.prayerAnalytics),
           ),
 
@@ -72,7 +71,10 @@ class HabitsScreen extends ConsumerWidget {
 
 
 class _PrayerActivityBanner extends StatelessWidget {
-  final int streak;
+  /// The whole AsyncValue, not `?? 0`: a streak that failed to load and a
+  /// streak of nought both hid this line, so a user forty days in whose read
+  /// failed was shown the same banner as someone who had never prayed.
+  final AsyncValue<int> streak;
   final VoidCallback onTap;
 
   const _PrayerActivityBanner({
@@ -84,6 +86,7 @@ class _PrayerActivityBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final days = streak.valueOrNull ?? 0;
     return Padding(
       padding: const EdgeInsets.symmetric(
           horizontal: AppTheme.spacing16, vertical: AppTheme.spacing6),
@@ -115,12 +118,24 @@ class _PrayerActivityBanner extends StatelessWidget {
                             fontSize: 16,
                           ),
                         ),
-                        if (streak > 0)
+                        // A retained value beats the error, matching the counts
+                        // on the home dashboard: a failed refresh that still
+                        // knows yesterday's streak should show it rather than
+                        // tell the user it is gone.
+                        if (days > 0)
                           Text(
-                            '$streak day streak',
+                            l10n(context).nDayStreak(days),
                             style: TextStyle(
                               fontSize: 13,
                               color: _color.withValues(alpha: 0.7),
+                            ),
+                          )
+                        else if (streak.hasError)
+                          Text(
+                            l10n(context).streakUnavailable,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: context.mutedText,
                             ),
                           ),
                       ],

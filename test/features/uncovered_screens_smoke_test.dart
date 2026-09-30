@@ -35,12 +35,20 @@ import 'package:notify/features/tags/presentation/screens/tag_management_screen.
 
 /// Pumps [screen] inside the app's real theme and localisations, with the data
 /// layer stubbed empty.
+/// The type scale every test in this file runs at.
+///
+/// Set once per group by [main] rather than passed to each call: the point is
+/// that every screen here is checked at both sizes, and a screen that had to
+/// opt out would be the thing worth noticing.
+double _textScale = 1.0;
+
 Future<void> _pumpScreen(
   WidgetTester tester,
   Widget screen, {
   List<Override> overrides = const [],
   Size size = const Size(420, 900),
 }) async {
+  if (_textScale > 1.0) size = const Size(320, 640);
   tester.view.physicalSize = size * 2;
   tester.view.devicePixelRatio = 2.0;
   addTearDown(tester.view.reset);
@@ -56,6 +64,11 @@ Future<void> _pumpScreen(
       ],
       child: MaterialApp(
         theme: AppTheme.light(),
+        builder: (context, child) => MediaQuery.withClampedTextScaling(
+          minScaleFactor: _textScale,
+          maxScaleFactor: _textScale,
+          child: child!,
+        ),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: screen,
@@ -66,7 +79,7 @@ Future<void> _pumpScreen(
   await tester.pump(const Duration(milliseconds: 400));
 }
 
-void main() {
+void _screenTests() {
   testWidgets('songs home renders with no songs', (tester) async {
     await _pumpScreen(
       tester,
@@ -180,6 +193,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+}
+
+void main() {
   // The empty state is one thing; the dark palette is another, and the audit
   // found theme-migration damage that only showed on a dark ground.
   testWidgets('songs home renders in dark mode', (tester) async {
@@ -212,5 +228,18 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 400));
     expect(tester.takeException(), isNull);
+  });
+
+  group('at the default type size', () {
+    setUp(() => _textScale = 1.0);
+    _screenTests();
+  });
+
+  // 200% is the largest size both platforms offer, on the smallest phone the
+  // app supports. Text grows; fixed-height containers do not, so this is where
+  // a layout that assumed one line falls over.
+  group('at 200% type on a small phone', () {
+    setUp(() => _textScale = 2.0);
+    _screenTests();
   });
 }

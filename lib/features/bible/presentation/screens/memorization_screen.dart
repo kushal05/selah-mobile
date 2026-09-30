@@ -232,7 +232,7 @@ class _Empty extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              l10n(context).addAVerseAndReviewItAcrossSpacedIntervals137,
+              l10n(context).memorizationEmptyHint,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: context.mutedText,

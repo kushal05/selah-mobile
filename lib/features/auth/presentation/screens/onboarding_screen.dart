@@ -201,8 +201,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   }
 
   Future<void> _completeOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('has_seen_onboarding', true);
+    // The flag decides whether onboarding is shown again next launch, so
+    // failing to write it costs the user a repeat of these four pages.
+    // Failing to leave the screen costs them the app: this is the last page,
+    // and the button that calls this is the only way off it.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('has_seen_onboarding', true);
+    } catch (e) {
+      debugPrint('Could not record that onboarding was seen: $e');
+    }
     if (mounted) {
       context.go(Routes.register);
     }

@@ -851,10 +851,26 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
   }
 
   Future<void> _showExistingPrayersPicker(BuildContext context) async {
-    final allPrayers =
-        ref.read(prayersStreamProvider).valueOrNull ?? <PrayerModel>[];
-    final groupPrayers =
-        ref.read(groupPrayersProvider(widget.groupId)).valueOrNull ?? [];
+    final allPrayersAsync = ref.read(prayersStreamProvider);
+    final groupPrayersAsync = ref.read(groupPrayersProvider(widget.groupId));
+
+    // Both reads collapsed to an empty list, and an empty list of prayers took
+    // the same exit as a full group: "All your prayers are already in this
+    // group", over a read that never came back. Say which it was.
+    final failure = allPrayersAsync.error ?? groupPrayersAsync.error;
+    if (failure != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(UserFacingError.forLoad(
+          failure,
+          what: l10n(context).navPrayers.toLowerCase(),
+        )),
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+
+    final allPrayers = allPrayersAsync.valueOrNull ?? <PrayerModel>[];
+    final groupPrayers = groupPrayersAsync.valueOrNull ?? [];
     final existingPrayerIds =
         groupPrayers.map((gp) => gp.prayerId).toSet();
 

@@ -206,12 +206,16 @@ class _PeopleDirectoryScreenState
     final onSelah = entries.where((e) => e.onSelah).length;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      child: Row(
+      // Wrap, not Row: a chip's label carries a count, so at 200% type the two
+      // chips wanted 521px on a 288px screen and the bar overflowed by 233.
+      // Wrap drops the second chip to its own line instead, which keeps both
+      // fully tappable — a Row clips the far one past the screen edge.
+      child: Wrap(
+        spacing: AppTheme.spacing8,
+        runSpacing: AppTheme.spacing8,
         children: [
           for (final f in _PeopleFilter.values)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
+            ChoiceChip(
                 label: Text(f == _PeopleFilter.all
                     ? '${l10n(context).all}  ${entries.length}'
                     : '${l10n(context).onSelah}  $onSelah'),
@@ -236,7 +240,6 @@ class _PeopleDirectoryScreenState
                           AppTheme.teal, Theme.of(context).brightness)
                       : context.primaryText,
                 ),
-              ),
             ),
         ],
       ),

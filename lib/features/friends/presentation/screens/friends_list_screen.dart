@@ -82,23 +82,29 @@ class FriendsListScreen extends ConsumerWidget {
               // Friends count header
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
-                child: Row(
-                  children: [
-                    Text(
-                      l10n(context).friends,
-                      style:
-                          TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '(${friends.length})',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w500,
-                        color: context.mutedText,
+                // One Text, two spans, rather than two Texts in a Row: a Row
+                // cannot wrap, so at 200% type the title and the count needed
+                // 522px of a 288px screen and overflowed by 235. As spans they
+                // are one paragraph that wraps, and the count still sits
+                // directly after the title.
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: l10n(context).friends,
+                        style: const TextStyle(
+                            fontSize: 28, fontWeight: FontWeight.bold),
                       ),
-                    ),
-                  ],
+                      TextSpan(
+                        text: '  (${friends.length})',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w500,
+                          color: context.mutedText,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
 

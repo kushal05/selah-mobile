@@ -19,6 +19,11 @@ class MemorizationReviewScreen extends ConsumerStatefulWidget {
 class _MemorizationReviewScreenState
     extends ConsumerState<MemorizationReviewScreen> {
   List<MemoryVerse>? _queue;
+
+  /// Set when the queue could not be read. Without it a failed load left
+  /// `_queue` null, which the build reads as "still loading" — so the spinner
+  /// turned forever and the screen never said why.
+  bool _loadFailed = false;
   int _index = 0;
   bool _revealed = false;
   int _correctCount = 0;
@@ -30,10 +35,17 @@ class _MemorizationReviewScreenState
   }
 
   Future<void> _load() async {
-    final due =
-        await ref.read(memoryVerseRepositoryProvider).getDue();
-    if (!mounted) return;
-    setState(() => _queue = due);
+    try {
+      final due = await ref.read(memoryVerseRepositoryProvider).getDue();
+      if (!mounted) return;
+      setState(() {
+        _queue = due;
+        _loadFailed = false;
+      });
+    } catch (e) {
+      debugPrint('Could not load the review queue: $e');
+      if (mounted) setState(() => _loadFailed = true);
+    }
   }
 
   Future<void> _rate(ReviewQuality quality) async {
@@ -41,7 +53,22 @@ class _MemorizationReviewScreenState
     if (queue == null || _index >= queue.length) return;
     final current = queue[_index];
     final updated = SpacedRepetitionScheduler.review(current, quality);
-    await ref.read(memoryVerseRepositoryProvider).upsert(updated);
+    try {
+      await ref.read(memoryVerseRepositoryProvider).upsert(updated);
+    } catch (e) {
+      // Deliberately does not advance: the new schedule was not written, so
+      // moving on would lose the review silently. Before this, a failed write
+      // threw past the setState and the card simply did not move — a rating
+      // button that appeared to do nothing at all.
+      debugPrint('Could not save the review: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(l10n(context).couldNotSaveReview),
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+      return;
+    }
 
     if (!mounted) return;
     setState(() {
@@ -60,9 +87,28 @@ class _MemorizationReviewScreenState
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n(context).review)),
-      body: queue == null
-          ? const Center(child: CircularProgressIndicator())
-          : queue.isEmpty
+      body: _loadFailed
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(l10n(context).couldNotLoadReviewCards,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium),
+                  const SizedBox(height: 12),
+                  FilledButton.tonal(
+                    onPressed: () {
+                      setState(() => _loadFailed = false);
+                      _load();
+                    },
+                    child: Text(l10n(context).tryAgain),
+                  ),
+                ],
+              ),
+            )
+          : queue == null
+              ? const Center(child: CircularProgressIndicator())
+              : queue.isEmpty
               ? _AllDone(message: l10n(context).noCardsAreDueRightNow)
               : _index >= queue.length
                   ? _AllDone(

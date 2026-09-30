@@ -182,7 +182,9 @@ class _DeleteFolderDialogState extends State<DeleteFolderDialog> {
             backgroundColor: AppTheme.errorSurface,
             foregroundColor: Colors.white,
           ),
-          child: Text(_hasContent ? 'Delete' : 'Delete Folder'),
+          child: Text(_hasContent
+              ? l10n(context).actionDelete
+              : l10n(context).deleteFolder),
         ),
       ],
     );

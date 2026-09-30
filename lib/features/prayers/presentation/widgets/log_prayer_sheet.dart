@@ -162,7 +162,7 @@ class _LogPrayerSheetState extends State<_LogPrayerSheet> {
                         foregroundColor: AppTheme.onAccent(AppTheme.brandBlue),
                       ),
                       icon: const Icon(Icons.check_rounded, size: 18),
-                      label: Text(strings.logThisPrayer),
+                      label: Text(strings.logPrayer),
                     ),
                   ),
                 ],

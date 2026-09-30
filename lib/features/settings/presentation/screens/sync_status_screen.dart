@@ -554,7 +554,7 @@ class SyncStatusScreen extends ConsumerWidget {
         Icon(Icons.error_outline, size: 48, color: context.dangerText),
         const SizedBox(height: 12),
         Text(
-          l10n(context).unableToConnectToSyncService,
+          l10n(context).couldNotReachSyncService,
           style: TextStyle(fontSize: 16, color: context.dangerText),
           textAlign: TextAlign.center,
         ),
@@ -692,9 +692,12 @@ class SyncStatusScreen extends ConsumerWidget {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                l10n(
-                  context,
-                ).fullResyncFailed(result.error ?? l10n(context).unknownError),
+                l10n(context).fullResyncFailed(
+                  result.error ?? l10n(context).unknownError,
+                  // The button that retries *this* operation, not the other
+                  // one: "Sync now" is an incremental sync.
+                  l10n(context).forceFullReSync,
+                ),
               ),
               behavior: SnackBarBehavior.floating,
               backgroundColor: AppTheme.errorSurface,
@@ -743,6 +746,7 @@ class SyncStatusScreen extends ConsumerWidget {
               content: Text(
                 l10n(context).syncFailedWithError(
                   result.error ?? l10n(context).unknownError,
+                  l10n(context).syncNow,
                 ),
               ),
               behavior: SnackBarBehavior.floating,

@@ -131,7 +131,7 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(l10n(context).failedToLogPrayer),
+            content: Text(l10n(context).couldNotLogPrayer),
             behavior: SnackBarBehavior.floating,
           ),
         );

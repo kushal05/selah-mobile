@@ -150,24 +150,43 @@ class _BibleVersionOnboardingScreenState
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(AppTheme.spacing24),
+          // The heading, the paragraph explaining it and the version list
+          // all scroll together; only the footer is pinned. They used to be
+          // fixed above an Expanded list, which is fine until the type size
+          // grows — at 200% on a small phone the header alone was taller than
+          // the screen and the column overflowed by 1,084 pixels, taking the
+          // download button with it.
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            // Both children span the width: the scroll view because its
+            // content does, the footer because its button is full-width.
+            // Saying so beats relying on each child to ask for it.
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: AppTheme.spacing16),
-              Icon(Icons.menu_book_rounded,
-                  size: 48, color: theme.colorScheme.primary),
-              const SizedBox(height: AppTheme.spacing16),
-              Text(l10n(context).chooseBibleVersions,
-                  style: AppTheme.headingLarge
-                      .copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: AppTheme.spacing8),
-              Text(
-                l10n(context).selectTheTranslationsYouWantToDownloadNkjvIs,
-                style: AppTheme.bodyBase
-                    .copyWith(color: context.mutedText),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: AppTheme.spacing16),
+                      Icon(Icons.menu_book_rounded,
+                          size: 48, color: theme.colorScheme.primary),
+                      const SizedBox(height: AppTheme.spacing16),
+                      Text(l10n(context).chooseBibleVersions,
+                          style: AppTheme.headingLarge
+                              .copyWith(fontWeight: FontWeight.w700)),
+                      const SizedBox(height: AppTheme.spacing8),
+                      Text(
+                        l10n(context)
+                            .selectTheTranslationsYouWantToDownloadNkjvIs,
+                        style: AppTheme.bodyBase
+                            .copyWith(color: context.mutedText),
+                      ),
+                      const SizedBox(height: AppTheme.spacing24),
+                      _buildBody(theme),
+                    ],
+                  ),
+                ),
               ),
-              const SizedBox(height: AppTheme.spacing24),
-              Expanded(child: _buildBody(theme)),
               const SizedBox(height: AppTheme.spacing16),
               _buildFooter(theme),
             ],
@@ -206,6 +225,10 @@ class _BibleVersionOnboardingScreenState
     }
 
     return ListView.separated(
+      // Inside the page's scroll view now, so it takes its height from its
+      // content and leaves scrolling to the parent.
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       itemCount: _available.length,
       separatorBuilder: (_, _) => Divider(
           height: 1, thickness: 0.5, color: context.hairline),

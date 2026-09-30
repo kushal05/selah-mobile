@@ -61,6 +61,27 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
     });
   }
 
+  /// The failed areas as a readable list — "Notes", "Notes and Songs",
+  /// "Notes, Prayers and Songs" — using the same names as the filter pills
+  /// above the results, so the user can see which pill is not to be trusted.
+  String _areaNames(Set<SearchArea> areas) {
+    final l = l10n(context);
+    final names = [
+      for (final a in SearchArea.values)
+        if (areas.contains(a))
+          switch (a) {
+            SearchArea.notes => l.navNotes,
+            SearchArea.prayers => l.navPrayers,
+            SearchArea.promises => l.navPromises,
+            SearchArea.people => l.people,
+            SearchArea.songs => l.navSongs,
+          },
+    ];
+    if (names.length == 1) return names.first;
+    return '${names.sublist(0, names.length - 1).join(', ')} '
+        '${l.and} ${names.last}';
+  }
+
   bool _isFilterActive(SearchEntityType type) =>
       _activeFilters.isEmpty || _activeFilters.contains(type);
 
@@ -219,16 +240,50 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
     }
 
     if (!searchState.hasResults) {
+      // Nothing found and something failed to be read are not the same answer.
+      // "No results found" over a query that never ran tells the user their
+      // note is not there, and they stop looking for it.
+      //
+      // Three answers, not two. Every collection failing means nothing was
+      // searched at all. One failing while the rest came back empty means the
+      // search did run and did find nothing — saying "couldn't search your
+      // content" there overstates it, so that case keeps "No results found"
+      // and adds the notice naming the collection it could not reach.
+      final failed = searchState.failedAreas;
+      final nothingSearched = failed.length == SearchArea.values.length;
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.search_off, size: 64, color: context.mutedText),
+            Icon(nothingSearched ? Icons.error_outline : Icons.search_off,
+                size: 64, color: context.mutedText),
             const SizedBox(height: 16),
             Text(
-              l10n(context).noResultsFound,
+              nothingSearched
+                  ? l10n(context).searchCouldNotRun
+                  : l10n(context).noResultsFound,
+              textAlign: TextAlign.center,
               style: TextStyle(fontSize: 16, color: context.mutedText),
             ),
+            if (nothingSearched)
+              Padding(
+                padding: const EdgeInsets.only(top: AppTheme.spacing8),
+                child: TextButton(
+                  onPressed: () => _onSearchChanged(_searchController.text),
+                  child: Text(l10n(context).tryAgain),
+                ),
+              )
+            else if (failed.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(
+                    top: AppTheme.spacing16,
+                    left: AppTheme.spacing16,
+                    right: AppTheme.spacing16),
+                child: _IncompleteResultsNotice(
+                  areas: _areaNames(failed),
+                  onRetry: () => _onSearchChanged(_searchController.text),
+                ),
+              ),
           ],
         ),
       );
@@ -264,10 +319,18 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Results from four of five collections look exactly like results
+          // from all five, so the one that failed has to say so.
+          if (searchState.failedAreas.isNotEmpty)
+            _IncompleteResultsNotice(
+              areas: _areaNames(searchState.failedAreas),
+              onRetry: () => _onSearchChanged(_searchController.text),
+            ),
+
           // SONGS — enhanced: shows title, scale, highlighted lyric snippet
           if (searchState.songs.isNotEmpty && _isFilterActive(SearchEntityType.songs))
             SearchSection(
-              title: l10n(context).songs,
+              title: l10n(context).navSongs,
               children: searchState.songs
                   .map((s) => _SongSearchRow(
                         song: s,
@@ -282,7 +345,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
             ),
           if (searchState.notes.isNotEmpty && _isFilterActive(SearchEntityType.notes))
             SearchSection(
-              title: l10n(context).notes,
+              title: l10n(context).navNotes,
               children: searchState.notes
                   .map((n) => SearchRow(
                         title: n.displayTitle,
@@ -297,7 +360,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
             ),
           if (searchState.prayers.isNotEmpty && _isFilterActive(SearchEntityType.prayers))
             SearchSection(
-              title: l10n(context).prayers,
+              title: l10n(context).navPrayers,
               children: searchState.prayers
                   .map((p) => SearchRow(
                         title: p.title,
@@ -314,7 +377,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
             ),
           if (searchState.promises.isNotEmpty && _isFilterActive(SearchEntityType.promises))
             SearchSection(
-              title: l10n(context).promises,
+              title: l10n(context).navPromises,
               children: searchState.promises
                   .map((p) => SearchRow(
                         title: p.reference,
@@ -332,7 +395,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
             ),
           if (searchState.people.isNotEmpty && _isFilterActive(SearchEntityType.people))
             SearchSection(
-              title: l10n(context).people2,
+              title: l10n(context).people,
               children: searchState.people
                   .map((p) => SearchRow(
                         title: p.name,
@@ -424,3 +487,44 @@ class _SongSearchRow extends StatelessWidget {
   }
 }
 
+
+/// Says which parts of the search could not be read, above results that are
+/// missing them.
+class _IncompleteResultsNotice extends StatelessWidget {
+  final String areas;
+  final VoidCallback onRetry;
+
+  const _IncompleteResultsNotice({required this.areas, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = AppTheme.accentOnTintFor(
+        AppTheme.amber, Theme.of(context).brightness);
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppTheme.spacing12),
+      padding: const EdgeInsets.all(AppTheme.spacing12),
+      decoration: BoxDecoration(
+        color: AppTheme.amber.withValues(alpha: AppTheme.alphaLight),
+        borderRadius: AppTheme.borderRadius2XL,
+        border: Border.all(color: AppTheme.amber.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, size: 20, color: accent),
+          const SizedBox(width: AppTheme.spacing12),
+          Expanded(
+            child: Text(
+              l10n(context).searchCouldNotReadEverything(areas),
+              style: TextStyle(fontSize: 13, color: context.primaryText),
+            ),
+          ),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(foregroundColor: accent),
+            child: Text(l10n(context).tryAgain),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -122,7 +122,9 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
           icon: const Icon(Icons.close),
           onPressed: () => _handleClose(context),
         ),
-        title: Text(widget.isEditing ? 'Edit Promise' : 'New Promise'),
+        title: Text(widget.isEditing
+            ? l10n(context).editPromise
+            : l10n(context).newPromise),
         actions: [
           TextButton(
             onPressed: _handleSave,

@@ -149,6 +149,13 @@ class SyncDatabase extends _$SyncDatabase {
         onCreate: (Migrator m) async {
           await m.createAll();
 
+          // Drift creates the tables; these indexes are raw SQL and are not
+          // declared to it, so nothing else would. Until this call existed a
+          // fresh install ran with two indexes instead of sixty-five, and
+          // every query below scanned: notes by user, a note's blocks, and
+          // the unsynced-oplog read every push cycle makes.
+          await createIndexes();
+
           // Initialize sync_state with single row
           await into(syncState).insert(
             SyncStateCompanion.insert(
@@ -193,20 +200,16 @@ class SyncDatabase extends _$SyncDatabase {
 
           if (from < 3) {
             // Add user_id column to prayers, promises, people, songs
-            await customStatement(
-              "ALTER TABLE prayers ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default-user-id'",
-            );
-            await customStatement(
-              "ALTER TABLE promises ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default-user-id'",
-            );
-            await customStatement(
-              "ALTER TABLE people ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default-user-id'",
-            );
+            await _addColumn('prayers', 'user_id',
+                "user_id TEXT NOT NULL DEFAULT 'default-user-id'");
+            await _addColumn('promises', 'user_id',
+                "user_id TEXT NOT NULL DEFAULT 'default-user-id'");
+            await _addColumn('people', 'user_id',
+                "user_id TEXT NOT NULL DEFAULT 'default-user-id'");
             // Songs table may already have user_id if created fresh at v3
             // For users upgrading from v2, add the column
-            await customStatement(
-              "ALTER TABLE songs ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default-user-id'",
-            );
+            await _addColumn('songs', 'user_id',
+                "user_id TEXT NOT NULL DEFAULT 'default-user-id'");
           }
 
           if (from < 4) {
@@ -398,23 +401,18 @@ class SyncDatabase extends _$SyncDatabase {
 
           if (from < 18) {
             // Field-level merge: add fieldUpdatedAt to sync entities.
-            await customStatement(
-              "ALTER TABLE sync_notes ADD COLUMN field_updated_at TEXT NOT NULL DEFAULT '{}'",
-            );
-            await customStatement(
-              "ALTER TABLE prayers ADD COLUMN field_updated_at TEXT NOT NULL DEFAULT '{}'",
-            );
-            await customStatement(
-              "ALTER TABLE user_profiles ADD COLUMN field_updated_at TEXT NOT NULL DEFAULT '{}'",
-            );
-            await customStatement(
-              "ALTER TABLE groups ADD COLUMN field_updated_at TEXT NOT NULL DEFAULT '{}'",
-            );
+            await _addColumn('sync_notes', 'field_updated_at',
+                "field_updated_at TEXT NOT NULL DEFAULT '{}'");
+            await _addColumn('prayers', 'field_updated_at',
+                "field_updated_at TEXT NOT NULL DEFAULT '{}'");
+            await _addColumn('user_profiles', 'field_updated_at',
+                "field_updated_at TEXT NOT NULL DEFAULT '{}'");
+            await _addColumn('groups', 'field_updated_at',
+                "field_updated_at TEXT NOT NULL DEFAULT '{}'");
 
             // Hybrid note model: add documentJson snapshot column.
-            await customStatement(
-              "ALTER TABLE sync_notes ADD COLUMN document_json TEXT",
-            );
+            await _addColumn('sync_notes', 'document_json',
+                "document_json TEXT");
 
             // Backfill documentJson from existing note blocks.
             await _backfillDocumentJson();
@@ -503,22 +501,22 @@ class SyncDatabase extends _$SyncDatabase {
             await m.createTable(feedbackAttachments);
 
             // New columns on feedback_threads (all nullable with defaults).
-            await customStatement(
-                "ALTER TABLE feedback_threads ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'");
-            await customStatement(
-                'ALTER TABLE feedback_threads ADD COLUMN unread_for_user INTEGER NOT NULL DEFAULT 0');
-            await customStatement(
-                'ALTER TABLE feedback_threads ADD COLUMN unread_for_admin INTEGER NOT NULL DEFAULT 0');
-            await customStatement(
-                'ALTER TABLE feedback_threads ADD COLUMN device_model TEXT');
-            await customStatement(
-                'ALTER TABLE feedback_threads ADD COLUMN os_version TEXT');
-            await customStatement(
-                'ALTER TABLE feedback_threads ADD COLUMN app_version TEXT');
+            await _addColumn('feedback_threads', 'priority',
+                "priority TEXT NOT NULL DEFAULT 'medium'");
+            await _addColumn('feedback_threads', 'unread_for_user',
+                "unread_for_user INTEGER NOT NULL DEFAULT 0");
+            await _addColumn('feedback_threads', 'unread_for_admin',
+                "unread_for_admin INTEGER NOT NULL DEFAULT 0");
+            await _addColumn('feedback_threads', 'device_model',
+                "device_model TEXT");
+            await _addColumn('feedback_threads', 'os_version',
+                "os_version TEXT");
+            await _addColumn('feedback_threads', 'app_version',
+                "app_version TEXT");
 
             // New column on feedback_messages.
-            await customStatement(
-                'ALTER TABLE feedback_messages ADD COLUMN has_attachments INTEGER NOT NULL DEFAULT 0');
+            await _addColumn('feedback_messages', 'has_attachments',
+                "has_attachments INTEGER NOT NULL DEFAULT 0");
 
             // Indexes for attachments and thread status.
             await customStatement('''
@@ -560,9 +558,8 @@ class SyncDatabase extends _$SyncDatabase {
               'promise_prayer_links', 'sync_song_tags',
             ];
             for (final table in tables) {
-              await customStatement(
-                'ALTER TABLE $table ADD COLUMN trashed_at INTEGER',
-              );
+              await _addColumn(
+                  table, 'trashed_at', 'trashed_at INTEGER');
             }
           }
 
@@ -656,18 +653,14 @@ class SyncDatabase extends _$SyncDatabase {
           if (from < 30) {
             // v30: Add sync fields to habit_logs so check-ins replicate across
             // devices. Existing rows get default values — updatedAt from createdAt.
-            await customStatement(
-              'ALTER TABLE habit_logs ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0',
-            );
-            await customStatement(
-              'ALTER TABLE habit_logs ADD COLUMN version INTEGER NOT NULL DEFAULT 1',
-            );
-            await customStatement(
-              'ALTER TABLE habit_logs ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0',
-            );
-            await customStatement(
-              'ALTER TABLE habit_logs ADD COLUMN trashed_at INTEGER',
-            );
+            await _addColumn('habit_logs', 'updated_at',
+                "updated_at INTEGER NOT NULL DEFAULT 0");
+            await _addColumn('habit_logs', 'version',
+                "version INTEGER NOT NULL DEFAULT 1");
+            await _addColumn('habit_logs', 'deleted',
+                "deleted INTEGER NOT NULL DEFAULT 0");
+            await _addColumn('habit_logs', 'trashed_at',
+                "trashed_at INTEGER");
 
             // Backfill updated_at from created_at for pre-sync rows.
             await customStatement(
@@ -687,9 +680,8 @@ class SyncDatabase extends _$SyncDatabase {
 
           if (from < 31) {
             // v31: Add notes column to songs for free-form notes/references.
-            await customStatement(
-              "ALTER TABLE songs ADD COLUMN notes TEXT NOT NULL DEFAULT ''",
-            );
+            await _addColumn('songs', 'notes',
+                "notes TEXT NOT NULL DEFAULT ''");
           }
 
           if (from < 32) {
@@ -790,6 +782,12 @@ class SyncDatabase extends _$SyncDatabase {
               }
             }
           }
+
+          // After every step, for the same reason as onCreate: the migration
+          // chain only ever created indexes for tables added from v26 on, so
+          // the oldest and busiest tables had none on any device. Every
+          // statement is IF NOT EXISTS, so running it each upgrade is free.
+          await createIndexes();
         },
         beforeOpen: (details) async {
           // Ensure sync_state row exists
@@ -1780,6 +1778,28 @@ class SyncDatabase extends _$SyncDatabase {
   /// ASCII, so a Cyrillic or Greek tag would come back unchanged from SQL
   /// while Dart's toLowerCase() folds it — and the stored value would then
   /// never match what a lookup normalises to.
+  /// Adds a column unless the table already has it.
+  ///
+  /// `ALTER TABLE … ADD COLUMN` throws `duplicate column name` on a second
+  /// run, and a migration step that throws leaves the schema version where it
+  /// was — so the next launch retries the same step, hits the same column, and
+  /// the database never opens again. Ten of the sixteen steps that add columns
+  /// already checked; six did not. This is that check, written once.
+  ///
+  /// [definition] is everything after ADD COLUMN, so the caller keeps its type
+  /// and default: `_addColumn('songs', 'notes', "notes TEXT NOT NULL DEFAULT ''")`.
+  @visibleForTesting
+  Future<void> addColumnForTesting(
+          String table, String column, String definition) =>
+      _addColumn(table, column, definition);
+
+  Future<void> _addColumn(String table, String column, String definition) async {
+    final cols = await customSelect('PRAGMA table_info($table)').get();
+    final existing = cols.map((r) => r.read<String>('name')).toSet();
+    if (existing.contains(column)) return;
+    await customStatement('ALTER TABLE $table ADD COLUMN $definition');
+  }
+
   @visibleForTesting
   Future<void> foldTagsToLowercase() async {
     final rows = await customSelect(

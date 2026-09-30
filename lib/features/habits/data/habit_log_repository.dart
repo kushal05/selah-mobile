@@ -8,7 +8,7 @@ import '../../../core/sync/repositories/base_sync_repository.dart';
 
 /// The three trackable daily habits.
 enum HabitType {
-  bible('bible', 'Bible Reading'),
+  bible('bible', 'Bible reading'),
   meditation('meditation', 'Meditation');
 
   final String key;
