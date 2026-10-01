@@ -16,6 +16,7 @@ import '../providers/database_provider.dart';
 import '../providers/visible_notes_provider.dart';
 import '../providers/note_display_lookups.dart';
 import '../providers/notes_home_ui_state.dart';
+import '../providers/smart_collection.dart';
 import '../../../../shared/widgets/dialogs/folder_selection_dialog.dart';
 import '../../../../shared/widgets/cards/note_row.dart';
 import '../../../../shared/widgets/dialogs/move_to_folder_sheet.dart';
@@ -67,12 +68,9 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   static const _previewCacheMaxSize = 500;
   final Map<String, String?> _previewCache = {};
 
-  /// What the clear-filters button is drawn at: a 16pt glyph in 6pt of padding
-  /// inside a 1pt border. Written as the sum so it cannot drift from the box.
-  static const double _clearButtonSize = 16 + 6 * 2 + 1 * 2;
-
-  /// What the Filter toggle is drawn at — level with the dense chips it opens,
-  /// and below [AppTheme.minTapTarget], which [TapTarget] makes up for.
+  /// What the Filter toggle is drawn at — level with the dense chips it opens.
+  /// Below [AppTheme.minTapTarget] on purpose; [TapTarget] holds the touch area
+  /// to the floor.
   static const double _filterButtonHeight = FilterPill.densePaintHeight;
 
   @override
@@ -571,155 +569,185 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     // had nothing to do with order, like expanding a folder.
     final visibleAsync = ref.watch(visibleNotesProvider);
 
+    // Two kinds of "not ready", handled differently. The notes themselves
+    // still loading — first open — leaves nothing to put a header over, so
+    // the whole area is a skeleton, as before. A chosen smart collection
+    // loading, or failing, comes straight after a tap on a chip in the filter
+    // bar: blanking the screen then would pull the bar out from under the
+    // finger and, if the query failed, leave no way to un-choose it. So the
+    // header and bar stay, and only the list shows the wait or the error.
+    final notesReady = ref.watch(notesStreamProvider).hasValue;
+    final keepChrome = notesReady && !visibleAsync.hasValue;
+
+    /// Header, filter bar and list. [sortedNotes] is null while a chosen
+    /// collection has not answered, with [error] set if it failed.
+    Widget body(List<domain.Note>? sortedNotes, {Object? error}) {
+
+      // Determine header title based on selection
+      final String headerTitle;
+      if (_ui.activeSmartCollection != null) {
+        headerTitle = _ui.activeSmartCollection!.label(context);
+      } else if (_ui.selectedFolderId == null) {
+        headerTitle = l10n(context).allNotes;
+      } else {
+        // The folder's own name, which says which folder you are in —
+        // "Notes in Folder" said only that you were in one. Falls back to
+        // the generic wording if the name is not known yet: folderMap comes
+        // from a stream, so it is empty on the first frame, and a folder
+        // deleted from another device can go missing from it entirely.
+        headerTitle =
+            folderMap[_ui.selectedFolderId] ?? l10n(context).notesInFolder;
+      }
+
+      return Column(
+        children: [
+          // The smart collections used to sit here, in a row of their own
+          // above the header. They are chips that choose which notes to
+          // show, which is what the filter bar is for, so they live in it
+          // now — one scrollable row instead of two stacked ones, and the
+          // list starts 44pt higher up the screen.
+
+          // Sticky Header with sort and filter controls
+          _buildSectionHeader(
+            context,
+            title: headerTitle,
+            count: sortedNotes?.length,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildFilterButton(context),
+                // 12, not 4: the two were close enough to read as one.
+                const SizedBox(width: AppTheme.spacing12),
+                _buildSortControl(context),
+              ],
+            ),
+          ),
+
+          // Filter bar (shown when filters are active)
+          if (_ui.filterBarVisible) _buildFilterBar(context),
+
+          // Notes List
+          Expanded(
+            child: sortedNotes == null
+                ? (error != null
+                    ? Center(child: Text(UserFacingError.forLoad(error)))
+                    : const ListTileSkeletonList(count: 8, hasLeading: false))
+                : sortedNotes.isEmpty
+                ? _buildEmptyNotesState(context)
+                : ListView.builder(
+                    padding: const EdgeInsets.only(top: 8, bottom: 80),
+                    itemCount: sortedNotes.length + 1,
+                    itemBuilder: (context, index) {
+                      if (index == 0) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: FeatureIntros.notes,
+                        );
+                      }
+                      final note = sortedNotes[index - 1];
+                      final preacherName = note.preacherId != null
+                          ? peopleMap[note.preacherId]
+                          : null;
+                      final folderName =
+                          _ui.selectedFolderId == null &&
+                              note.folderId != null
+                          ? folderMap[note.folderId]
+                          : null;
+
+                      final isSelected = _ui.selectedNoteIds.contains(
+                        note.id,
+                      );
+
+                      // Spacing comes from NoteRow's own cardMargin (4
+                      // top and bottom). A wrapper here used to add 6
+                      // more on each side, putting consecutive rows 20px
+                      // apart where every other list leaves 8.
+                      return _ui.selecting
+                          ? _buildSelectableNoteRow(
+                              note: note,
+                              isSelected: isSelected,
+                              preacherName: preacherName,
+                              folderName: folderName,
+                            )
+                          : Slidable(
+                              key: Key(note.id),
+                              endActionPane: ActionPane(
+                                motion: const DrawerMotion(),
+                                extentRatio: swipePaneExtent(2),
+                                children: [
+                                  buildSwipeAction(
+                                    icon: Icons.drive_file_move_outlined,
+                                    label: l10n(context).move,
+                                    accent: AppTheme.brandPurple,
+                                    isLast: false,
+                                    onPressed: (_) => _moveNote(note),
+                                  ),
+                                  buildSwipeAction(
+                                    icon: Icons.delete_outline_rounded,
+                                    label: l10n(context).trash,
+                                    accent: AppTheme.error,
+                                    isFirst: false,
+                                    onPressed: (context) async {
+                                      final shouldDelete =
+                                          await _showDeleteConfirmation(
+                                            context,
+                                          );
+                                      if (shouldDelete) {
+                                        _deleteNote(note.id);
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                              child: NoteRow(
+                                title: note.displayTitle,
+                                preview: _getNotePreview(note),
+                                noteDate: note.noteDate,
+                                preacherName: preacherName,
+                                folderName: folderName,
+                                tags: const [],
+                                onTap: () =>
+                                    context.push('/notes/${note.id}'),
+                                onLongPress: () => _enterSelectMode(
+                                  initialNoteId: note.id,
+                                ),
+                                actions: [
+                                  RowAction(
+                                    icon: Icons.checklist_rounded,
+                                    label: l10n(context).select,
+                                    onSelected: () => _enterSelectMode(
+                                      initialNoteId: note.id,
+                                    ),
+                                  ),
+                                  RowAction(
+                                    icon: Icons.delete_outline_rounded,
+                                    label: l10n(context).moveToTrash,
+                                    isDestructive: true,
+                                    onSelected: () => _deleteNote(note.id),
+                                  ),
+                                ],
+                              ),
+                            );
+                    },
+                  ),
+          ),
+        ],
+      );
+    }
+
     return Container(
       // The list sits directly on the page, as it does on every other tab. A
       // white block here put the rows on a different ground from the folder
       // band above them.
       color: context.pageGround,
-      child: visibleAsync.when(
-        loading: () => const ListTileSkeletonList(count: 8, hasLeading: false),
-        error: (e, _) => Center(child: Text(UserFacingError.forLoad(e))),
-        data: (sortedNotes) {
-
-          // Determine header title based on selection
-          final String headerTitle;
-          if (_ui.activeSmartCollection != null) {
-            headerTitle = _ui.activeSmartCollection!;
-          } else if (_ui.selectedFolderId == null) {
-            headerTitle = l10n(context).allNotes;
-          } else {
-            headerTitle = l10n(context).notesInFolder;
-          }
-
-          return Column(
-            children: [
-              // Smart Collections bar
-              _buildSmartCollectionsBar(context),
-
-              // Sticky Header with sort and filter controls
-              _buildSectionHeader(
-                context,
-                title: headerTitle,
-                count: sortedNotes.length,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildFilterButton(context),
-                    // 12, not 4: the two were close enough to read as one.
-                    const SizedBox(width: AppTheme.spacing12),
-                    _buildSortControl(context),
-                  ],
-                ),
-              ),
-
-              // Filter bar (shown when filters are active)
-              if (_ui.filterBarVisible) _buildFilterBar(context),
-
-              // Notes List
-              Expanded(
-                child: sortedNotes.isEmpty
-                    ? _buildEmptyNotesState(context)
-                    : ListView.builder(
-                        padding: const EdgeInsets.only(top: 8, bottom: 80),
-                        itemCount: sortedNotes.length + 1,
-                        itemBuilder: (context, index) {
-                          if (index == 0) {
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 16),
-                              child: FeatureIntros.notes,
-                            );
-                          }
-                          final note = sortedNotes[index - 1];
-                          final preacherName = note.preacherId != null
-                              ? peopleMap[note.preacherId]
-                              : null;
-                          final folderName =
-                              _ui.selectedFolderId == null &&
-                                  note.folderId != null
-                              ? folderMap[note.folderId]
-                              : null;
-
-                          final isSelected = _ui.selectedNoteIds.contains(
-                            note.id,
-                          );
-
-                          // Spacing comes from NoteRow's own cardMargin (4
-                          // top and bottom). A wrapper here used to add 6
-                          // more on each side, putting consecutive rows 20px
-                          // apart where every other list leaves 8.
-                          return _ui.selecting
-                              ? _buildSelectableNoteRow(
-                                  note: note,
-                                  isSelected: isSelected,
-                                  preacherName: preacherName,
-                                  folderName: folderName,
-                                )
-                              : Slidable(
-                                  key: Key(note.id),
-                                  endActionPane: ActionPane(
-                                    motion: const DrawerMotion(),
-                                    extentRatio: swipePaneExtent(2),
-                                    children: [
-                                      buildSwipeAction(
-                                        icon: Icons.drive_file_move_outlined,
-                                        label: l10n(context).move,
-                                        accent: AppTheme.brandPurple,
-                                        isLast: false,
-                                        onPressed: (_) => _moveNote(note),
-                                      ),
-                                      buildSwipeAction(
-                                        icon: Icons.delete_outline_rounded,
-                                        label: l10n(context).trash,
-                                        accent: AppTheme.error,
-                                        isFirst: false,
-                                        onPressed: (context) async {
-                                          final shouldDelete =
-                                              await _showDeleteConfirmation(
-                                                context,
-                                              );
-                                          if (shouldDelete) {
-                                            _deleteNote(note.id);
-                                          }
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                  child: NoteRow(
-                                    title: note.displayTitle,
-                                    preview: _getNotePreview(note),
-                                    noteDate: note.noteDate,
-                                    preacherName: preacherName,
-                                    folderName: folderName,
-                                    tags: const [],
-                                    onTap: () =>
-                                        context.push('/notes/${note.id}'),
-                                    onLongPress: () => _enterSelectMode(
-                                      initialNoteId: note.id,
-                                    ),
-                                    actions: [
-                                      RowAction(
-                                        icon: Icons.checklist_rounded,
-                                        label: l10n(context).select,
-                                        onSelected: () => _enterSelectMode(
-                                          initialNoteId: note.id,
-                                        ),
-                                      ),
-                                      RowAction(
-                                        icon: Icons.delete_outline_rounded,
-                                        label: l10n(context).moveToTrash,
-                                        isDestructive: true,
-                                        onSelected: () => _deleteNote(note.id),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                        },
-                      ),
-              ),
-            ],
-          );
-        },
-      ),
+      child: keepChrome
+          ? body(null, error: visibleAsync.error)
+          : visibleAsync.when(
+              loading: () =>
+                  const ListTileSkeletonList(count: 8, hasLeading: false),
+              error: (e, _) => Center(child: Text(UserFacingError.forLoad(e))),
+              data: body,
+            ),
     );
   }
 
@@ -727,7 +755,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   Widget _buildSectionHeader(
     BuildContext context, {
     required String title,
-    required int count,
+    int? count,
     Widget? trailing,
   }) {
     final theme = Theme.of(context);
@@ -743,7 +771,11 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
           // titles below arrived pre-shouted from the ARB and the third was
           // uppercased in Dart, so the same heading was styled in two places.
           Text(
-            '${title.toUpperCase()} ($count)',
+            // No count while a collection is still loading: a number then
+            // would be a guess, and the old guess was the whole notebook.
+            count == null
+                ? title.toUpperCase()
+                : '${title.toUpperCase()} ($count)',
             style: theme.textTheme.labelMedium?.copyWith(
               fontWeight: FontWeight.w600,
               color: context.mutedText,
@@ -766,7 +798,13 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   Widget _buildFilterButton(BuildContext context) {
     final theme = Theme.of(context);
     final on = _ui.filterBarVisible;
-    final ink = _ui.hasActiveFilters || on
+    // Tinted while anything in the bar is doing something, including a smart
+    // collection. The badge still counts only filters, because that is what
+    // hasActiveFilters means to the query — but a collection narrows the list
+    // just as visibly, and the bar is closed by default now, so leaving the
+    // button grey would hide the only hint that the list is not everything.
+    final narrowed = _ui.hasActiveFilters || _ui.activeSmartCollection != null;
+    final ink = narrowed || on
         ? context.accentInk(AppTheme.brandPurple)
         : context.mutedText;
 
@@ -774,7 +812,6 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     // the padding around it. What this replaced was an 18pt bare icon with no
     // padding at all, which is what "the filter button is very small" meant.
     return TapTarget(
-      paintedHeight: _filterButtonHeight,
       onTap: () => _uiCtl.setFilterBarVisible(!on),
       child: Semantics(
         button: true,
@@ -862,6 +899,21 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // Which notes, then how to narrow them. The two groups answer
+                // different questions and are not combinable — choosing a
+                // collection replaces the tag/preacher/date result rather than
+                // intersecting with it (see visibleNotesProvider) — so they are
+                // kept apart by a rule rather than run together as one strip of
+                // chips.
+                ..._buildSmartCollectionPills(context),
+                const SizedBox(width: 8),
+                Container(
+                  width: 1,
+                  height: FilterPill.densePaintHeight - 10,
+                  color: context.hairline,
+                ),
+                const SizedBox(width: 8),
+
                 // Tag filter chip
                 tagsAsync.when(
                   loading: () => const SizedBox.shrink(),
@@ -921,8 +973,6 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                 // Clearing every filter at once is the one destructive thing in
                 // this bar, and it had the smallest target in it.
                 TapTarget(
-                  paintedHeight: _clearButtonSize,
-                  paintedWidth: _clearButtonSize,
                   onTap: _clearFilters,
                   child: Semantics(
                     button: true,
@@ -1630,108 +1680,36 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   }
 
   /// Smart collections horizontal chip bar.
-  Widget _buildSmartCollectionsBar(BuildContext context) {
-    final collections = [
-      (
-        name: 'Recently Edited',
-        icon: Icons.history_rounded,
-        provider: recentlyEditedNotesProvider,
-      ),
-      (
-        name: 'Untagged',
-        icon: Icons.label_off_rounded,
-        provider: untaggedNotesProvider,
-      ),
-      (
-        name: 'No Activity 30d',
-        icon: Icons.hourglass_empty_rounded,
-        provider: staleNotesProvider,
-      ),
-    ];
-
-    return Container(
-      height: 44,
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      decoration: BoxDecoration(
-        color: context.pageGround,
-        border: Border(bottom: BorderSide(color: context.hairline, width: 1)),
-      ),
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: collections.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final c = collections[index];
-          final isActive = _ui.activeSmartCollection == c.name;
-          final countAsync = ref.watch(c.provider);
-          final count = countAsync.valueOrNull?.length;
-
-          return Semantics(
-            button: true,
-            label: l10n(context).filterBy(c.name),
-            child: GestureDetector(
-              onTap: () {
-                _uiCtl.setSmartCollection(isActive ? null : c.name);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                decoration: BoxDecoration(
-                  // Was Colors.white, which stayed a white pill in dark mode.
-                  color: isActive ? AppTheme.brandPurple : context.cardSurface,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: isActive ? AppTheme.brandPurple : context.hairline,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      c.icon,
-                      size: 14,
-                      color: isActive ? Colors.white : context.mutedText,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      c.name,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: isActive ? Colors.white : context.mutedText,
-                      ),
-                    ),
-                    if (count != null) ...[
-                      const SizedBox(width: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isActive
-                              ? Colors.white.withValues(alpha: 0.25)
-                              : context.subtleFill,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          '$count',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: isActive ? Colors.white : context.mutedText,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
+  /// The smart collections, as chips for the filter bar.
+  ///
+  /// These were a hand-rolled chip — the fourth copy of one, which is what
+  /// FilterPill exists to stop. The copy had `Colors.white` for its selected
+  /// label and glyph, so a selected collection drew white on brandPurple
+  /// whatever the theme; FilterPill resolves both per theme.
+  ///
+  /// Each count is a separate query. They are watched here, which means they
+  /// now run only while the filter bar is open — before, sitting in a row that
+  /// was always on screen, all three ran on every visit to Notes.
+  List<Widget> _buildSmartCollectionPills(BuildContext context) {
+    final pills = <Widget>[];
+    for (final c in SmartCollection.values) {
+      final isActive = _ui.activeSmartCollection == c;
+      if (pills.isNotEmpty) pills.add(const SizedBox(width: 8));
+      pills.add(
+        FilterPill(
+          icon: c.icon,
+          label: c.label(context),
+          count: ref.watch(c.noteIds).valueOrNull?.length,
+          selected: isActive,
+          // Tapping the active one turns it off, which is the only way back to
+          // every note once a collection is chosen.
+          onTap: () => _uiCtl.setSmartCollection(isActive ? null : c),
+          accent: AppTheme.brandPurple,
+          dense: true,
+        ),
+      );
+    }
+    return pills;
   }
 
   /// Builds the trash section showing trashed notes with restore/delete actions

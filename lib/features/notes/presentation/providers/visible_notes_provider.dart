@@ -4,7 +4,6 @@ import '../../domain/models/note.dart' as domain;
 import '../../domain/models/notes_sort_option.dart';
 import 'database_provider.dart';
 import 'notes_home_ui_state.dart';
-import '../../../../core/sync/providers/sync_providers.dart';
 
 /// The notes the list should draw, filtered and sorted.
 ///
@@ -36,19 +35,29 @@ final visibleNotesProvider = Provider<AsyncValue<List<domain.Note>>>((ref) {
 
   // Only subscribed to while that collection is the active one, so the three
   // smart-collection queries do not run for a user who never opens them.
-  final smartIds = switch (smartCollection) {
-    'Recently Edited' =>
-      ref.watch(recentlyEditedNotesProvider).valueOrNull?.map((n) => n.id).toSet(),
-    'Untagged' =>
-      ref.watch(untaggedNotesProvider).valueOrNull?.map((n) => n.id).toSet(),
-    'No Activity 30d' =>
-      ref.watch(staleNotesProvider).valueOrNull?.map((n) => n.id).toSet(),
-    _ => null,
-  };
+  //
+  // Keyed by the enum, not by its English name. The string version ended in
+  // `_ => null`, so a name that did not match — a typo, or a translation —
+  // fell through silently and showed every note.
+  final collection =
+      smartCollection == null ? null : ref.watch(smartCollection.noteIds);
+
+  // A chosen collection that has not answered yet is *loading*, and one whose
+  // query failed is an *error* — neither is "every note". Both used to fall
+  // through to the branches below, which put the whole notebook under a
+  // heading that said Untagged until the query landed, and kept it there for
+  // good if the query failed. Once a collection has a value, later re-runs
+  // (after an edit) keep showing it, so following edits does not flash this.
+  if (collection != null && !collection.hasValue) {
+    return collection.hasError
+        ? AsyncError(collection.error!, collection.stackTrace!)
+        : const AsyncLoading();
+  }
+  final smartIds = collection?.requireValue.toSet();
 
   return notesAsync.whenData((notes) {
     final List<domain.Note> base;
-    if (smartCollection != null && smartIds != null) {
+    if (smartIds != null) {
       base = notes.where((n) => smartIds.contains(n.id)).toList();
     } else if (hasFilters && filtered != null) {
       base = folderId == null

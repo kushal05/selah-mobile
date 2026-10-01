@@ -153,10 +153,18 @@ void main(List<String> args) {
       // because the established shape here puts Semantics in build() and the
       // detector in a _build() helper — a tighter window reported seventeen
       // controls that were already correct.
+      //
+      // `// a11y-exempt: <reason>` above the detector skips it, for the one
+      // shape this cannot see through: a detector that only widens the hit
+      // area around a child it was handed, whose semantics the caller wrote.
+      // Not keyed off `excludeFromSemantics: true` — that is also how you would
+      // hide a real button from screen readers, so it has to be a stated
+      // reason, not a flag the lint takes on trust.
       if (call.body.contains('onTap:') &&
           !_wrapsARealButton(call.body) &&
           !call.body.contains('Semantics(') &&
-          !_enclosingClassHasSemantics(src, call.line)) {
+          !_enclosingClassHasSemantics(src, call.line) &&
+          !_suppressedAt(src, call.line, marker: 'a11y-exempt:')) {
         findings.add(_Finding(file.path, call.line,
             'GestureDetector acts as a button but nothing in its class supplies '
             'semantics — wrap it in Semantics(button: true, label: …).'));

@@ -53,7 +53,19 @@ final _clear = find.byWidgetPredicate(
 Future<void> _pumpWithFiltersOpen(
   WidgetTester tester, {
   bool withActiveFilter = false,
+  double? width,
 }) async {
+  if (width != null) {
+    // Six pills need about 1000pt to lay out side by side. Centring is only a
+    // question when they fit, so the tests that measure it say so by asking for
+    // a viewport that holds them, rather than quietly depending on the default
+    // 800 — which they did until the smart collections moved in here and the
+    // bar started scrolling.
+    tester.view.physicalSize = Size(width * 3, 1800);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+  }
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
 
@@ -92,8 +104,8 @@ Future<void> _pumpWithFiltersOpen(
   await tester.pump(const Duration(milliseconds: 400));
   await tester.pump();
   assert(
-    tester.widgetList(find.byType(FilterPill)).length == 3,
-    'the bar should offer tags, preacher and date',
+    tester.widgetList(find.byType(FilterPill)).length == 6,
+    'the bar should offer three smart collections and three filters',
   );
 }
 
@@ -122,13 +134,11 @@ void main() {
     // to its left edge, because a Row inside a horizontal scroll view has no
     // width to align within. This is the assertion that the floor restoring it
     // is actually in place.
-    await _pumpWithFiltersOpen(tester);
+    await _pumpWithFiltersOpen(tester, width: 1400);
 
     final pills = find.byType(FilterPill);
-    expect(tester.widgetList(pills), hasLength(3));
-
-    final first = tester.getRect(pills.at(0));
-    final last = tester.getRect(pills.at(2));
+    final first = tester.getRect(pills.first);
+    final last = tester.getRect(pills.last);
 
     expect(
       (first.left + last.right) / 2,
@@ -140,12 +150,12 @@ void main() {
   testWidgets('and the gaps either side of them are equal', (tester) async {
     // The same fact from the other direction: a group whose centre is right can
     // still have been reached by clipping one end.
-    await _pumpWithFiltersOpen(tester);
+    await _pumpWithFiltersOpen(tester, width: 1400);
 
     final pills = find.byType(FilterPill);
     final bar = tester.getRect(_bar);
-    final leftGap = tester.getRect(pills.at(0)).left - bar.left;
-    final rightGap = bar.right - tester.getRect(pills.at(2)).right;
+    final leftGap = tester.getRect(pills.first).left - bar.left;
+    final rightGap = bar.right - tester.getRect(pills.last).right;
 
     expect(leftGap, greaterThan(0), reason: 'the pills are flush left again');
     expect(leftGap, closeTo(rightGap, 0.5));
@@ -189,14 +199,28 @@ void main() {
         reason: 'a ceiling here would clip the pills instead of scrolling them');
   });
 
-  testWidgets('and the bar is still a scroll view', (tester) async {
+  testWidgets('and at phone width the pills scroll rather than being cut off', (
+    tester,
+  ) async {
+    // Six pills come to roughly 1000pt, so on any real phone the bar overflows.
+    // This is the case the minWidth floor has to not break: a fixed width would
+    // clip the last pills with no way to reach them.
     await _pumpWithFiltersOpen(tester);
 
-    expect(
-      find.descendant(of: _bar, matching: find.byType(SingleChildScrollView)),
-      findsOneWidget,
-      reason: 'the pills must still scroll once they outgrow the bar',
+    final scroller = find.descendant(
+      of: _bar,
+      matching: find.byType(Scrollable),
     );
+    expect(scroller, findsOneWidget);
+
+    final position = tester.state<ScrollableState>(scroller).position;
+    expect(position.maxScrollExtent, greaterThan(0),
+        reason: 'the pills overflow, so there must be somewhere to scroll to');
+
+    // And the far end is reachable.
+    await tester.drag(scroller, const Offset(-400, 0));
+    await tester.pumpAndSettle();
+    expect(position.pixels, greaterThan(0));
   });
 
   testWidgets('the pills inside it are drawn shorter than their target', (
@@ -258,7 +282,7 @@ void main() {
   ) async {
     // 30x30 before: a 16pt glyph in 6pt of padding. It is the only destructive
     // control in the bar and it was the smallest thing to hit in it.
-    await _pumpWithFiltersOpen(tester, withActiveFilter: true);
+    await _pumpWithFiltersOpen(tester, withActiveFilter: true, width: 1400);
 
     expect(_clear, findsOneWidget, reason: 'no clear button to measure');
     final target =
@@ -270,14 +294,14 @@ void main() {
   });
 
   testWidgets('and is still drawn at its original size', (tester) async {
-    await _pumpWithFiltersOpen(tester, withActiveFilter: true);
+    await _pumpWithFiltersOpen(tester, withActiveFilter: true, width: 1400);
 
     expect(tester.getSize(_clear).height, 30);
     expect(tester.getSize(_clear).width, 30);
   });
 
   testWidgets('and still clears when tapped in the new margin', (tester) async {
-    await _pumpWithFiltersOpen(tester, withActiveFilter: true);
+    await _pumpWithFiltersOpen(tester, withActiveFilter: true, width: 1400);
     final target = find.ancestor(of: _clear, matching: find.byType(TapTarget));
     final outer = tester.getRect(target);
     final inner = tester.getRect(_clear);

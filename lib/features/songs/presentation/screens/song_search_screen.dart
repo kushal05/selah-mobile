@@ -7,12 +7,11 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/services/chord_transposition.dart';
 import '../../../../core/sync/models/song_model.dart';
-import '../../../../core/sync/models/tag_model.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
 import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
-import '../../../../shared/widgets/filter_pill.dart';
+import '../widgets/song_filter_dialog.dart';
 
 /// Dedicated Song Search screen with combinable filters.
 /// Filters: tags (multi-select), scale/key (single), folder, free-text (title).
@@ -32,10 +31,16 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
   bool _isLoading = false;
   bool _hasSearched = false;
 
-  // Filter state
-  String? _selectedScale;
-  String? _selectedFolderId;
-  final Set<String> _selectedTags = {};
+  // One immutable value rather than three mutable fields. The tag set used to
+  // be mutated in place from inside a bottom sheet, which is how the screen came
+  // to show a selection it had never searched with.
+  SongSearchFilters _filters = SongSearchFilters.none;
+
+  /// Held from the tap until the dialog closes. The dialog waits on three
+  /// loads before it appears, and a second tap in that gap opened a second
+  /// dialog underneath carrying the old filters — so Apply on it quietly undid
+  /// whatever had just been applied in the first.
+  bool _filtersOpen = false;
 
   @override
   void initState() {
@@ -60,7 +65,17 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
     });
   }
 
+  /// Bumped by every search; only the newest may write results.
+  ///
+  /// Two things start a search — typing (after a 250ms pause) and applying
+  /// filters — and nothing ordered them. A typed search still in flight when
+  /// filters were applied could finish second and put its unfiltered results
+  /// on screen under a badge saying filters were on.
+  int _searchGeneration = 0;
+
   Future<void> _performSearch() async {
+    final generation = ++_searchGeneration;
+    bool isCurrent() => mounted && generation == _searchGeneration;
     setState(() => _isLoading = true);
 
     final songRepo = ref.read(songRepositoryProvider);
@@ -68,13 +83,14 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
 
     try {
       // Collect subtree folder IDs for recursive folder filtering
+      final filters = _filters;
       List<String>? subtreeFolderIds;
-      if (_selectedFolderId != null) {
+      if (filters.folderId != null) {
         final folderRepo = ref.read(folderRepositoryProvider);
         final descendants =
-            await folderRepo.getAllDescendants(_selectedFolderId!);
+            await folderRepo.getAllDescendants(filters.folderId!);
         subtreeFolderIds = [
-          _selectedFolderId!,
+          filters.folderId!,
           ...descendants.map((f) => f.id),
         ];
       }
@@ -84,20 +100,21 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
         textQuery: _searchController.text.trim().isEmpty
             ? null
             : _searchController.text.trim(),
-        scale: _selectedScale,
-        folderId: _selectedFolderId,
+        scale: filters.scale,
+        folderId: filters.folderId,
         folderIds: subtreeFolderIds,
-        tagIds: _selectedTags.isEmpty ? null : _selectedTags.toList(),
+        tagIds: filters.tagIds.isEmpty ? null : filters.tagIds.toList(),
       );
 
-      if (!mounted) return;
+      // A newer search owns the screen now, including its loading state.
+      if (!isCurrent()) return;
       setState(() {
         _results = results;
         _isLoading = false;
         _hasSearched = true;
       });
     } catch (_) {
-      if (mounted) {
+      if (isCurrent()) {
         setState(() {
           _isLoading = false;
           _hasSearched = true;
@@ -108,10 +125,6 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final tagsAsync = ref.watch(songTagsProvider);
-    final scalesAsync = ref.watch(songScalesProvider);
-    final foldersAsync = ref.watch(songFoldersStreamProvider);
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -126,121 +139,9 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Search field
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: TextField(
-                controller: _searchController,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: l10n(context).searchByTitle,
-                  filled: true,
-                  fillColor: context.subtleFill,
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                        tooltip: l10n(context).clearSearch,
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            _searchController.clear();
-                            _performSearch();
-                          },
-                        )
-                      : null,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(50),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-                onChanged: _onSearchChanged,
-              ),
-            ),
-
-            // Filter chips row
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    // Scale filter
-                    scalesAsync.when(
-                      data: (scales) => FilterPill(
-                        label: _selectedScale == null
-                            ? 'Key'
-                            : 'Key: $_selectedScale',
-                        selected: _selectedScale != null,
-                        onTap: () => _showScaleFilter(scales),
-                        accent: AppTheme.orange,),
-                      loading: () => const SizedBox.shrink(),
-                      error: (e, _) {
-                        debugPrint('SongSearchScreen: failed to load scales: $e');
-                        return const SizedBox.shrink();
-                      },
-                    ),
-                    const SizedBox(width: 8),
-
-                    // Tag filters
-                    tagsAsync.when(
-                      data: (tags) => FilterPill(
-                        label: _selectedTags.isEmpty
-                            ? 'Tags'
-                            : 'Tags (${_selectedTags.length})',
-                        selected: _selectedTags.isNotEmpty,
-                        onTap: () => _showTagFilter(tags),
-                        accent: AppTheme.orange,),
-                      loading: () => const SizedBox.shrink(),
-                      error: (e, _) {
-                        debugPrint('SongSearchScreen: failed to load tags: $e');
-                        return const SizedBox.shrink();
-                      },
-                    ),
-                    const SizedBox(width: 8),
-
-                    // Folder filter
-                    foldersAsync.when(
-                      data: (folders) {
-                        if (folders.isEmpty) return const SizedBox.shrink();
-                        final activeFolderName = _selectedFolderId != null
-                            ? folders
-                                .where((f) => f.id == _selectedFolderId)
-                                .map((f) => f.name)
-                                .firstOrNull
-                            : null;
-                        return FilterPill(
-                          label: activeFolderName ?? 'Songbook',
-                          selected: _selectedFolderId != null,
-                          onTap: () => _showFolderFilter(folders),
-                          accent: AppTheme.orange,);
-                      },
-                      loading: () => const SizedBox.shrink(),
-                      error: (e, _) {
-                        debugPrint('SongSearchScreen: failed to load folders: $e');
-                        return const SizedBox.shrink();
-                      },
-                    ),
-
-                    // Clear all filters
-                    if (_selectedScale != null ||
-                        _selectedTags.isNotEmpty ||
-                        _selectedFolderId != null) ...[
-                      const SizedBox(width: 8),
-                      ActionChip(
-                        label: Text(l10n(context).clearAll,
-                            style: TextStyle(fontSize: 13)),
-                        onPressed: () {
-                          setState(() {
-                            _selectedScale = null;
-                            _selectedFolderId = null;
-                            _selectedTags.clear();
-                          });
-                          _performSearch();
-                        },
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: _buildSearchField(context),
             ),
 
             const Divider(height: 1),
@@ -251,6 +152,148 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
         ),
       ),
     );
+  }
+
+  /// The search field, in the songs colours rather than the app's blue.
+  ///
+  /// The blue was never chosen here. The field set only `border`, and the
+  /// theme's `enabledBorder` and `focusedBorder` outrank it, so the app-wide
+  /// 2pt brandBlue focus ring drew around it — immediately, since the field
+  /// autofocuses — along with a blue cursor and blue selection handles. Every
+  /// state is set explicitly now so nothing falls through to the theme.
+  Widget _buildSearchField(BuildContext context) {
+    // accentInk for anything drawn as a line or glyph: the true orange is too
+    // light to clear 3:1 against a light field. The fill and the highlight use
+    // the true orange, faintly, because they carry no meaning of their own.
+    final ink = context.accentInk(AppTheme.orange);
+    final pill = BorderRadius.circular(50);
+
+    return TextSelectionTheme(
+      data: TextSelectionThemeData(
+        cursorColor: ink,
+        selectionColor: AppTheme.orange.withValues(alpha: 0.35),
+        selectionHandleColor: ink,
+      ),
+      child: TextField(
+        controller: _searchController,
+        autofocus: true,
+        cursorColor: ink,
+        decoration: InputDecoration(
+          hintText: l10n(context).searchByTitle,
+          filled: true,
+          fillColor: AppTheme.orange.withValues(alpha: AppTheme.alphaLight),
+          prefixIcon: Icon(Icons.search, color: ink),
+          suffixIcon: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_searchController.text.isNotEmpty)
+                IconButton(
+                  tooltip: l10n(context).clearSearch,
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() {});
+                    _performSearch();
+                  },
+                ),
+              _buildFilterButton(context),
+            ],
+          ),
+          border: OutlineInputBorder(
+            borderRadius: pill,
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: pill,
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: pill,
+            borderSide: BorderSide(color: ink, width: 2),
+          ),
+        ),
+        onChanged: _onSearchChanged,
+      ),
+    );
+  }
+
+  /// Opens the filter dialog. The badge counts the kinds of filter in force —
+  /// key, tags, songbook — so it reads 1 to 3, not the number of tags ticked.
+  Widget _buildFilterButton(BuildContext context) {
+    final count = _filters.activeCount;
+    return IconButton(
+      tooltip: l10n(context).filterSongs,
+      onPressed: _openFilters,
+      icon: Badge(
+        isLabelVisible: count > 0,
+        label: Text('$count'),
+        // The true orange with whichever label clears it — the same pairing
+        // as the dialog's Apply button, so the two read as one control.
+        backgroundColor: AppTheme.orange,
+        textColor: AppTheme.onAccent(AppTheme.orange),
+        child: Icon(
+          Icons.filter_list_rounded,
+          color: count > 0
+              ? context.accentInk(AppTheme.orange)
+              : context.mutedText,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openFilters() async {
+    if (_filtersOpen) return;
+    _filtersOpen = true;
+    try {
+      await _runFilterDialog();
+    } finally {
+      _filtersOpen = false;
+    }
+  }
+
+  Future<void> _runFilterDialog() async {
+    // Awaited rather than read with valueOrNull: a dialog opened before the
+    // tags had loaded would otherwise say "No tags available" when there are
+    // tags — a wrong answer, not a missing one. These are local queries, so the
+    // wait is a frame or two. A failure still opens the dialog, without that
+    // section's choices, which is what the old chips did.
+    Future<List<T>> load<T>(Future<List<T>> f, String what) =>
+        f.catchError((Object e) {
+          debugPrint('SongSearchScreen: failed to load $what: $e');
+          return <T>[];
+        });
+
+    final (dbScales, tags, songbooks) = await (
+      load(ref.read(songScalesProvider.future), 'scales'),
+      load(ref.read(songTagsProvider.future), 'tags'),
+      load(ref.read(songFoldersStreamProvider.future), 'songbooks'),
+    ).wait;
+    if (!mounted) return;
+
+    // Majors, then minors, each in the chromatic order ChordTransposer already
+    // lists them in. Sorting the merged set alphabetically — which this did —
+    // interleaved them as A, Ab, Abm, Am, B…, so finding G meant reading the
+    // whole grid. Any key a song carries that the standard lists lack goes at
+    // the end rather than being dropped.
+    const standard = [
+      ...ChordTransposer.majorKeys,
+      ...ChordTransposer.minorKeys,
+    ];
+    final extra = dbScales.where((k) => !standard.contains(k)).toSet().toList()
+      ..sort();
+    final scales = [...standard, ...extra];
+
+    final chosen = await SongFilterDialog.show(
+      context,
+      initial: _filters,
+      scales: scales,
+      tags: tags,
+      songbooks: songbooks,
+    );
+    if (chosen == null || chosen == _filters || !mounted) return;
+
+    setState(() => _filters = chosen);
+    _performSearch();
   }
 
   Widget _buildResults() {
@@ -293,219 +336,6 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
   }
 
   // ==================== Filter Dialogs ====================
-
-  void _showScaleFilter(List<String> scales) {
-    final allScales = [
-      ...ChordTransposer.majorKeys,
-      ...ChordTransposer.minorKeys,
-    ];
-    // Merge DB scales with standard scale list, avoiding duplicates
-    final mergedScales = <String>{...allScales, ...scales}.toList()..sort();
-
-    showModalBottomSheet(
-      // Defaults to false: a scroll-controlled sheet otherwise draws its
-      // top edge behind the notch or Dynamic Island.
-      useSafeArea: true,
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(l10n(context).filterByKey,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w600)),
-            ),
-            const Divider(height: 1),
-            Flexible(
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ListTile(
-                      leading: Icon(
-                        _selectedScale == null
-                            ? Icons.check_circle
-                            : Icons.circle_outlined,
-                        color: _selectedScale == null
-                            ? Theme.of(context).primaryColor
-                            : context.mutedText,
-                      ),
-                      title: Text(l10n(context).anyKey),
-                      onTap: () {
-                        setState(() => _selectedScale = null);
-                        Navigator.pop(ctx);
-                        _performSearch();
-                      },
-                    ),
-                    ...mergedScales.map((s) => ListTile(
-                          leading: Icon(
-                            _selectedScale == s
-                                ? Icons.check_circle
-                                : Icons.circle_outlined,
-                            color: _selectedScale == s
-                                ? Theme.of(context).primaryColor
-                                : context.mutedText,
-                          ),
-                          title: Text(s),
-                          dense: true,
-                          onTap: () {
-                            setState(() => _selectedScale = s);
-                            Navigator.pop(ctx);
-                            _performSearch();
-                          },
-                        )),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showTagFilter(List<TagModel> availableTags) {
-    showModalBottomSheet(
-      // Defaults to false: a scroll-controlled sheet otherwise draws its
-      // top edge behind the notch or Dynamic Island.
-      useSafeArea: true,
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Text(l10n(context).filterByTags,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w600)),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _performSearch();
-                      },
-                      child: Text(l10n(context).apply),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              if (availableTags.isEmpty)
-                Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text(l10n(context).noTagsAvailable),
-                )
-              else
-                Flexible(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: availableTags.map((tag) {
-                        final selected = _selectedTags.contains(tag.id);
-                        return CheckboxListTile(
-                          title: Text(tag.name),
-                          value: selected,
-                          onChanged: (v) {
-                            setSheetState(() {
-                              setState(() {
-                                if (v == true) {
-                                  _selectedTags.add(tag.id);
-                                } else {
-                                  _selectedTags.remove(tag.id);
-                                }
-                              });
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 16),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showFolderFilter(List<dynamic> folders) {
-    showModalBottomSheet(
-      // Defaults to false: a scroll-controlled sheet otherwise draws its
-      // top edge behind the notch or Dynamic Island.
-      useSafeArea: true,
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(l10n(context).filterBySongbook,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w600)),
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: Icon(
-                _selectedFolderId == null
-                    ? Icons.check_circle
-                    : Icons.circle_outlined,
-                color: _selectedFolderId == null
-                    ? Theme.of(context).primaryColor
-                    : context.mutedText,
-              ),
-              title: Text(l10n(context).allSongbooks),
-              onTap: () {
-                setState(() => _selectedFolderId = null);
-                Navigator.pop(ctx);
-                _performSearch();
-              },
-            ),
-            ...folders.map((folder) => ListTile(
-                  leading: Icon(
-                    _selectedFolderId == folder.id
-                        ? Icons.check_circle
-                        : Icons.circle_outlined,
-                    color: _selectedFolderId == folder.id
-                        ? Theme.of(context).primaryColor
-                        : context.mutedText,
-                  ),
-                  title: Text(folder.name),
-                  onTap: () {
-                    setState(() => _selectedFolderId = folder.id);
-                    Navigator.pop(ctx);
-                    _performSearch();
-                  },
-                )),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 // ==================== Result Card ====================

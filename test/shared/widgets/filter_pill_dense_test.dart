@@ -157,4 +157,67 @@ void main() {
       AppTheme.minTapTarget,
     );
   });
+
+  // ── width ─────────────────────────────────────────────────────────────────
+  // The pill used `alignment:` to centre its label, which centres by expanding:
+  // in any parent that allowed more width than the label needed, the pill took
+  // all of it. A Wrap allows a full row, so the song filter dialog drew one key
+  // per line. These measure the three kinds of parent the app actually uses.
+
+  Widget host(Widget child, {double width = 300}) => MaterialApp(
+    home: Scaffold(
+      body: Center(child: SizedBox(width: width, child: child)),
+    ),
+  );
+
+  FilterPill pill(String label, {bool dense = true}) => FilterPill(
+    label: label,
+    selected: false,
+    dense: dense,
+    onTap: () {},
+  );
+
+  testWidgets('in a Wrap, a pill is as wide as its label', (tester) async {
+    await tester.pumpWidget(host(Wrap(spacing: 8, children: [
+      pill('C'), pill('C#'), pill('D'),
+    ])));
+
+    final c = tester.getRect(find.widgetWithText(FilterPill, 'C'));
+    expect(c.width, lessThan(80), reason: 'a one-letter key, not a full row');
+
+    // And so they share a line, which is the point of a Wrap.
+    final d = tester.getRect(find.widgetWithText(FilterPill, 'D'));
+    expect(d.top, c.top, reason: 'three short keys should fit on one line');
+  });
+
+  testWidgets('in an Expanded, it still fills its share', (tester) async {
+    // Prayers lays its three filters out as equal thirds, on purpose. Tight
+    // constraints override the shrink-wrap, so that must not change.
+    await tester.pumpWidget(host(Row(children: [
+      Expanded(child: pill('All', dense: false)),
+      const SizedBox(width: 10),
+      Expanded(child: pill('Active', dense: false)),
+      const SizedBox(width: 10),
+      Expanded(child: pill('Answered', dense: false)),
+    ])));
+
+    final widths = ['All', 'Active', 'Answered']
+        .map((l) => tester.getSize(find.widgetWithText(FilterPill, l)).width)
+        .toList();
+    expect(widths.toSet(), hasLength(1),
+        reason: 'equal thirds whatever the label length');
+    expect(widths.first, closeTo((300 - 20) / 3, 0.5));
+  });
+
+  testWidgets('and given a whole screen, it stays pill-sized', (tester) async {
+    // The case the harness above has to steer around: straight into a Center,
+    // the old pill measured 800x600. It should simply be a pill.
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(body: Center(child: pill('Tags', dense: false))),
+    ));
+
+    final size = tester.getSize(find.byType(FilterPill));
+    expect(size.height, AppTheme.minTapTarget);
+    expect(size.width, lessThan(120));
+  });
 }

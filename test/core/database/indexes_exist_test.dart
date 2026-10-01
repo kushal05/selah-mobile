@@ -32,6 +32,27 @@ const _hotQueries = <String, (String sql, String index)>{
         'ORDER BY timestamp',
     'idx_oplog_unsynced',
   ),
+  "a note's tags": (
+    "SELECT * FROM sync_note_tags WHERE note_id='n' AND deleted=0",
+    'idx_note_tags_note',
+  ),
+};
+
+/// Queries that join, where the scan to rule out is on one side only — the
+/// driving table is read in full by design (every untagged note is an answer),
+/// so a blanket "no SCAN" would be wrong. What must not happen is the inner
+/// side being scanned once per outer row.
+const _joins = <String, (String sql, String index, String mustNotScan)>{
+  // The Untagged smart collection. Without the index this read every tag link
+  // for every note: 322ms at 4,000 notes, re-run on every save while live.
+  'the Untagged collection': (
+    'SELECT n.id FROM sync_notes n '
+        'LEFT JOIN sync_note_tags t ON t.note_id = n.id AND t.deleted = 0 '
+        "WHERE n.user_id = 'u' AND n.deleted = 0 AND t.id IS NULL "
+        'ORDER BY n.updated_at DESC',
+    'idx_note_tags_note',
+    'SCAN t',
+  ),
 };
 
 Future<Set<String>> indexesIn(SyncDatabase db) async {
@@ -84,7 +105,7 @@ void main() {
     // File-backed because a memory database cannot be reopened, and one step
     // back rather than to v1 because replaying the whole chain over a
     // current-schema file is the unsound probe that produced five phantom
-    // failures earlier: the tables are already at v36, so older steps would be
+    // failures earlier: the tables are already current, so older steps would be
     // re-adding columns that exist.
     final dir = await Directory.systemTemp.createTemp('selah_idx_');
     addTearDown(() => dir.delete(recursive: true));
@@ -94,7 +115,9 @@ void main() {
     await first.customSelect('SELECT 1').get();
     final version = first.schemaVersion;
     await first.customStatement('DROP INDEX IF EXISTS idx_notes_user');
+    await first.customStatement('DROP INDEX IF EXISTS idx_note_tags_note');
     expect(await indexesIn(first), isNot(contains('idx_notes_user')));
+    expect(await indexesIn(first), isNot(contains('idx_note_tags_note')));
     await first.customStatement('PRAGMA user_version = ${version - 1}');
     await first.close();
 
@@ -105,12 +128,59 @@ void main() {
     expect(await indexesIn(reopened), contains('idx_notes_user'),
         reason: 'onUpgrade must call createIndexes; a device that already had '
             'the app never runs onCreate');
+    expect(await indexesIn(reopened), contains('idx_note_tags_note'),
+        reason: 'v37 has no step of its own — it relies on exactly this');
     final after = await reopened
         .customSelect('PRAGMA user_version')
         .map((r) => r.read<int>('user_version'))
         .getSingle();
     expect(after, version,
         reason: 'the migration must also land on the current version');
+  });
+
+  test('a device on the shipped schema gets the note-tags index', () async {
+    // The upgrade test above winds back one step from whatever the current
+    // version is, so it cannot see a version that was never bumped: without
+    // the bump it simply tests 35 -> 36 and passes. This pins the version that
+    // is actually on phones. Build 0.2.4+37 shipped with schema 36, so a phone
+    // opening a database at 36 must run an upgrade — and leave it with the
+    // index. Raise the shipped number when a build with a newer schema ships.
+    const shipped = 36;
+
+    final dir = await Directory.systemTemp.createTemp('selah_shipped_');
+    addTearDown(() => dir.delete(recursive: true));
+    final file = File('${dir.path}/sync.sqlite');
+
+    final phone = SyncDatabase.forTesting(NativeDatabase(file));
+    await phone.customSelect('SELECT 1').get();
+    await phone.customStatement('DROP INDEX IF EXISTS idx_note_tags_note');
+    await phone.customStatement('PRAGMA user_version = $shipped');
+    await phone.close();
+
+    final updated = SyncDatabase.forTesting(NativeDatabase(file));
+    addTearDown(updated.close);
+    await updated.customSelect('SELECT 1').get();
+
+    expect(await indexesIn(updated), contains('idx_note_tags_note'),
+        reason: 'opening a v$shipped database must upgrade it; if the schema '
+            'version was not raised past what shipped, nothing runs');
+  });
+
+  group('joins seek on their inner side', () {
+    for (final entry in _joins.entries) {
+      test(entry.key, () async {
+        final db = SyncDatabase.forTesting(NativeDatabase.memory());
+        addTearDown(db.close);
+        await db.customSelect('SELECT 1').get();
+
+        final (sql, index, mustNotScan) = entry.value;
+        final plan = await planFor(db, sql);
+
+        expect(plan, contains('USING INDEX $index'), reason: 'plan was: $plan');
+        expect(plan, isNot(contains(mustNotScan)),
+            reason: 'the inner table is scanned per row: $plan');
+      });
+    }
   });
 
   group('the hot queries seek rather than scan', () {

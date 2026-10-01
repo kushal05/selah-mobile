@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models/note.dart' as domain;
 import '../../domain/models/notes_sort_option.dart';
+import 'smart_collection.dart';
 
 /// The Notes screen's own view state — what is selected, expanded, filtered
 /// and sorted.
@@ -20,7 +21,7 @@ class NotesHomeUiState {
   final bool folderSectionExpanded;
   final bool selecting;
   final Set<String> selectedNoteIds;
-  final String? activeSmartCollection;
+  final SmartCollection? activeSmartCollection;
   final bool showingTrash;
 
   // Filters
@@ -74,7 +75,7 @@ class NotesHomeUiState {
     bool? folderSectionExpanded,
     bool? selecting,
     Set<String>? selectedNoteIds,
-    String? activeSmartCollection,
+    SmartCollection? activeSmartCollection,
     bool clearActiveSmartCollection = false,
     bool? showingTrash,
     bool? filterBarVisible,
@@ -139,10 +140,10 @@ class NotesHomeUiController extends StateNotifier<NotesHomeUiState> {
   void setSort(NotesSortOption option, {required bool ascending}) =>
       state = state.copyWith(sortOption: option, sortAscending: ascending);
 
-  void setSmartCollection(String? name) => name == null
+  void setSmartCollection(SmartCollection? collection) => collection == null
       ? state = state.copyWith(clearActiveSmartCollection: true)
       : state = state.copyWith(
-          activeSmartCollection: name,
+          activeSmartCollection: collection,
           clearSelectedFolderId: true,
         );
 

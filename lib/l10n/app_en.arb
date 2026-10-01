@@ -615,6 +615,16 @@
   "anyKey": "Any key",
   "filterByTags": "Filter by tags",
   "filterBySongbook": "Filter by songbook",
+  "smartCollectionRecentlyEdited": "Recently Edited",
+  "@smartCollectionRecentlyEdited": { "description": "Notes smart collection: the most recently edited notes. Shown on a filter chip and as the list heading while chosen." },
+  "smartCollectionUntagged": "Untagged",
+  "@smartCollectionUntagged": { "description": "Notes smart collection: notes with no tags. Shown on a filter chip and as the list heading while chosen." },
+  "smartCollectionStale": "No Activity 30d",
+  "@smartCollectionStale": { "description": "Notes smart collection: notes not edited in the last 30 days. Short — it sits on a chip; 30d means thirty days." },
+  "filterSongs": "Filter songs",
+  "@filterSongs": { "description": "Title of the song search filter dialog, and the tooltip on the button that opens it." },
+  "songKeyLabel": "Key",
+  "@songKeyLabel": { "description": "Heading over the musical keys in the song filter dialog. A musical key (C, G, Am), not a key on a keyboard." },
   "filterByPreacher": "Filter by preacher",
   "@filterByPreacher": {
     "description": "Header of the notes filter sheet that picks a preacher."

@@ -142,7 +142,10 @@ class SyncDatabase extends _$SyncDatabase {
   SyncDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 36;
+  // v37 adds idx_note_tags_note. No step of its own: createIndexes() runs
+  // at the end of every upgrade, so bumping the version is what delivers
+  // the index to devices that already have the app.
+  int get schemaVersion => 37;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1118,6 +1121,19 @@ class SyncDatabase extends _$SyncDatabase {
     await customStatement('''
       CREATE INDEX IF NOT EXISTS idx_notes_updated
       ON sync_notes(updated_at)
+    ''');
+
+    // Note tags, by note. Every per-note tag lookup filters on note_id, and so
+    // does the Untagged smart collection's join — which without this read
+    // every tag link for every note: 20ms at 1,000 notes, 322ms at 4,000,
+    // quadrupling each time the notebook doubled, against 1ms and 5ms with it.
+    // It matters most because that collection is a live query, re-run on every
+    // save while it is open. (note_id, deleted) rather than a partial index:
+    // the join puts `deleted = 0` in its ON clause, and SQLite will not always
+    // match a partial index's WHERE through a LEFT JOIN's condition.
+    await customStatement('''
+      CREATE INDEX IF NOT EXISTS idx_note_tags_note
+      ON sync_note_tags(note_id, deleted)
     ''');
 
     // Note blocks indexes

@@ -1449,23 +1449,30 @@ final smartCollectionsServiceProvider =
   return SmartCollectionsService(db, userId);
 });
 
-/// Recently edited notes (top 20)
-final recentlyEditedNotesProvider =
-    FutureProvider<List<NoteModel>>((ref) async {
-  final service = ref.watch(smartCollectionsServiceProvider);
-  return service.getRecentlyEdited();
+// The smart collections. Streams, so they follow edits — they were cached
+// FutureProviders that nothing invalidated, and went stale for the session.
+//
+// autoDispose because a live query re-runs on every write to the tables it
+// reads, and nothing needs these most of the time: they are watched only while
+// the notes filter bar is open (for the counts on its chips) or while one of
+// them is the chosen view. Kept alive forever, all three would re-query on
+// every keystroke saved anywhere in the app.
+
+/// Recently edited notes (top 20), as ids.
+final recentlyEditedNoteIdsProvider =
+    StreamProvider.autoDispose<List<String>>((ref) {
+  return ref.watch(smartCollectionsServiceProvider).watchRecentlyEditedIds();
 });
 
-/// Untagged notes
-final untaggedNotesProvider = FutureProvider<List<NoteModel>>((ref) async {
-  final service = ref.watch(smartCollectionsServiceProvider);
-  return service.getUntaggedNotes();
+/// Untagged notes, as ids.
+final untaggedNoteIdsProvider =
+    StreamProvider.autoDispose<List<String>>((ref) {
+  return ref.watch(smartCollectionsServiceProvider).watchUntaggedIds();
 });
 
-/// Stale notes (no activity in 30 days)
-final staleNotesProvider = FutureProvider<List<NoteModel>>((ref) async {
-  final service = ref.watch(smartCollectionsServiceProvider);
-  return service.getStaleNotes();
+/// Notes with no activity in 30 days, as ids.
+final staleNoteIdsProvider = StreamProvider.autoDispose<List<String>>((ref) {
+  return ref.watch(smartCollectionsServiceProvider).watchStaleIds();
 });
 
 // ==================== BIBLE REFERENCE HISTORY PROVIDERS ====================
