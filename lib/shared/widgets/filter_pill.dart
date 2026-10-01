@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_colors.dart';
+import 'tap_target.dart';
 
 /// A filter the user turns on and off: a saved search, a status, a scale.
 ///
@@ -31,6 +32,19 @@ class FilterPill extends StatelessWidget {
   /// The accent this filter belongs to, usually its tab's colour.
   final Color accent;
 
+  /// Draws the pill smaller without shrinking what you can tap.
+  ///
+  /// The visible chip loses a few points of height, type, icon and padding; the
+  /// tap target stays 44. Those are different measurements and only one of them
+  /// is an accessibility floor — a chip that merely looks smaller is a style
+  /// choice, while a 36pt target is a miss for anyone without precise hands.
+  final bool dense;
+
+  /// What a dense pill is *drawn* at. Deliberately under
+  /// [AppTheme.minTapTarget]; [TapTarget] makes up the difference so the chip
+  /// is smaller to look at without being smaller to hit.
+  static const double densePaintHeight = 36;
+
   const FilterPill({
     super.key,
     required this.label,
@@ -39,6 +53,7 @@ class FilterPill extends StatelessWidget {
     this.icon,
     this.count,
     this.accent = AppTheme.brandBlue,
+    this.dense = false,
   });
 
   @override
@@ -48,7 +63,7 @@ class FilterPill extends StatelessWidget {
     final ink = AppTheme.inkOnTintFor(accent, brightness);
     final fg = selected ? ink : context.primaryText;
 
-    return Semantics(
+    final pill = Semantics(
       button: true,
       selected: selected,
       child: Material(
@@ -60,10 +75,13 @@ class FilterPill extends StatelessWidget {
           onTap: onTap,
           borderRadius: AppTheme.borderRadius2XL,
           child: Container(
-            // 44 is the accessible minimum, and it is why these were all
-            // slightly different heights before.
-            constraints: const BoxConstraints(minHeight: 44),
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            // 44 is why these were all slightly different heights before. A
+            // dense chip is drawn at 36 and the wrapper below restores the
+            // target, so this is the painted height, not the tappable one.
+            constraints: BoxConstraints(
+              minHeight: dense ? densePaintHeight : AppTheme.minTapTarget,
+            ),
+            padding: EdgeInsets.symmetric(horizontal: dense ? 10 : 12),
             alignment: Alignment.center,
             decoration: BoxDecoration(
               borderRadius: AppTheme.borderRadius2XL,
@@ -77,8 +95,10 @@ class FilterPill extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (icon != null) ...[
-                  Icon(icon, size: AppTheme.iconMD, color: selected ? glyph : context.mutedText),
-                  const SizedBox(width: 6),
+                  Icon(icon,
+                      size: dense ? AppTheme.iconSM : AppTheme.iconMD,
+                      color: selected ? glyph : context.mutedText),
+                  SizedBox(width: dense ? 4 : 6),
                 ],
                 Flexible(
                   child: Text(
@@ -86,7 +106,7 @@ class FilterPill extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: dense ? 13 : 14,
                       fontWeight:
                           selected ? FontWeight.w600 : FontWeight.w500,
                       color: fg,
@@ -109,6 +129,16 @@ class FilterPill extends StatelessWidget {
           ),
         ),
       ),
+    );
+
+    if (!dense) return pill;
+
+    // Drawn at 36, tapped at 44. Wide enough already, so only the height is
+    // held to the floor.
+    return TapTarget(
+      paintedHeight: densePaintHeight,
+      onTap: onTap,
+      child: pill,
     );
   }
 }

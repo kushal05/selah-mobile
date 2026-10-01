@@ -213,18 +213,22 @@ class ApiInterceptor {
   }
 
   /// Execute a DELETE request with token refresh + retry logic.
+  /// [body] is optional because most DELETEs carry none. Leaving a group does:
+  /// it has to say what to do with the group on the way out, and whether a
+  /// successor was chosen.
   Future<http.Response> delete(
     Uri url, {
     Map<String, String>? headers,
+    Object? body,
     Duration? timeout,
   }) {
     return _executeWithRetry(
       () => _inner
-          .delete(url, headers: headers ?? this.headers())
+          .delete(url, headers: headers ?? this.headers(), body: body)
           .timeout(timeout ?? config.httpTimeout),
       headers: headers,
       rebuildRequest: () => _inner
-          .delete(url, headers: headers ?? this.headers())
+          .delete(url, headers: headers ?? this.headers(), body: body)
           .timeout(timeout ?? config.httpTimeout),
     );
   }

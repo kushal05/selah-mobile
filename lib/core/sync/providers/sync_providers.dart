@@ -1081,6 +1081,17 @@ final groupByIdProvider =
   return api.getGroupById(groupId);
 });
 
+/// Whether the signed-in user has left this group and keeps it only to read.
+///
+/// Defaults to false while the group is still loading. The server refuses every
+/// write from someone who has left regardless, so the worst a wrong guess costs
+/// is a button that briefly shows — whereas hiding the whole screen until the
+/// answer arrives would make every group look read-only for a moment.
+final groupIsReadOnlyProvider = Provider.family<bool, String>((ref, groupId) {
+  return ref.watch(groupByIdProvider(groupId)).valueOrNull?.isReadOnlyForViewer ??
+      false;
+});
+
 /// Future provider for group members by group ID
 final groupMembersProvider =
     FutureProvider.family<List<GroupMemberModel>, String>((ref, groupId) async {

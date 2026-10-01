@@ -465,5 +465,11 @@ class SyncErrorCodes {
     'REQUEST_TIMEOUT': 'Request timeout',
     'INVALID_JSON': 'Invalid JSON request body',
     'INVALID_REQUEST': 'Invalid request',
+    // A group that still has active members always has at least one admin.
+    // These are the server refusing an action that would break that: leaving as
+    // the last admin without naming a successor, and demoting or removing the
+    // only admin.
+    'SUCCESSOR_REQUIRED': 'Choose who becomes an admin before you leave',
+    'LAST_ADMIN': 'This is the only admin — make someone else an admin first',
   };
 }

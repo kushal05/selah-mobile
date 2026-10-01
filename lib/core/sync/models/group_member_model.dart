@@ -42,6 +42,14 @@ class GroupMemberModel implements SyncEntity {
   /// Creation timestamp
   final int createdAt;
 
+  /// When this person left, if they have. The server keeps their row so the
+  /// group stays readable to them, and leaves them off the roster — so this is
+  /// normally null here, and exists for the rare caller that reads raw rows.
+  final int? leftAt;
+
+  /// Whether this membership is a former one.
+  bool get hasLeft => leftAt != null;
+
   const GroupMemberModel({
     required this.id,
     required this.groupId,
@@ -55,6 +63,7 @@ class GroupMemberModel implements SyncEntity {
     required this.deleted,
     this.trashedAt,
     required this.createdAt,
+    this.leftAt,
   });
 
   @override
@@ -116,6 +125,7 @@ class GroupMemberModel implements SyncEntity {
       deleted: _parseDeleted(json['deleted']),
       trashedAt: json['trashedAt'] as int?,
       createdAt: json['createdAt'] as int,
+      leftAt: json['leftAt'] as int?,
     );
   }
 

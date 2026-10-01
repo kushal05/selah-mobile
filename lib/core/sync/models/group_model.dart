@@ -54,6 +54,19 @@ class GroupModel implements SyncEntity {
   /// Per-field update timestamps for field-level merge.
   final Map<String, int> fieldUpdatedAt;
 
+  /// When the signed-in user left this group, if they have.
+  ///
+  /// Server-supplied and not part of the group itself — two people can be
+  /// looking at the same group with different answers. Leaving keeps the
+  /// membership so the history stays readable, so this is the only thing that
+  /// distinguishes a group you are in from one you keep to look back at.
+  final int? viewerLeftAt;
+
+  /// Whether the signed-in user has left: the group is readable, never
+  /// writable. Every write the app offers must be gated on this, and the
+  /// server refuses them regardless.
+  bool get isReadOnlyForViewer => viewerLeftAt != null;
+
   /// Fields eligible for field-level merge.
   static const mergeableFields = [
     'name',
@@ -78,6 +91,7 @@ class GroupModel implements SyncEntity {
     required this.deleted,
     this.trashedAt,
     required this.createdAt,
+    this.viewerLeftAt,
     this.fieldUpdatedAt = const {},
   });
 
@@ -137,6 +151,7 @@ class GroupModel implements SyncEntity {
       trashedAt: json['trashedAt'] as int?,
       createdAt: json['createdAt'] as int,
       fieldUpdatedAt: _parseFieldTimestamps(json['fieldUpdatedAt']),
+      viewerLeftAt: json['viewerLeftAt'] as int?,
     );
   }
 

@@ -14,6 +14,7 @@ import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../prayers/presentation/screens/prayer_detail_screen.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
 import '../widgets/announcement_card.dart';
+import '../widgets/choose_successor_dialog.dart';
 import '../../../../core/services/user_facing_error.dart';
 import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
@@ -79,7 +80,12 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
                   final isAdmin = currentMember.isNotEmpty &&
                       currentMember.first.isAdmin;
 
-                  if (!isAdmin) return const SizedBox.shrink();
+                  // A group you have left offers nothing to manage. The roster leaves
+                  // former members off, so isAdmin is already false for them — this is
+                  // belt and braces for the moment before the roster arrives.
+                  if (!isAdmin || ref.watch(groupIsReadOnlyProvider(widget.groupId))) {
+                    return const SizedBox.shrink();
+                  }
 
                   return PopupMenuButton<String>(
                     onSelected: (value) {
@@ -138,15 +144,45 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
               ],
             ),
           ),
-          body: TabBarView(
-            controller: _tabController,
+          body: Column(
             children: [
-              _OverviewTab(groupId: widget.groupId),
-              _FeedTab(groupId: widget.groupId),
-              _PrayersTab(groupId: widget.groupId),
-              _AnnouncementsTab(groupId: widget.groupId),
-              _MembersTab(groupId: widget.groupId),
-              _InfoTab(groupId: widget.groupId),
+              // Said once, at the top, rather than left for the reader to
+              // infer from buttons that are no longer there.
+              if (group.isReadOnlyForViewer)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppTheme.spacing16,
+                      vertical: AppTheme.spacing8),
+                  color: AppTheme.mutedGrey.withValues(alpha: 0.12),
+                  child: Row(
+                    children: [
+                      Icon(Icons.history_outlined,
+                          size: AppTheme.iconSM, color: context.mutedText),
+                      const SizedBox(width: AppTheme.spacing8),
+                      Expanded(
+                        child: Text(
+                          l10n(context).readOnlyYouLeftThisGroup,
+                          style: TextStyle(
+                              color: context.mutedText, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _OverviewTab(groupId: widget.groupId),
+                    _FeedTab(groupId: widget.groupId),
+                    _PrayersTab(groupId: widget.groupId),
+                    _AnnouncementsTab(groupId: widget.groupId),
+                    _MembersTab(groupId: widget.groupId),
+                    _InfoTab(groupId: widget.groupId),
+                  ],
+                ),
+              ),
             ],
           ),
         );
@@ -574,6 +610,7 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
   @override
   Widget build(BuildContext context) {
     final groupPrayersAsync = ref.watch(groupPrayersProvider(widget.groupId));
+    final readOnly = ref.watch(groupIsReadOnlyProvider(widget.groupId));
     // Who may take a share down: the person who shared it, and whoever
     // manages the group — an inappropriate prayer needs a moderator, and the
     // author is not always around to remove it.
@@ -722,7 +759,7 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
                               ],
                             ),
                           ),
-                          if (gp.addedByUserId == viewerId || canManage)
+                          if (!readOnly && (gp.addedByUserId == viewerId || canManage))
                             PopupMenuButton<String>(
                               tooltip: l10n(context).moreOptions,
                               onSelected: (_) => removePrayerFromGroup(
@@ -755,6 +792,8 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
             );
           },
         ),
+        // Nothing to add to a group you have left.
+        if (!readOnly)
         Positioned(
           bottom: 16,
           right: 16,
@@ -1220,7 +1259,7 @@ class _AnnouncementsTabState extends ConsumerState<_AnnouncementsTab> {
                   );
                 },
               ),
-            if (canManage)
+            if (canManage && !ref.watch(groupIsReadOnlyProvider(widget.groupId)))
               Positioned(
                 bottom: 16,
                 right: 16,
@@ -1689,6 +1728,26 @@ class _InfoTab extends ConsumerWidget {
             error: (_, _) => const SizedBox.shrink(),
             data: (members) {
               final currentUserId = ref.watch(currentUserIdProvider);
+              final readOnly = ref.watch(groupIsReadOnlyProvider(groupId));
+
+              // Someone who left is not on the roster, so isMember is false
+              // for them — but they are still here, reading. They get the one
+              // action left to them: dropping the copy they kept.
+              if (readOnly) {
+                return SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _dropKeptGroup(context, ref, groupId),
+                    icon: const Icon(Icons.delete_outline),
+                    label: Text(l10n(context).removeFromMyList),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: context.dangerText,
+                      side: BorderSide(color: context.dangerText),
+                    ),
+                  ),
+                );
+              }
+
               final isMember =
                   members.any((m) => m.memberUserId == currentUserId);
               if (!isMember) return const SizedBox.shrink();
@@ -1713,17 +1772,20 @@ class _InfoTab extends ConsumerWidget {
     );
   }
 
-  Future<void> _confirmLeaveGroup(
+  /// Drops a group that was kept only to read.
+  ///
+  /// The counterpart to keeping it. Without this a kept group would be
+  /// permanent — a worse trap than the one this whole change removes.
+  Future<void> _dropKeptGroup(
     BuildContext context,
     WidgetRef ref,
     String groupId,
-    String currentUserId,
   ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(l10n(context).leaveGroup),
-        content: Text(l10n(context).areYouSureYouWantToLeaveThisGroup),
+        title: Text(l10n(context).removeFromMyList),
+        content: Text(l10n(context).thisGroupWillNoLongerAppearInYourList),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -1732,22 +1794,88 @@ class _InfoTab extends ConsumerWidget {
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: context.dangerText),
-            child: Text(l10n(context).leave),
+            child: Text(l10n(context).remove),
           ),
         ],
       ),
     );
-
     if (confirmed != true) return;
 
     try {
-      await ref.read(groupsApiServiceProvider).leaveGroup(groupId);
+      await ref
+          .read(groupsApiServiceProvider)
+          .leaveGroup(groupId, keepReadOnly: false);
       ref.invalidate(groupsListProvider);
       ref.invalidate(groupCountProvider);
       if (context.mounted) {
+        context.pop();
+      }
+    } catch (e) {
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(l10n(context).youLeftTheGroup),
+            content: Text(UserFacingError.message(e, action: 'remove group')),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Leaves the group, having settled the two things the server needs to know:
+  /// who inherits it, and whether to keep it.
+  ///
+  /// Keeping it is the default. People leave groups they still want to refer
+  /// back to, and the kept copy is read-only — the group stays in their list
+  /// and nothing in it can be changed. Not keeping it drops the group from
+  /// their list, which is what leaving used to do and all it could do.
+  Future<void> _confirmLeaveGroup(
+    BuildContext context,
+    WidgetRef ref,
+    String groupId,
+    String currentUserId,
+  ) async {
+    final members = ref.read(groupMembersProvider(groupId)).valueOrNull;
+    // Null means the roster has not been read. Rather than guess at who is in
+    // charge, let the server decide and answer with SUCCESSOR_REQUIRED if the
+    // guess was wrong — the alternative is silently skipping the question.
+    final me = members?.where((m) => m.memberUserId == currentUserId).firstOrNull;
+    final others = members?.where((m) => m.memberUserId != currentUserId).toList();
+    final lastAdmin = me != null &&
+        me.isAdmin &&
+        others != null &&
+        !others.any((m) => m.isAdmin);
+
+    // Only asked when there is a real choice. With one other member the server
+    // promotes them unprompted, and with none there is nobody to ask about.
+    String? successorId;
+    if (lastAdmin && others.length > 1) {
+      successorId = await ChooseSuccessorDialog.show(context, others);
+      if (successorId == null) return; // backing out cancels the departure
+      if (!context.mounted) return;
+    }
+
+    final keep = await _LeaveGroupDialog.show(context);
+    if (keep == null) return;
+
+    try {
+      await ref.read(groupsApiServiceProvider).leaveGroup(
+            groupId,
+            keepReadOnly: keep,
+            successorMemberId: successorId,
+          );
+      ref.invalidate(groupsListProvider);
+      ref.invalidate(groupCountProvider);
+      // The two the old code forgot: without them the screen behind keeps the
+      // roster and the group it had before the departure.
+      ref.invalidate(groupMembersProvider(groupId));
+      ref.invalidate(groupByIdProvider(groupId));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(keep
+                ? l10n(context).youLeftTheGroupItIsNowReadOnly
+                : l10n(context).youLeftTheGroup),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -2182,5 +2310,67 @@ Future<void> deleteGroupAnnouncement(
         ),
       );
     }
+  }
+}
+
+/// Asks what to leave behind.
+///
+/// Keeping is offered first and selected by default because it is the
+/// recoverable choice: a kept group can still be dropped later, while a dropped
+/// one is gone from the list for good.
+class _LeaveGroupDialog extends StatefulWidget {
+  const _LeaveGroupDialog();
+
+  /// Returns true to keep the group as read-only, false to drop it, or null if
+  /// the person changed their mind about leaving at all.
+  static Future<bool?> show(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => const _LeaveGroupDialog(),
+    );
+  }
+
+  @override
+  State<_LeaveGroupDialog> createState() => _LeaveGroupDialogState();
+}
+
+class _LeaveGroupDialogState extends State<_LeaveGroupDialog> {
+  bool _keep = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(l10n(context).leaveGroup),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(l10n(context).areYouSureYouWantToLeaveThisGroup),
+          const SizedBox(height: AppTheme.spacing12),
+          CheckboxListTile(
+            value: _keep,
+            onChanged: (value) => setState(() => _keep = value ?? true),
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            title: Text(l10n(context).keepThisGroupToReadIt),
+            subtitle: Text(
+              l10n(context).keptGroupsAreReadOnly,
+              style: TextStyle(color: context.mutedText, fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n(context).actionCancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, _keep),
+          style: TextButton.styleFrom(foregroundColor: context.dangerText),
+          child: Text(l10n(context).leave),
+        ),
+      ],
+    );
   }
 }

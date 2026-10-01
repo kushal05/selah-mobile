@@ -65,10 +65,14 @@ abstract class BaseSocialApiService {
   }
 
   /// DELETE with auto token refresh + retry via interceptor.
-  Future<http.Response> httpDelete(String path) async {
+  Future<http.Response> httpDelete(String path, {Map<String, dynamic>? body}) async {
     await interceptor.ensureValidToken();
     final uri = buildUri(path);
-    return interceptor.delete(uri, headers: headers);
+    return interceptor.delete(
+      uri,
+      headers: headers,
+      body: body != null ? jsonEncode(body) : null,
+    );
   }
 
   /// Parse response body as JSON map.

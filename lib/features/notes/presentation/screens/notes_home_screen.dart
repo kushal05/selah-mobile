@@ -33,6 +33,7 @@ import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../core/navigation/tab_navigation.dart';
 import '../../../../shared/widgets/filter_pill.dart';
+import '../../../../shared/widgets/tap_target.dart';
 import '../../../../shared/utils/date_format.dart';
 import '../../../../shared/widgets/tab_title.dart';
 
@@ -65,6 +66,14 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
   // prevent unbounded growth without the overhead of LRU bookkeeping.
   static const _previewCacheMaxSize = 500;
   final Map<String, String?> _previewCache = {};
+
+  /// What the clear-filters button is drawn at: a 16pt glyph in 6pt of padding
+  /// inside a 1pt border. Written as the sum so it cannot drift from the box.
+  static const double _clearButtonSize = 16 + 6 * 2 + 1 * 2;
+
+  /// What the Filter toggle is drawn at — level with the dense chips it opens,
+  /// and below [AppTheme.minTapTarget], which [TapTarget] makes up for.
+  static const double _filterButtonHeight = FilterPill.densePaintHeight;
 
   @override
   void initState() {
@@ -596,7 +605,8 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _buildFilterButton(context),
-                    const SizedBox(width: 4),
+                    // 12, not 4: the two were close enough to read as one.
+                    const SizedBox(width: AppTheme.spacing12),
                     _buildSortControl(context),
                   ],
                 ),
@@ -747,46 +757,72 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     );
   }
 
-  /// Builds the filter toggle button with active count badge
+  /// Builds the filter toggle: a named button, not a bare glyph.
+  ///
+  /// It used to be an 18px icon four pixels from the sort label, with no
+  /// padding and nothing to say what it did — two controls crowded into one
+  /// shape. It now says "Filter", carries its own padding and a tap target
+  /// worth aiming at, and reads as separate from the sort beside it.
   Widget _buildFilterButton(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: l10n(context).toggleFilters,
-      child: GestureDetector(
-        onTap: () {
-          _uiCtl.setFilterBarVisible(!_ui.filterBarVisible);
-        },
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              _ui.filterBarVisible
-                  ? Icons.filter_list_rounded
-                  : Icons.filter_list_off_rounded,
-              size: 18,
-              color: _ui.hasActiveFilters
-                  ? context.accentInk(AppTheme.brandPurple)
-                  : context.mutedText,
-            ),
-            if (_ui.hasActiveFilters) ...[
-              const SizedBox(width: 2),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                decoration: BoxDecoration(
-                  color: AppTheme.brandPurple,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '${_ui.activeFilterCount}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+    final theme = Theme.of(context);
+    final on = _ui.filterBarVisible;
+    final ink = _ui.hasActiveFilters || on
+        ? context.accentInk(AppTheme.brandPurple)
+        : context.mutedText;
+
+    // Drawn at 36 to sit level with the chips below it, held to the 44 floor by
+    // the padding around it. What this replaced was an 18pt bare icon with no
+    // padding at all, which is what "the filter button is very small" meant.
+    return TapTarget(
+      paintedHeight: _filterButtonHeight,
+      onTap: () => _uiCtl.setFilterBarVisible(!on),
+      child: Semantics(
+        button: true,
+        label: l10n(context).toggleFilters,
+        child: Material(
+          color: on
+              ? AppTheme.brandPurple.withValues(alpha: AppTheme.alphaLight)
+              : Colors.transparent,
+          borderRadius: AppTheme.borderRadius2XL,
+          child: InkWell(
+            onTap: () => _uiCtl.setFilterBarVisible(!on),
+            borderRadius: AppTheme.borderRadius2XL,
+            child: Container(
+              constraints: const BoxConstraints(
+                minHeight: _filterButtonHeight,
               ),
-            ],
-          ],
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.spacing12, vertical: AppTheme.spacing6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.filter_list_rounded, size: 18, color: ink),
+                    const SizedBox(width: AppTheme.spacing6),
+                    Text(l10n(context).filterNoun,
+                        style: theme.textTheme.labelSmall?.copyWith(color: ink)),
+                    if (_ui.hasActiveFilters) ...[
+                      const SizedBox(width: AppTheme.spacing6),
+                      Container(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppTheme.brandPurple,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${_ui.activeFilterCount}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+            ),
+          ),
         ),
       ),
     );
@@ -798,89 +834,120 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     final peopleAsync = ref.watch(peopleStreamProvider);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      // Full width on purpose. The enclosing Column centres its children
+      // instead of stretching them, so without this the bar shrank to the
+      // width of the pills and its bottom rule stopped short on both sides —
+      // a hairline floating in the middle of the screen rather than a divider.
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: context.pageGround,
         border: Border(bottom: BorderSide(color: context.hairline, width: 1)),
       ),
-      child: Row(
-        children: [
-          // Tag filter chip
-          Expanded(
-            child: tagsAsync.when(
-              loading: () => const SizedBox.shrink(),
-              error: (_, _) => const SizedBox.shrink(),
-              data: (tags) => FilterPill(
-                icon: Icons.label_outlined,
-                label: _ui.filterTagIds.isEmpty
-                    ? 'Tags'
-                    : '${_ui.filterTagIds.length} tag${_ui.filterTagIds.length == 1 ? '' : 's'}',
-                selected: _ui.filterTagIds.isNotEmpty,
-                onTap: () => _showTagFilterSheet(context, tags),
-                accent: AppTheme.brandPurple,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          // Preacher filter chip
-          Expanded(
-            child: peopleAsync.when(
-              loading: () => const SizedBox.shrink(),
-              error: (_, _) => const SizedBox.shrink(),
-              data: (people) {
-                final selectedName = _ui.filterPreacherId != null
-                    ? people
-                          .where((p) => p.id == _ui.filterPreacherId)
-                          .map((p) => p.name)
-                          .firstOrNull
-                    : null;
-                return FilterPill(
-                  icon: Icons.person_outlined,
-                  label: selectedName ?? 'Preacher',
-                  selected: _ui.filterPreacherId != null,
-                  onTap: () => _showPreacherFilterSheet(context, people),
-                  accent: AppTheme.brandPurple,
-                );
-              },
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          // Date range chip
-          Expanded(
-            child: FilterPill(
-              icon: Icons.calendar_today_outlined,
-              label: _ui.filterDateRange != null
-                  ? '${_ui.filterDateRange!.start.day}/${_ui.filterDateRange!.start.month} – ${_ui.filterDateRange!.end.day}/${_ui.filterDateRange!.end.month}'
-                  : 'Date',
-              selected: _ui.filterDateRange != null,
-              onTap: () => _showDateRangeFilter(context),
-              accent: AppTheme.brandPurple,
-            ),
-          ),
-
-          // Clear all
-          if (_ui.hasActiveFilters) ...[
-            const SizedBox(width: 8),
-            Semantics(
-              button: true,
-              label: l10n(context).clearFilters,
-              child: GestureDetector(
-                onTap: _clearFilters,
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+      // Scrolled at their natural width, the way the songs and global-search
+      // bars already do it. Three Expanded pills split the screen into thirds
+      // and gave "Tags" a chip wide enough for a sentence — what looked wrong
+      // was the stretch, not the pill.
+      //
+      // Centred as a group, which needs the minWidth floor: a horizontal scroll
+      // view hands its child unbounded width, so a Row inside one shrink-wraps
+      // and `mainAxisAlignment` has nothing to centre within. Holding the Row to
+      // at least the bar's own width gives it room to centre in, and once the
+      // pills outgrow that the floor stops binding and the bar scrolls again.
+      child: LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: constraints.maxWidth),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Tag filter chip
+                tagsAsync.when(
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, _) => const SizedBox.shrink(),
+                  data: (tags) => FilterPill(
+                    icon: Icons.label_outlined,
+                    label: _ui.filterTagIds.isEmpty
+                        ? 'Tags'
+                        : '${_ui.filterTagIds.length} tag${_ui.filterTagIds.length == 1 ? '' : 's'}',
+                    selected: _ui.filterTagIds.isNotEmpty,
+                    onTap: () => _showTagFilterSheet(context, tags),
+                    accent: AppTheme.brandPurple,
+                    dense: true,
                   ),
-                  child: Icon(Icons.close, size: 16, color: context.dangerText),
                 ),
-              ),
+                const SizedBox(width: 8),
+
+                // Preacher filter chip
+                peopleAsync.when(
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, _) => const SizedBox.shrink(),
+                  data: (people) {
+                    final selectedName = _ui.filterPreacherId != null
+                        ? people
+                              .where((p) => p.id == _ui.filterPreacherId)
+                              .map((p) => p.name)
+                              .firstOrNull
+                        : null;
+                    return FilterPill(
+                      icon: Icons.person_outlined,
+                      label: selectedName ?? 'Preacher',
+                      selected: _ui.filterPreacherId != null,
+                      onTap: () => _showPreacherFilterSheet(context, people),
+                      accent: AppTheme.brandPurple,
+                      dense: true,
+                    );
+                  },
+                ),
+                const SizedBox(width: 8),
+
+                // Date range chip
+                FilterPill(
+                  icon: Icons.calendar_today_outlined,
+                  label: _ui.filterDateRange != null
+                      ? '${_ui.filterDateRange!.start.day}/${_ui.filterDateRange!.start.month} – ${_ui.filterDateRange!.end.day}/${_ui.filterDateRange!.end.month}'
+                      : 'Date',
+                  selected: _ui.filterDateRange != null,
+                  onTap: () => _showDateRangeFilter(context),
+                  accent: AppTheme.brandPurple,
+                  dense: true,
+                ),
+
+                // Clear all
+                if (_ui.hasActiveFilters) ...[
+                const SizedBox(width: 8),
+                // Square and small, so both axes need holding to the floor.
+                // Clearing every filter at once is the one destructive thing in
+                // this bar, and it had the smallest target in it.
+                TapTarget(
+                  paintedHeight: _clearButtonSize,
+                  paintedWidth: _clearButtonSize,
+                  onTap: _clearFilters,
+                  child: Semantics(
+                    button: true,
+                    label: l10n(context).clearFilters,
+                    child: GestureDetector(
+                      onTap: _clearFilters,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border:
+                              Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                        ),
+                        child:
+                            Icon(Icons.close, size: 16, color: context.dangerText),
+                      ),
+                    ),
+                  ),
+                ),
+                ],
+              ],
             ),
-          ],
-        ],
+          ),
+        ),
       ),
     );
   }

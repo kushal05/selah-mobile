@@ -43,7 +43,10 @@ class NotesHomeUiState {
     this.selectedNoteIds = const {},
     this.activeSmartCollection,
     this.showingTrash = false,
-    this.filterBarVisible = true,
+    // Hidden until asked for. The bar carries three rows of chips and pushed
+    // the notes themselves down the screen on every visit, for a control most
+    // openings never touch.
+    this.filterBarVisible = false,
     this.filterTagIds = const {},
     this.filterPreacherId,
     this.filterDateRange,

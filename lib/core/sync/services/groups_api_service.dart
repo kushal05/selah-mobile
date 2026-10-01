@@ -136,9 +136,28 @@ class GroupsApiService extends BaseSocialApiService {
   }
 
   /// Leave a group (current user).
-  Future<void> leaveGroup(String groupId) async {
-    final response =
-        await httpDelete('/groups/$groupId/members/me');
+  ///
+  /// [keepReadOnly] decides what is left behind. Keeping it holds the group in
+  /// the user's list as something they can still read but never write to —
+  /// people leave groups they want to refer back to. Not keeping it drops the
+  /// group from their list entirely. Neither affects anybody else; destroying
+  /// the group for everyone is a separate, admin-only action.
+  ///
+  /// [successorMemberId] is only needed when the caller is the last admin and
+  /// more than one active member remains. The server decides that, and says so
+  /// with SUCCESSOR_REQUIRED if the app guesses wrong.
+  Future<void> leaveGroup(
+    String groupId, {
+    bool keepReadOnly = true,
+    String? successorMemberId,
+  }) async {
+    final response = await httpDelete(
+      '/groups/$groupId/members/me',
+      body: {
+        'keepReadOnly': keepReadOnly,
+        if (successorMemberId != null) 'successorMemberId': successorMemberId,
+      },
+    );
     assertSuccess(response, 'Leave group');
   }
 

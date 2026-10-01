@@ -55,8 +55,19 @@ class FolderRow extends StatelessWidget {
     // Calculate indentation based on depth (16dp per level)
     final double indentation = 16.0 + (depth * 16.0);
 
+    final accent = accentColor ?? AppTheme.brandPurple;
+
     return Material(
-      color: isActive ? Colors.grey.shade100 : Colors.transparent,
+      // A tint of the folder's own accent, not Colors.grey.shade100.
+      //
+      // That literal is a light grey whatever the theme, so a selected folder
+      // in dark mode was a near-white band across the list. A tint composites
+      // over whichever ground is behind it and lands correctly in both, and
+      // picking up the accent the row already uses for its icon says
+      // "selected" rather than merely "different".
+      color: isActive
+          ? accent.withValues(alpha: AppTheme.alphaLight)
+          : Colors.transparent,
       child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,
@@ -72,9 +83,12 @@ class FolderRow extends StatelessWidget {
               Icon(
                 isActive ? Icons.folder_open_rounded : Icons.folder_rounded,
                 size: 24,
+                // accentInk, not the raw accent: this is a glyph drawn on
+                // the row, and the raw brand colours do not all clear 3:1 on
+                // both grounds.
                 color: isActive
-                    ? (accentColor ?? AppTheme.brandPurple)
-                    : (accentColor ?? AppTheme.brandPurple).withValues(alpha: 0.8),
+                    ? context.accentInk(accent)
+                    : context.accentInk(accent).withValues(alpha: 0.8),
               ),
               const SizedBox(width: 12),
 

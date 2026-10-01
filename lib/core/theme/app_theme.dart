@@ -649,6 +649,15 @@ class AppTheme {
   /// Scroll indicator (e.g., loading spinner)
   static const double spinnerSize = 32;
 
+  /// The smallest a control may be to *touch*, in logical pixels.
+  ///
+  /// How large a control is drawn and how large a region answers a touch are
+  /// different measurements, and only this one is an accessibility floor: a
+  /// chip that merely looks small is a style choice, while a 30pt target is a
+  /// miss for anyone without precise hands. [TapTarget] holds the second to
+  /// this floor without changing the first.
+  static const double minTapTarget = 44;
+
   // ═══════════════════════════════════════════════════════════════════════════
   // ALPHA / OPACITY VALUES
   // ═══════════════════════════════════════════════════════════════════════════
