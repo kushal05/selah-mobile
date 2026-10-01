@@ -40,6 +40,7 @@ import '../repositories/prayer_repository.dart';
 import '../repositories/promise_repository.dart';
 import '../repositories/person_repository.dart';
 import '../repositories/song_repository.dart';
+import '../repositories/song_folder_repository.dart';
 import '../repositories/prayer_log_repository.dart';
 import '../repositories/prayer_update_repository.dart';
 import '../models/prayer_update_model.dart';
@@ -537,6 +538,40 @@ final tagsForSongStreamProvider = StreamProvider.family<List<String>, String>((r
   final repository = ref.watch(songTagRepositoryProvider);
   return repository.watchTagIdsForSong(songId);
 });
+
+// ==================== SONG FOLDER PROVIDERS ====================
+
+/// Provider for the song-folder (songbook membership) repository
+final songFolderRepositoryProvider = Provider<SongFolderRepository>((ref) {
+  final database = ref.watch(syncDatabaseProvider);
+  final deviceId = ref.watch(deviceIdProvider);
+  return SongFolderRepository(database, deviceId);
+});
+
+/// A song's songbooks, primary first. Includes `folderId`, so it is the one
+/// place to ask "which songbooks is this song in".
+final songbooksForSongStreamProvider =
+    StreamProvider.autoDispose.family<List<Songbook>, String>((ref, songId) {
+  final repository = ref.watch(songFolderRepositoryProvider);
+  return repository.watchSongbooksForSong(songId);
+});
+
+/// Live songbook links for the current user, song ID -> folder IDs. Does not
+/// include each song's `folderId`; use [songInFolder] to test membership.
+final songFolderLinksStreamProvider =
+    StreamProvider<Map<String, Set<String>>>((ref) {
+  final repository = ref.watch(songFolderRepositoryProvider);
+  final userId = ref.watch(currentUserIdProvider);
+  return repository.watchLinksBySong(userId);
+});
+
+/// Whether [song] is in songbook [folderId], by its primary folder or a link.
+bool songInFolder(
+  SongModel song,
+  String folderId,
+  Map<String, Set<String>> links,
+) =>
+    song.folderId == folderId || (links[song.id]?.contains(folderId) ?? false);
 
 // ==================== PREACHER PROVIDERS ====================
 

@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart';
 
+import '../../database/services/note_block_fts_service.dart';
 import '../../database/sync_database.dart';
+import '../../../features/notes/domain/services/inline_tag_parser.dart';
 import '../models/oplog_entry.dart';
 import '../models/tag_model.dart';
 import 'base_sync_repository.dart';
@@ -191,18 +193,106 @@ class TagRepository extends BaseSyncRepository<TagModel> {
     return query.watch().map((rows) => rows.map(_toModel).toList());
   }
 
+  /// Throws [TagStillWrittenException] while any note's text still contains
+  /// `#name`: a note derives its tags from its text on every save, so the
+  /// next save would only bring the tag back.
   Future<void> deleteTag(String id) async {
     final existing = await getTagById(id);
     if (existing == null) return;
 
+    final writers = await countNotesWritingTag(existing.name, existing.userId);
+    if (writers > 0) {
+      throw TagStillWrittenException(existing.name, writers);
+    }
+    await _softDeleteTag(existing);
+  }
+
+  /// [deleteTag] for many tags, reading the notes once instead of once per
+  /// tag — what Empty Trash and the Trash purge need. Tags still written as
+  /// `#name` are kept, not thrown for, and returned so the caller can say so.
+  ///
+  /// The notes are read up front, so a caller that also deletes notes (Empty
+  /// Trash, the purge) must do that first, as both already do.
+  Future<({int deleted, List<TagStillWrittenException> kept})> deleteTags(
+    List<String> ids,
+  ) async {
+    final writtenByUser = <String, Map<String, int>>{};
+    final kept = <TagStillWrittenException>[];
+    var deleted = 0;
+    for (final id in ids) {
+      final tag = await getTagById(id);
+      if (tag == null) continue;
+      final written = writtenByUser[tag.userId] ??=
+          await countNotesWritingTags(tag.userId);
+      final writers = written[tag.name.trim().toLowerCase()] ?? 0;
+      if (writers > 0) {
+        kept.add(TagStillWrittenException(tag.name, writers));
+        continue;
+      }
+      await _softDeleteTag(tag);
+      deleted++;
+    }
+    return (deleted: deleted, kept: kept);
+  }
+
+  Future<void> _softDeleteTag(TagModel existing) async {
     final deleted = existing.softDelete();
     final oplogEntry = createDeleteOp(deleted);
 
     await _db.transaction(() async {
-      await (_db.update(_db.syncTags)..where((t) => t.id.equals(id)))
+      await (_db.update(_db.syncTags)..where((t) => t.id.equals(existing.id)))
           .write(_toCompanion(deleted));
       await _db.into(_db.oplog).insert(_oplogToCompanion(oplogEntry));
+      // Its links on notes, songs, prayers and promises go with it. Trash
+      // keeps them, so a restored tag is back on everything it was on; only
+      // this is final.
+      await _retireJunctionRowsForTag(existing.id);
     });
+  }
+
+  /// How many of the user's notes write [name] as `#name` in their text.
+  ///
+  /// Read the way the note editor derives tags: every block's plain text
+  /// except Bible references, parsed by the same [InlineTagParser], so this
+  /// agrees with what the next save would put back. Notes in Trash or
+  /// deleted do not count; the user cannot see them to edit them.
+  ///
+  /// Known consequence, accepted: restore a trashed note that writes `#name`
+  /// after the tag was deleted, and its next save creates the tag again.
+  /// Counting trashed notes was the alternative and was rejected — refusing a
+  /// delete over something only reachable through Trash is more confusing,
+  /// and restoring a note is a deliberate act.
+  Future<int> countNotesWritingTag(String name, String userId) async =>
+      (await countNotesWritingTags(userId))[name.trim().toLowerCase()] ?? 0;
+
+  /// Every name the user's notes write as `#name`, with how many notes write
+  /// it, in one pass over the notes. Read as [countNotesWritingTag] describes.
+  Future<Map<String, int>> countNotesWritingTags(String userId) async {
+    final rows = await _db.customSelect(
+      'SELECT b.note_id, b.content_json FROM note_blocks b '
+      'JOIN sync_notes n ON n.id = b.note_id '
+      'WHERE n.user_id = ? AND n.deleted = 0 AND n.trashed_at IS NULL '
+      'AND b.deleted = 0 AND b.trashed_at IS NULL '
+      "AND b.block_type != 'bibleReference' "
+      // A cheap filter only. Matching is left to the parser, which knows
+      // the word boundaries and the case folding.
+      "AND b.content_json LIKE '%#%'",
+      variables: [Variable.withString(userId)],
+      readsFrom: {_db.noteBlocks, _db.syncNotes},
+    ).get();
+
+    final notesByName = <String, Set<String>>{};
+    for (final row in rows) {
+      final text =
+          NoteBlockFtsService.extractPlainText(row.read<String>('content_json'));
+      final noteId = row.read<String>('note_id');
+      for (final name in InlineTagParser.names(text)) {
+        (notesByName[name] ??= <String>{}).add(noteId);
+      }
+    }
+    return {
+      for (final entry in notesByName.entries) entry.key: entry.value.length,
+    };
   }
 
   /// Rename a tag and keep existing relationships.
@@ -270,6 +360,10 @@ class TagRepository extends BaseSyncRepository<TagModel> {
 
   /// Merge [sourceTagId] into [targetTagId] across every junction table, then
   /// soft-delete the source tag.
+  ///
+  /// Throws [TagStillWrittenException] while notes still write the source as
+  /// `#name`, for the same reason as [deleteTag]: the next save of those notes
+  /// would bring it back. The text is the user's, so it is not rewritten.
   Future<void> mergeTags({
     required String sourceTagId,
     required String targetTagId,
@@ -280,6 +374,11 @@ class TagRepository extends BaseSyncRepository<TagModel> {
     final target = await getTagById(targetTagId);
     if (source == null) throw TagNotFoundException(sourceTagId);
     if (target == null) throw TagNotFoundException(targetTagId);
+
+    final writers = await countNotesWritingTag(source.name, source.userId);
+    if (writers > 0) {
+      throw TagStillWrittenException(source.name, writers);
+    }
 
     await _db.transaction(() async {
       for (final (table, ownerColumn, ownerKey, type) in _tagJunctions) {
@@ -316,8 +415,8 @@ class TagRepository extends BaseSyncRepository<TagModel> {
     required String targetTagId,
   }) async {
     final rows = await _db.customSelect(
-      'SELECT id, $ownerColumn AS owner_id, user_id, version FROM $table '
-      'WHERE tag_id = ? AND deleted = 0',
+      'SELECT id, $ownerColumn AS owner_id, user_id, version, created_at '
+      'FROM $table WHERE tag_id = ? AND deleted = 0',
       variables: [Variable.withString(sourceTagId)],
     ).get();
 
@@ -354,30 +453,76 @@ class TagRepository extends BaseSyncRepository<TagModel> {
           timestamp: now,
           version: 1,
           deleted: 0,
+          createdAt: now,
         );
       }
 
-      final retiredAt = TestClock.now();
-      final retiredVersion = row.read<int>('version') + 1;
-      final retiredId = row.read<String>('id');
-      await _db.customStatement(
-        'UPDATE $table SET deleted = 1, updated_at = ?, version = ? '
-        'WHERE id = ?',
-        [retiredAt, retiredVersion, retiredId],
-      );
-      await _writeJunctionOp(
-        entityType: entityType,
-        operation: OplogOperation.delete,
-        id: retiredId,
+      await _retireJunctionRow(
+        table: table,
         ownerKey: ownerKey,
-        ownerId: ownerId,
+        entityType: entityType,
         tagId: sourceTagId,
-        userId: userId,
-        timestamp: retiredAt,
-        version: retiredVersion,
-        deleted: 1,
+        row: row,
       );
     }
+  }
+
+  /// Retires every live row in every junction table that points at [tagId].
+  ///
+  /// Used when a tag is deleted for good. Left live, the rows pointed at a
+  /// tag that no longer exists: invisible in the app, which resolves names
+  /// against live tags, but enough to stop the server's GC from ever
+  /// hard-deleting the tag, since it skips parents with live children.
+  Future<void> _retireJunctionRowsForTag(String tagId) async {
+    for (final (table, ownerColumn, ownerKey, type) in _tagJunctions) {
+      final rows = await _db.customSelect(
+        'SELECT id, $ownerColumn AS owner_id, user_id, version, created_at '
+        'FROM $table WHERE tag_id = ? AND deleted = 0',
+        variables: [Variable.withString(tagId)],
+      ).get();
+      for (final row in rows) {
+        await _retireJunctionRow(
+          table: table,
+          ownerKey: ownerKey,
+          entityType: type,
+          tagId: tagId,
+          row: row,
+        );
+      }
+    }
+  }
+
+  /// Soft-deletes one junction [row] (selected with id, owner_id, user_id,
+  /// version and created_at) and records it in the oplog. Shared by merge
+  /// and delete so the two cannot write different payloads.
+  Future<void> _retireJunctionRow({
+    required String table,
+    required String ownerKey,
+    required OplogEntityType entityType,
+    required String tagId,
+    required QueryRow row,
+  }) async {
+    final retiredAt = TestClock.now();
+    final retiredVersion = row.read<int>('version') + 1;
+    final retiredId = row.read<String>('id');
+    await _db.customStatement(
+      'UPDATE $table SET deleted = 1, updated_at = ?, version = ? '
+      'WHERE id = ?',
+      [retiredAt, retiredVersion, retiredId],
+    );
+    await _writeJunctionOp(
+      entityType: entityType,
+      operation: OplogOperation.delete,
+      id: retiredId,
+      ownerKey: ownerKey,
+      ownerId: row.read<String>('owner_id'),
+      tagId: tagId,
+      userId: row.read<String>('user_id'),
+      timestamp: retiredAt,
+      version: retiredVersion,
+      deleted: 1,
+      createdAt: row.read<int>('created_at'),
+    );
   }
 
   /// Records a junction change in the oplog.
@@ -397,6 +542,7 @@ class TagRepository extends BaseSyncRepository<TagModel> {
     required int timestamp,
     required int version,
     required int deleted,
+    required int createdAt,
   }) async {
     final payload = <String, dynamic>{
       'id': id,
@@ -406,7 +552,10 @@ class TagRepository extends BaseSyncRepository<TagModel> {
       'updatedAt': timestamp,
       'version': version,
       'deleted': deleted,
-      'createdAt': timestamp,
+      // The row's own creation time. It was sent as [timestamp], so every
+      // merge rewrote the link's creation date on the server to the moment
+      // it was retired.
+      'createdAt': createdAt,
     };
     final entry = OplogEntry(
       opId: generateOpId(),
@@ -471,6 +620,17 @@ class TagNotFoundException implements Exception {
 
   @override
   String toString() => 'Tag not found: $tagId';
+}
+
+/// A tag that notes still write as `#name`, so deleting it would not stick.
+class TagStillWrittenException implements Exception {
+  final String name;
+  final int noteCount;
+  const TagStillWrittenException(this.name, this.noteCount);
+
+  @override
+  String toString() =>
+      'Tag "$name" is still written as #$name in $noteCount note(s)';
 }
 
 class TagValidationException implements Exception {

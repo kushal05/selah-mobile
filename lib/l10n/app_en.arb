@@ -1300,6 +1300,29 @@
       }
     }
   },
+  "tagStillWrittenInNotes": "#{name} is still written in {count, plural, =1{1 note} other{{count} notes}}. Remove it from the text to delete the tag.",
+  "@tagStillWrittenInNotes": {
+    "description": "Shown instead of deleting a tag that notes still write as a hashtag; the next save of those notes would bring it back.",
+    "placeholders": {
+      "name": { "type": "String" },
+      "count": { "type": "int" }
+    }
+  },
+  "tagStillWrittenCannotMerge": "#{name} is still written in {count, plural, =1{1 note} other{{count} notes}}. Remove it from the text to merge the tag.",
+  "@tagStillWrittenCannotMerge": {
+    "description": "Shown instead of merging a tag that notes still write as a hashtag; the app does not rewrite the user's text, and the next save would bring the tag back.",
+    "placeholders": {
+      "name": { "type": "String" },
+      "count": { "type": "int" }
+    }
+  },
+  "tagsKeptStillWritten": "{count, plural, =1{1 tag was kept because notes still write it as a hashtag.} other{{count} tags were kept because notes still write them as hashtags.}}",
+  "@tagsKeptStillWritten": {
+    "description": "After emptying the Trash, when some tags were not deleted because notes still write them as hashtags.",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "linkCreatedAgo": "Link created {when}",
   "@linkCreatedAgo": {
     "placeholders": {

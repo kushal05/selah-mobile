@@ -9,6 +9,7 @@ import '../../../../core/services/chord_transposition.dart';
 import '../../../../core/sync/models/song_model.dart';
 import '../../../../core/navigation/routes.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
+import '../../../../core/sync/repositories/song_folder_repository.dart' show Songbook;
 import '../../../../shared/widgets/skeletons/skeletons.dart';
 import '../../../../shared/widgets/undo_snackbar.dart';
 import '../../../../core/services/user_facing_error.dart';
@@ -283,6 +284,9 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
   Widget _buildMetadataRow(SongModel song) {
     // Compute the displayed key: original scale transposed by _transposeSteps
     final displayedKey = _getDisplayedKey(song);
+    final songbooks =
+        ref.watch(songbooksForSongStreamProvider(song.id)).valueOrNull ??
+            const <Songbook>[];
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -300,7 +304,18 @@ class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
             if (displayedKey.isNotEmpty)
               const SizedBox(width: AppTheme.spacing8),
             _MetadataChip(icon: Icons.language, label: song.language),
-            if (song.book != null && song.book!.isNotEmpty) ...[
+            // One chip per songbook (primary first). The free-text book
+            // field often names the same songbook; show it only when it adds
+            // something.
+            for (final songbook in songbooks) ...[
+              const SizedBox(width: AppTheme.spacing8),
+              _MetadataChip(icon: Icons.menu_book, label: songbook.name),
+            ],
+            if (song.book != null &&
+                song.book!.trim().isNotEmpty &&
+                !songbooks.any((b) =>
+                    b.name.trim().toLowerCase() ==
+                    song.book!.trim().toLowerCase())) ...[
               const SizedBox(width: AppTheme.spacing8),
               _MetadataChip(icon: Icons.book, label: song.book!),
             ],

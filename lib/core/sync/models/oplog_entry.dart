@@ -62,6 +62,7 @@ enum OplogEntityType {
   prayerTag,
   prayerPerson,
   songTag,
+  songFolder,
   pendingGroupMember,
   promisePrayerLink,
   entityAccess,
@@ -129,6 +130,8 @@ enum OplogEntityType {
         return 'prayer_person';
       case OplogEntityType.songTag:
         return 'song_tag';
+      case OplogEntityType.songFolder:
+        return 'song_folder';
       case OplogEntityType.pendingGroupMember:
         return 'pending_group_member';
       case OplogEntityType.promisePrayerLink:
@@ -206,6 +209,8 @@ enum OplogEntityType {
         return OplogEntityType.prayerPerson;
       case 'song_tag':
         return OplogEntityType.songTag;
+      case 'song_folder':
+        return OplogEntityType.songFolder;
       case 'pending_group_member':
         return OplogEntityType.pendingGroupMember;
       case 'promise_prayer_link':

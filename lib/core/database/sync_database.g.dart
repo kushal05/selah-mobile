@@ -30197,6 +30197,561 @@ class BibleVersionStatesCompanion extends UpdateCompanion<BibleVersionState> {
   }
 }
 
+class $SyncSongFoldersTable extends SyncSongFolders
+    with TableInfo<$SyncSongFoldersTable, SyncSongFolder> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncSongFoldersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _songIdMeta = const VerificationMeta('songId');
+  @override
+  late final GeneratedColumn<String> songId = GeneratedColumn<String>(
+    'song_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _folderIdMeta = const VerificationMeta(
+    'folderId',
+  );
+  @override
+  late final GeneratedColumn<String> folderId = GeneratedColumn<String>(
+    'folder_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAt = GeneratedColumn<int>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _versionMeta = const VerificationMeta(
+    'version',
+  );
+  @override
+  late final GeneratedColumn<int> version = GeneratedColumn<int>(
+    'version',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _deletedMeta = const VerificationMeta(
+    'deleted',
+  );
+  @override
+  late final GeneratedColumn<int> deleted = GeneratedColumn<int>(
+    'deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _trashedAtMeta = const VerificationMeta(
+    'trashedAt',
+  );
+  @override
+  late final GeneratedColumn<int> trashedAt = GeneratedColumn<int>(
+    'trashed_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    songId,
+    folderId,
+    userId,
+    updatedAt,
+    version,
+    deleted,
+    trashedAt,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_song_folders';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncSongFolder> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('song_id')) {
+      context.handle(
+        _songIdMeta,
+        songId.isAcceptableOrUnknown(data['song_id']!, _songIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_songIdMeta);
+    }
+    if (data.containsKey('folder_id')) {
+      context.handle(
+        _folderIdMeta,
+        folderId.isAcceptableOrUnknown(data['folder_id']!, _folderIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_folderIdMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('version')) {
+      context.handle(
+        _versionMeta,
+        version.isAcceptableOrUnknown(data['version']!, _versionMeta),
+      );
+    }
+    if (data.containsKey('deleted')) {
+      context.handle(
+        _deletedMeta,
+        deleted.isAcceptableOrUnknown(data['deleted']!, _deletedMeta),
+      );
+    }
+    if (data.containsKey('trashed_at')) {
+      context.handle(
+        _trashedAtMeta,
+        trashedAt.isAcceptableOrUnknown(data['trashed_at']!, _trashedAtMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SyncSongFolder map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncSongFolder(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      songId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}song_id'],
+      )!,
+      folderId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}folder_id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      version: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}version'],
+      )!,
+      deleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}deleted'],
+      )!,
+      trashedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}trashed_at'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SyncSongFoldersTable createAlias(String alias) {
+    return $SyncSongFoldersTable(attachedDatabase, alias);
+  }
+}
+
+class SyncSongFolder extends DataClass implements Insertable<SyncSongFolder> {
+  final String id;
+  final String songId;
+  final String folderId;
+  final String userId;
+  final int updatedAt;
+  final int version;
+  final int deleted;
+
+  /// Timestamp when moved to trash (Unix milliseconds, null = not trashed)
+  final int? trashedAt;
+  final int createdAt;
+  const SyncSongFolder({
+    required this.id,
+    required this.songId,
+    required this.folderId,
+    required this.userId,
+    required this.updatedAt,
+    required this.version,
+    required this.deleted,
+    this.trashedAt,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['song_id'] = Variable<String>(songId);
+    map['folder_id'] = Variable<String>(folderId);
+    map['user_id'] = Variable<String>(userId);
+    map['updated_at'] = Variable<int>(updatedAt);
+    map['version'] = Variable<int>(version);
+    map['deleted'] = Variable<int>(deleted);
+    if (!nullToAbsent || trashedAt != null) {
+      map['trashed_at'] = Variable<int>(trashedAt);
+    }
+    map['created_at'] = Variable<int>(createdAt);
+    return map;
+  }
+
+  SyncSongFoldersCompanion toCompanion(bool nullToAbsent) {
+    return SyncSongFoldersCompanion(
+      id: Value(id),
+      songId: Value(songId),
+      folderId: Value(folderId),
+      userId: Value(userId),
+      updatedAt: Value(updatedAt),
+      version: Value(version),
+      deleted: Value(deleted),
+      trashedAt: trashedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(trashedAt),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory SyncSongFolder.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncSongFolder(
+      id: serializer.fromJson<String>(json['id']),
+      songId: serializer.fromJson<String>(json['songId']),
+      folderId: serializer.fromJson<String>(json['folderId']),
+      userId: serializer.fromJson<String>(json['userId']),
+      updatedAt: serializer.fromJson<int>(json['updatedAt']),
+      version: serializer.fromJson<int>(json['version']),
+      deleted: serializer.fromJson<int>(json['deleted']),
+      trashedAt: serializer.fromJson<int?>(json['trashedAt']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'songId': serializer.toJson<String>(songId),
+      'folderId': serializer.toJson<String>(folderId),
+      'userId': serializer.toJson<String>(userId),
+      'updatedAt': serializer.toJson<int>(updatedAt),
+      'version': serializer.toJson<int>(version),
+      'deleted': serializer.toJson<int>(deleted),
+      'trashedAt': serializer.toJson<int?>(trashedAt),
+      'createdAt': serializer.toJson<int>(createdAt),
+    };
+  }
+
+  SyncSongFolder copyWith({
+    String? id,
+    String? songId,
+    String? folderId,
+    String? userId,
+    int? updatedAt,
+    int? version,
+    int? deleted,
+    Value<int?> trashedAt = const Value.absent(),
+    int? createdAt,
+  }) => SyncSongFolder(
+    id: id ?? this.id,
+    songId: songId ?? this.songId,
+    folderId: folderId ?? this.folderId,
+    userId: userId ?? this.userId,
+    updatedAt: updatedAt ?? this.updatedAt,
+    version: version ?? this.version,
+    deleted: deleted ?? this.deleted,
+    trashedAt: trashedAt.present ? trashedAt.value : this.trashedAt,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  SyncSongFolder copyWithCompanion(SyncSongFoldersCompanion data) {
+    return SyncSongFolder(
+      id: data.id.present ? data.id.value : this.id,
+      songId: data.songId.present ? data.songId.value : this.songId,
+      folderId: data.folderId.present ? data.folderId.value : this.folderId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      version: data.version.present ? data.version.value : this.version,
+      deleted: data.deleted.present ? data.deleted.value : this.deleted,
+      trashedAt: data.trashedAt.present ? data.trashedAt.value : this.trashedAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncSongFolder(')
+          ..write('id: $id, ')
+          ..write('songId: $songId, ')
+          ..write('folderId: $folderId, ')
+          ..write('userId: $userId, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('version: $version, ')
+          ..write('deleted: $deleted, ')
+          ..write('trashedAt: $trashedAt, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    songId,
+    folderId,
+    userId,
+    updatedAt,
+    version,
+    deleted,
+    trashedAt,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncSongFolder &&
+          other.id == this.id &&
+          other.songId == this.songId &&
+          other.folderId == this.folderId &&
+          other.userId == this.userId &&
+          other.updatedAt == this.updatedAt &&
+          other.version == this.version &&
+          other.deleted == this.deleted &&
+          other.trashedAt == this.trashedAt &&
+          other.createdAt == this.createdAt);
+}
+
+class SyncSongFoldersCompanion extends UpdateCompanion<SyncSongFolder> {
+  final Value<String> id;
+  final Value<String> songId;
+  final Value<String> folderId;
+  final Value<String> userId;
+  final Value<int> updatedAt;
+  final Value<int> version;
+  final Value<int> deleted;
+  final Value<int?> trashedAt;
+  final Value<int> createdAt;
+  final Value<int> rowid;
+  const SyncSongFoldersCompanion({
+    this.id = const Value.absent(),
+    this.songId = const Value.absent(),
+    this.folderId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.version = const Value.absent(),
+    this.deleted = const Value.absent(),
+    this.trashedAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SyncSongFoldersCompanion.insert({
+    required String id,
+    required String songId,
+    required String folderId,
+    required String userId,
+    required int updatedAt,
+    this.version = const Value.absent(),
+    this.deleted = const Value.absent(),
+    this.trashedAt = const Value.absent(),
+    required int createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       songId = Value(songId),
+       folderId = Value(folderId),
+       userId = Value(userId),
+       updatedAt = Value(updatedAt),
+       createdAt = Value(createdAt);
+  static Insertable<SyncSongFolder> custom({
+    Expression<String>? id,
+    Expression<String>? songId,
+    Expression<String>? folderId,
+    Expression<String>? userId,
+    Expression<int>? updatedAt,
+    Expression<int>? version,
+    Expression<int>? deleted,
+    Expression<int>? trashedAt,
+    Expression<int>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (songId != null) 'song_id': songId,
+      if (folderId != null) 'folder_id': folderId,
+      if (userId != null) 'user_id': userId,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (version != null) 'version': version,
+      if (deleted != null) 'deleted': deleted,
+      if (trashedAt != null) 'trashed_at': trashedAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SyncSongFoldersCompanion copyWith({
+    Value<String>? id,
+    Value<String>? songId,
+    Value<String>? folderId,
+    Value<String>? userId,
+    Value<int>? updatedAt,
+    Value<int>? version,
+    Value<int>? deleted,
+    Value<int?>? trashedAt,
+    Value<int>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return SyncSongFoldersCompanion(
+      id: id ?? this.id,
+      songId: songId ?? this.songId,
+      folderId: folderId ?? this.folderId,
+      userId: userId ?? this.userId,
+      updatedAt: updatedAt ?? this.updatedAt,
+      version: version ?? this.version,
+      deleted: deleted ?? this.deleted,
+      trashedAt: trashedAt ?? this.trashedAt,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (songId.present) {
+      map['song_id'] = Variable<String>(songId.value);
+    }
+    if (folderId.present) {
+      map['folder_id'] = Variable<String>(folderId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<int>(updatedAt.value);
+    }
+    if (version.present) {
+      map['version'] = Variable<int>(version.value);
+    }
+    if (deleted.present) {
+      map['deleted'] = Variable<int>(deleted.value);
+    }
+    if (trashedAt.present) {
+      map['trashed_at'] = Variable<int>(trashedAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncSongFoldersCompanion(')
+          ..write('id: $id, ')
+          ..write('songId: $songId, ')
+          ..write('folderId: $folderId, ')
+          ..write('userId: $userId, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('version: $version, ')
+          ..write('deleted: $deleted, ')
+          ..write('trashedAt: $trashedAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$SyncDatabase extends GeneratedDatabase {
   _$SyncDatabase(QueryExecutor e) : super(e);
   $SyncDatabaseManager get managers => $SyncDatabaseManager(this);
@@ -30267,6 +30822,9 @@ abstract class _$SyncDatabase extends GeneratedDatabase {
   late final $HabitLogsTable habitLogs = $HabitLogsTable(this);
   late final $BibleVersionStatesTable bibleVersionStates =
       $BibleVersionStatesTable(this);
+  late final $SyncSongFoldersTable syncSongFolders = $SyncSongFoldersTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -30318,6 +30876,7 @@ abstract class _$SyncDatabase extends GeneratedDatabase {
     bibleBookmarks,
     habitLogs,
     bibleVersionStates,
+    syncSongFolders,
   ];
 }
 
@@ -44784,6 +45343,288 @@ typedef $$BibleVersionStatesTableProcessedTableManager =
       BibleVersionState,
       PrefetchHooks Function()
     >;
+typedef $$SyncSongFoldersTableCreateCompanionBuilder =
+    SyncSongFoldersCompanion Function({
+      required String id,
+      required String songId,
+      required String folderId,
+      required String userId,
+      required int updatedAt,
+      Value<int> version,
+      Value<int> deleted,
+      Value<int?> trashedAt,
+      required int createdAt,
+      Value<int> rowid,
+    });
+typedef $$SyncSongFoldersTableUpdateCompanionBuilder =
+    SyncSongFoldersCompanion Function({
+      Value<String> id,
+      Value<String> songId,
+      Value<String> folderId,
+      Value<String> userId,
+      Value<int> updatedAt,
+      Value<int> version,
+      Value<int> deleted,
+      Value<int?> trashedAt,
+      Value<int> createdAt,
+      Value<int> rowid,
+    });
+
+class $$SyncSongFoldersTableFilterComposer
+    extends Composer<_$SyncDatabase, $SyncSongFoldersTable> {
+  $$SyncSongFoldersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get songId => $composableBuilder(
+    column: $table.songId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get folderId => $composableBuilder(
+    column: $table.folderId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get version => $composableBuilder(
+    column: $table.version,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deleted => $composableBuilder(
+    column: $table.deleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get trashedAt => $composableBuilder(
+    column: $table.trashedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncSongFoldersTableOrderingComposer
+    extends Composer<_$SyncDatabase, $SyncSongFoldersTable> {
+  $$SyncSongFoldersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get songId => $composableBuilder(
+    column: $table.songId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get folderId => $composableBuilder(
+    column: $table.folderId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get version => $composableBuilder(
+    column: $table.version,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deleted => $composableBuilder(
+    column: $table.deleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get trashedAt => $composableBuilder(
+    column: $table.trashedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncSongFoldersTableAnnotationComposer
+    extends Composer<_$SyncDatabase, $SyncSongFoldersTable> {
+  $$SyncSongFoldersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get songId =>
+      $composableBuilder(column: $table.songId, builder: (column) => column);
+
+  GeneratedColumn<String> get folderId =>
+      $composableBuilder(column: $table.folderId, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get version =>
+      $composableBuilder(column: $table.version, builder: (column) => column);
+
+  GeneratedColumn<int> get deleted =>
+      $composableBuilder(column: $table.deleted, builder: (column) => column);
+
+  GeneratedColumn<int> get trashedAt =>
+      $composableBuilder(column: $table.trashedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$SyncSongFoldersTableTableManager
+    extends
+        RootTableManager<
+          _$SyncDatabase,
+          $SyncSongFoldersTable,
+          SyncSongFolder,
+          $$SyncSongFoldersTableFilterComposer,
+          $$SyncSongFoldersTableOrderingComposer,
+          $$SyncSongFoldersTableAnnotationComposer,
+          $$SyncSongFoldersTableCreateCompanionBuilder,
+          $$SyncSongFoldersTableUpdateCompanionBuilder,
+          (
+            SyncSongFolder,
+            BaseReferences<
+              _$SyncDatabase,
+              $SyncSongFoldersTable,
+              SyncSongFolder
+            >,
+          ),
+          SyncSongFolder,
+          PrefetchHooks Function()
+        > {
+  $$SyncSongFoldersTableTableManager(
+    _$SyncDatabase db,
+    $SyncSongFoldersTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncSongFoldersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncSongFoldersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncSongFoldersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> songId = const Value.absent(),
+                Value<String> folderId = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<int> updatedAt = const Value.absent(),
+                Value<int> version = const Value.absent(),
+                Value<int> deleted = const Value.absent(),
+                Value<int?> trashedAt = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncSongFoldersCompanion(
+                id: id,
+                songId: songId,
+                folderId: folderId,
+                userId: userId,
+                updatedAt: updatedAt,
+                version: version,
+                deleted: deleted,
+                trashedAt: trashedAt,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String songId,
+                required String folderId,
+                required String userId,
+                required int updatedAt,
+                Value<int> version = const Value.absent(),
+                Value<int> deleted = const Value.absent(),
+                Value<int?> trashedAt = const Value.absent(),
+                required int createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => SyncSongFoldersCompanion.insert(
+                id: id,
+                songId: songId,
+                folderId: folderId,
+                userId: userId,
+                updatedAt: updatedAt,
+                version: version,
+                deleted: deleted,
+                trashedAt: trashedAt,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncSongFoldersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$SyncDatabase,
+      $SyncSongFoldersTable,
+      SyncSongFolder,
+      $$SyncSongFoldersTableFilterComposer,
+      $$SyncSongFoldersTableOrderingComposer,
+      $$SyncSongFoldersTableAnnotationComposer,
+      $$SyncSongFoldersTableCreateCompanionBuilder,
+      $$SyncSongFoldersTableUpdateCompanionBuilder,
+      (
+        SyncSongFolder,
+        BaseReferences<_$SyncDatabase, $SyncSongFoldersTable, SyncSongFolder>,
+      ),
+      SyncSongFolder,
+      PrefetchHooks Function()
+    >;
 
 class $SyncDatabaseManager {
   final _$SyncDatabase _db;
@@ -44880,4 +45721,6 @@ class $SyncDatabaseManager {
       $$HabitLogsTableTableManager(_db, _db.habitLogs);
   $$BibleVersionStatesTableTableManager get bibleVersionStates =>
       $$BibleVersionStatesTableTableManager(_db, _db.bibleVersionStates);
+  $$SyncSongFoldersTableTableManager get syncSongFolders =>
+      $$SyncSongFoldersTableTableManager(_db, _db.syncSongFolders);
 }

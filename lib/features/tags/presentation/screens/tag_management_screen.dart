@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/sync/models/tag_model.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
+import '../../../../core/sync/repositories/tag_repository.dart'
+    show TagStillWrittenException;
 import '../../../../shared/widgets/skeletons/skeletons.dart';
 import '../../../../core/services/user_facing_error.dart';
 import '../../../../core/theme/theme_colors.dart';
@@ -259,6 +261,13 @@ class _TagTile extends ConsumerWidget {
                         );
                         ref.invalidate(tagUsageCountsProvider);
                       }
+                    } on TagStillWrittenException catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text(l10n(context)
+                              .tagStillWrittenCannotMerge(e.name, e.noteCount)),
+                        ));
+                      }
                     } catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -330,6 +339,13 @@ class _TagTile extends ConsumerWidget {
                     SnackBar(content: Text(l10n(context).tagDeletedNamed(tag.name))),
                   );
                   ref.invalidate(tagUsageCountsProvider);
+                }
+              } on TagStillWrittenException catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(l10n(context)
+                        .tagStillWrittenInNotes(e.name, e.noteCount)),
+                  ));
                 }
               } catch (e) {
                 if (context.mounted) {

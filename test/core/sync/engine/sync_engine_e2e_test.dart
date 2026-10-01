@@ -18,6 +18,7 @@ import 'package:notify/core/sync/repositories/note_tag_repository.dart';
 import 'package:notify/core/sync/repositories/prayer_log_repository.dart';
 import 'package:notify/core/sync/repositories/prayer_repository.dart';
 import 'package:notify/core/sync/repositories/promise_repository.dart';
+import 'package:notify/core/sync/repositories/song_folder_repository.dart';
 import 'package:notify/core/sync/repositories/song_repository.dart';
 import 'package:notify/core/sync/repositories/tag_repository.dart';
 import 'package:notify/core/database/services/note_block_fts_service.dart';
@@ -768,6 +769,94 @@ void main() {
     expect(trashed.length, 1);
     expect(trashed.first.id, 'promise-bool-1');
     expect(trashed.first.isFavorite, isFalse);
+  });
+
+  group('songbook memberships (song_folder)', () {
+    Future<List<String>> songbookNames(SyncDatabase db, String songId) async {
+      final books = await SongFolderRepository(db, 'reader')
+          .watchSongbooksForSong(songId)
+          .first;
+      return books.map((b) => b.name).toList();
+    }
+
+    test('a song in two songbooks arrives on another device in both', () async {
+      final linksA = SongFolderRepository(dbA, _deviceA);
+      final hymns = await folderRepoA.createFolder(
+          name: 'Hymns', userId: _userId, type: 'song');
+      final crossfire = await folderRepoA.createFolder(
+          name: 'Crossfire', userId: _userId, type: 'song');
+      final song = await songRepoA.createSong(
+          userId: _userId, title: 'Majesty', folderId: hymns.id);
+      await linksA.setFoldersForSong(
+          song.id, [hymns.id, crossfire.id], _userId);
+
+      expect((await engineA.syncNow()).success, isTrue);
+      expect((await engineB.syncNow()).success, isTrue);
+
+      // Primary first, then the rest by name.
+      expect(await songbookNames(dbB, song.id), ['Hymns', 'Crossfire']);
+    });
+
+    test('removing and re-adding a link reaches the other device', () async {
+      final linksA = SongFolderRepository(dbA, _deviceA);
+      final hymns = await folderRepoA.createFolder(
+          name: 'Hymns', userId: _userId, type: 'song');
+      final ccm = await folderRepoA.createFolder(
+          name: 'CCM', userId: _userId, type: 'song');
+      final song = await songRepoA.createSong(
+          userId: _userId, title: 'Hosanna', folderId: hymns.id);
+      await linksA.setFoldersForSong(song.id, [hymns.id, ccm.id], _userId);
+      await engineA.syncNow();
+      await engineB.syncNow();
+
+      await linksA.removeSongFromFolder(song.id, ccm.id);
+      await engineA.syncNow();
+      await engineB.syncNow();
+      expect(await songbookNames(dbB, song.id), ['Hymns']);
+
+      // Re-adding revives the same row at a higher version. Re-inserting it at
+      // version 1 would lose to device B's version-2 tombstone.
+      await linksA.addSongToFolder(
+          songId: song.id, folderId: ccm.id, userId: _userId);
+      await engineA.syncNow();
+      await engineB.syncNow();
+      expect(await songbookNames(dbB, song.id), ['Hymns', 'CCM']);
+    });
+
+    test('a pulled link applies trashedAt', () async {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      api.addRemoteOperation(
+        OplogEntry(
+          opId: 'server-sf-1',
+          entityType: OplogEntityType.songFolder,
+          entityId: 'sf-1',
+          operation: OplogOperation.insert,
+          payload: {
+            'id': 'sf-1',
+            'songId': 'song-x',
+            'folderId': 'folder-x',
+            'userId': _userId,
+            'updatedAt': now,
+            'version': 1,
+            'deleted': false,
+            'trashedAt': now,
+            'createdAt': now,
+          },
+          timestamp: now,
+          deviceId: 'server',
+          entityVersion: 1,
+        ),
+        serverTimestamp: 1000,
+      );
+
+      expect((await engineB.syncNow()).success, isTrue);
+
+      final row = await (dbB.select(dbB.syncSongFolders)
+            ..where((r) => r.id.equals('sf-1')))
+          .getSingle();
+      expect(row.trashedAt, now);
+      expect(row.deleted, 0);
+    });
   });
 }
 

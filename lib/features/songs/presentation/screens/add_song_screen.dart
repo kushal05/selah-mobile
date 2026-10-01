@@ -7,6 +7,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/services/chord_transposition.dart';
 import '../../../../core/sync/models/song_model.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
+import '../../../../core/sync/repositories/song_folder_repository.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
 import '../../../../core/services/user_facing_error.dart';
 import '../../../../core/theme/theme_colors.dart';
@@ -38,7 +39,14 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
   late TabController _tabController;
   String _language = 'English';
   String _scale = '';
+  /// The song's primary songbook (`songs.folder_id`) as loaded.
   String? _folderId;
+
+  /// Every songbook the song is in, primary first. Can include songbooks in
+  /// Trash: they are not offered in the picker but are kept on save, so
+  /// restoring the songbook brings the song back with it. Permanently deleted
+  /// songbooks are left out when loading.
+  final List<String> _folderIds = [];
   final List<String> _tagIds = []; // global tag IDs
   final Map<String, String> _tagNames = {}; // tagId → display name cache
 
@@ -58,7 +66,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
   String _origNotes = '';
   String _origLanguage = 'English';
   String _origScale = '';
-  String? _origFolderId;
+  List<String> _origFolderIds = [];
   List<String> _origTags = [];
   List<ChordLine> _origChordLines = [];
 
@@ -112,9 +120,13 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
     try {
       final repository = ref.read(songRepositoryProvider);
       final songTagRepo = ref.read(songTagRepositoryProvider);
+      final songFolderRepo = ref.read(songFolderRepositoryProvider);
       final tagRepo = ref.read(tagRepositoryProvider);
       final song = await repository.getSongById(widget.songId!);
       if (song != null && mounted) {
+        final folderIds =
+            await songFolderRepo.getSongbookIdsForEditing(song.id);
+
         // Load tag IDs from junction table and resolve names
         final ids = await songTagRepo.getTagIdsForSong(song.id);
         final names = <String, String>{};
@@ -133,6 +145,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
           _language = song.language;
           _scale = song.scale;
           _folderId = song.folderId;
+          _folderIds.addAll(folderIds);
           _tagIds.addAll(ids);
           _tagNames.addAll(names);
           _chordLines.addAll(song.chordLinesList);
@@ -145,7 +158,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
           _origNotes = song.notes;
           _origLanguage = song.language;
           _origScale = song.scale;
-          _origFolderId = song.folderId;
+          _origFolderIds = List.of(folderIds);
           _origTags = List.of(ids);
           _origChordLines = List.of(song.chordLinesList);
         });
@@ -367,8 +380,8 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
           // Songbook chip (folder-based)
           _buildMetadataChip(
             icon: Icons.library_books_outlined,
-            label: _selectedFolderName() ?? 'Songbook',
-            isPlaceholder: _folderId == null,
+            label: _selectedFolderLabel() ?? 'Songbook',
+            isPlaceholder: _selectedFolderLabel() == null,
             onTap: _showFolderPicker,
           ),
           const SizedBox(width: 8),
@@ -952,13 +965,23 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
     );
   }
 
-  String? _selectedFolderName() {
-    if (_folderId == null) return null;
+  /// Names of the chosen songbooks that still exist, primary first.
+  List<String> _selectedFolderNames() {
     final folders = ref.read(songFoldersStreamProvider).valueOrNull ?? [];
-    for (final folder in folders) {
-      if (folder.id == _folderId) return folder.name;
-    }
-    return null;
+    final byId = {for (final f in folders) f.id: f.name};
+    return [
+      for (final id in _folderIds)
+        if (byId[id] != null) byId[id]!,
+    ];
+  }
+
+  /// "Hymns", or "Hymns +2" when the song is in more than one songbook.
+  String? _selectedFolderLabel() {
+    final names = _selectedFolderNames();
+    if (names.isEmpty) return null;
+    return names.length == 1
+        ? names.first
+        : '${names.first} +${names.length - 1}';
   }
 
   void _showFolderPicker() {
@@ -977,59 +1000,92 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
       return;
     }
     final folders = foldersAsync.valueOrNull ?? [];
+    final liveIds = folders.map((f) => f.id).toSet();
     showModalBottomSheet(
       // Defaults to false: a scroll-controlled sheet otherwise draws its
       // top edge behind the notch or Dynamic Island.
       useSafeArea: true,
+      isScrollControlled: true,
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                l10n(context).selectSongbook,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w600),
-              ),
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: Icon(
-                _folderId == null ? Icons.check_circle : Icons.circle_outlined,
-                color:
-                    _folderId == null ? context.accentInk(AppTheme.orange) : context.decorativeInk,
-              ),
-              title: Text(l10n(context).noSongbook),
-              onTap: () {
-                setState(() => _folderId = null);
-                Navigator.pop(context);
-              },
-            ),
-            ...folders.map((folder) => ListTile(
-                  leading: Icon(
-                    _folderId == folder.id
-                        ? Icons.check_circle
-                        : Icons.circle_outlined,
-                    color: _folderId == folder.id
-                        ? context.accentInk(AppTheme.orange)
-                        : context.mutedText,
+      // A checklist: a song can be in several songbooks, so a tap toggles
+      // one rather than choosing it and closing.
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          void update(VoidCallback change) {
+            setState(change);
+            setSheetState(() {});
+          }
+
+          final noneChosen = !_folderIds.any(liveIds.contains);
+          return SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          l10n(context).selectSongbook,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text(l10n(context).done),
+                      ),
+                    ],
                   ),
-                  title: Text(folder.name),
-                  onTap: () {
-                    setState(() => _folderId = folder.id);
-                    Navigator.pop(context);
-                  },
-                )),
-            const SizedBox(height: 16),
-          ],
-        ),
+                ),
+                const Divider(height: 1),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      ListTile(
+                        leading: Icon(
+                          noneChosen
+                              ? Icons.check_circle
+                              : Icons.circle_outlined,
+                          color: noneChosen
+                              ? context.accentInk(AppTheme.orange)
+                              : context.decorativeInk,
+                        ),
+                        title: Text(l10n(context).noSongbook),
+                        onTap: () => update(
+                            () => _folderIds.removeWhere(liveIds.contains)),
+                      ),
+                      ...folders.map((folder) {
+                        final chosen = _folderIds.contains(folder.id);
+                        return CheckboxListTile(
+                          value: chosen,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          activeColor: context.accentInk(AppTheme.orange),
+                          title: Text(folder.name),
+                          onChanged: (_) => update(() {
+                            if (chosen) {
+                              _folderIds.remove(folder.id);
+                            } else {
+                              _folderIds.add(folder.id);
+                            }
+                          }),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -1081,7 +1137,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
           _notesController.text != _origNotes ||
           _language != _origLanguage ||
           _scale != _origScale ||
-          _folderId != _origFolderId ||
+          !_setEquals(_folderIds, _origFolderIds) ||
           !_listEquals(_tagIds, _origTags) ||
           !_listEquals(_chordLines, _origChordLines);
     }
@@ -1095,6 +1151,9 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
         _bookController.text.isNotEmpty ||
         _notesController.text.isNotEmpty;
   }
+
+  static bool _setEquals<T>(List<T> a, List<T> b) =>
+      a.toSet().length == b.toSet().length && a.toSet().containsAll(b);
 
   static bool _listEquals<T>(List<T> a, List<T> b) {
     if (a.length != b.length) return false;
@@ -1139,46 +1198,62 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
       try {
         final repository = ref.read(songRepositoryProvider);
         final songTagRepo = ref.read(songTagRepositoryProvider);
+        final songFolderRepo = ref.read(songFolderRepositoryProvider);
         final userId = ref.read(currentUserIdProvider);
+        final liveFolderIds = {
+          ...?ref.read(songFoldersStreamProvider).valueOrNull?.map((f) => f.id),
+        };
+        final primaryFolderId = SongFolderRepository.choosePrimary(
+          _folderId,
+          _folderIds,
+          live: liveFolderIds,
+        );
 
-        String songId;
-        if (_isEditMode) {
-          songId = widget.songId!;
-          final bookText = _bookController.text.trim();
-          await repository.updateSong(
-            id: songId,
-            title: _titleController.text.trim(),
-            folderId: _folderId,
-            clearFolderId: _folderId == null,
-            lyrics: _lyricsController.text,
-            chords: _chordsController.text,
-            scale: _scale,
-            chordLines: _chordLines,
-            language: _language,
-            book: bookText.isNotEmpty ? bookText : null,
-            clearBook: bookText.isEmpty,
-            notes: _notesController.text,
-          );
-        } else {
-          final song = await repository.createSong(
-            userId: userId,
-            title: _titleController.text.trim(),
-            folderId: _folderId,
-            lyrics: _lyricsController.text,
-            chords: _chordsController.text,
-            scale: _scale,
-            chordLines: _chordLines,
-            language: _language,
-            book: _bookController.text.trim().isNotEmpty
-                ? _bookController.text.trim()
-                : null,
-            notes: _notesController.text,
-          );
-          songId = song.id;
-        }
+        // The song, its tags and its songbooks in one transaction: saved
+        // separately, a failure after the first left the song changed (a new
+        // primary songbook, say) while the screen said it had not saved.
+        await ref.read(syncDatabaseProvider).transaction(() async {
+          final String songId;
+          if (_isEditMode) {
+            songId = widget.songId!;
+            final bookText = _bookController.text.trim();
+            await repository.updateSong(
+              id: songId,
+              title: _titleController.text.trim(),
+              folderId: primaryFolderId,
+              clearFolderId: primaryFolderId == null,
+              lyrics: _lyricsController.text,
+              chords: _chordsController.text,
+              scale: _scale,
+              chordLines: _chordLines,
+              language: _language,
+              book: bookText.isNotEmpty ? bookText : null,
+              clearBook: bookText.isEmpty,
+              notes: _notesController.text,
+            );
+          } else {
+            final song = await repository.createSong(
+              userId: userId,
+              title: _titleController.text.trim(),
+              folderId: primaryFolderId,
+              lyrics: _lyricsController.text,
+              chords: _chordsController.text,
+              scale: _scale,
+              chordLines: _chordLines,
+              language: _language,
+              book: _bookController.text.trim().isNotEmpty
+                  ? _bookController.text.trim()
+                  : null,
+              notes: _notesController.text,
+            );
+            songId = song.id;
+          }
 
-        // Save tags via junction table
-        await songTagRepo.setTagsForSong(songId, _tagIds, userId);
+          // Save tags via junction table
+          await songTagRepo.setTagsForSong(songId, _tagIds, userId);
+          // One link per chosen songbook, the primary included.
+          await songFolderRepo.setFoldersForSong(songId, _folderIds, userId);
+        });
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

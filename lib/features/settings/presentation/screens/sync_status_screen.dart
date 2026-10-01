@@ -71,7 +71,7 @@ List<_EntityCategory> _entityCategories(AppLocalizations s) => [
   _EntityCategory(
     label: s.navSongs,
     icon: Icons.music_note_outlined,
-    keys: ['song', 'song_tag', 'preacher'],
+    keys: ['song', 'song_tag', 'song_folder', 'preacher'],
   ),
   _EntityCategory(
     label: s.groups,

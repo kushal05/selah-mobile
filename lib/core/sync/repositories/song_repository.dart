@@ -7,6 +7,8 @@ import '../models/oplog_entry.dart';
 import '../models/field_timestamps.dart';
 import '../models/song_model.dart';
 import 'base_sync_repository.dart';
+import 'song_folder_repository.dart';
+import 'song_tag_repository.dart';
 import 'entity_access_repository.dart';
 
 /// Repository for song operations
@@ -160,16 +162,20 @@ class SongRepository extends BaseSyncRepository<SongModel> {
     }
 
     if (folderId != null) {
-      if (folderIds != null && folderIds.isNotEmpty) {
-        // Subtree filter: include the target folder and all descendants
-        final placeholders = folderIds.map((_) => '?').join(', ');
-        conditions.add("s.folder_id IN ($placeholders)");
-        for (final id in folderIds) {
-          variables.add(Variable.withString(id));
-        }
-      } else {
-        conditions.add("s.folder_id = ?");
-        variables.add(Variable.withString(folderId));
+      // Subtree filter when folderIds is given: the target folder and all
+      // descendants. A song matches by its primary folder or by a songbook
+      // link (sync_song_folders), the two ways a song is in a songbook.
+      final ids = (folderIds != null && folderIds.isNotEmpty)
+          ? folderIds
+          : [folderId];
+      final placeholders = ids.map((_) => '?').join(', ');
+      conditions.add(
+        "(s.folder_id IN ($placeholders) OR s.id IN (SELECT song_id FROM "
+        "sync_song_folders WHERE folder_id IN ($placeholders) AND deleted = 0 "
+        "AND trashed_at IS NULL))",
+      );
+      for (final id in [...ids, ...ids]) {
+        variables.add(Variable.withString(id));
       }
     }
 
@@ -437,6 +443,28 @@ class SongRepository extends BaseSyncRepository<SongModel> {
     return updated;
   }
 
+  /// Move a song so it is in exactly [targetFolderId] (or no songbook): the
+  /// primary folder changes and every other songbook link goes, or the song
+  /// would still be listed in the songbook it was just moved out of.
+  ///
+  /// One transaction, so a failure part-way cannot leave the new primary with
+  /// the old links while the move is reported as failed.
+  Future<SongModel> moveSongToSongbook(
+    String id,
+    String? targetFolderId, {
+    required String userId,
+  }) {
+    return _db.transaction(() async {
+      final moved = await moveSong(id, targetFolderId);
+      await SongFolderRepository(_db, deviceId).setFoldersForSong(
+        id,
+        [if (targetFolderId != null) targetFolderId],
+        userId,
+      );
+      return moved;
+    });
+  }
+
   /// Move a song to the trash
   Future<SongModel> trashSong(String id) async {
     final existing = await getSongById(id);
@@ -496,6 +524,10 @@ class SongRepository extends BaseSyncRepository<SongModel> {
       await (_db.update(_db.songs)..where((s) => s.id.equals(id)))
           .write(_toCompanion(deletedSong));
       await _db.into(_db.oplog).insert(_oplogToCompanion(oplogEntry));
+      // Its songbook and tag links go with it (Trash keeps them; only this
+      // is final).
+      await SongFolderRepository(_db, deviceId).deleteLinksForSong(id);
+      await SongTagRepository(_db, deviceId).deleteTagsForSong(id);
     });
 
     // Cascade: revoke entity_access grants for this song so recipients'

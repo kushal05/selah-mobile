@@ -39,6 +39,7 @@ import 'tables/sync_promise_tags_table.dart';
 import 'tables/sync_prayer_tags_table.dart';
 import 'tables/sync_prayer_people_table.dart';
 import 'tables/sync_song_tags_table.dart';
+import 'tables/sync_song_folders_table.dart';
 import 'tables/pending_group_members_table.dart';
 import 'tables/note_revisions_table.dart';
 import 'tables/promise_prayer_links_table.dart';
@@ -133,6 +134,8 @@ part 'sync_database.g.dart';
     HabitLogs,
     // v29 tables — Bible version state registry (local-only)
     BibleVersionStates,
+    // v38 tables — songs in several songbooks
+    SyncSongFolders,
   ],
 )
 class SyncDatabase extends _$SyncDatabase {
@@ -145,7 +148,8 @@ class SyncDatabase extends _$SyncDatabase {
   // v37 adds idx_note_tags_note. No step of its own: createIndexes() runs
   // at the end of every upgrade, so bumping the version is what delivers
   // the index to devices that already have the app.
-  int get schemaVersion => 37;
+  // v38 adds sync_song_folders (a song in several songbooks).
+  int get schemaVersion => 38;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -786,6 +790,20 @@ class SyncDatabase extends _$SyncDatabase {
             }
           }
 
+          if (from < 38) {
+            // v38: song<->folder memberships, so one song can sit in several
+            // songbooks.
+            await m.createTable(syncSongFolders);
+            // Builds before v38 dropped song_folder operations at parse time
+            // and still advanced the cursor past them, so any membership made
+            // on another device is behind this device's cursor. Pull from
+            // the start once to fetch them; applying the rest is idempotent
+            // (version-guarded).
+            await (update(syncState)..where((s) => s.id.equals(1))).write(
+              const SyncStateCompanion(lastRemoteCursor: Value(null)),
+            );
+          }
+
           // After every step, for the same reason as onCreate: the migration
           // chain only ever created indexes for tables added from v26 on, so
           // the oldest and busiest tables had none on any device. Every
@@ -1134,6 +1152,17 @@ class SyncDatabase extends _$SyncDatabase {
     await customStatement('''
       CREATE INDEX IF NOT EXISTS idx_note_tags_note
       ON sync_note_tags(note_id, deleted)
+    ''');
+
+    // Song folders: a song's songbooks (detail screen, editor) and a
+    // songbook's songs (home list, search filter).
+    await customStatement('''
+      CREATE INDEX IF NOT EXISTS idx_song_folders_song
+      ON sync_song_folders(song_id, deleted)
+    ''');
+    await customStatement('''
+      CREATE INDEX IF NOT EXISTS idx_song_folders_folder
+      ON sync_song_folders(folder_id, deleted)
     ''');
 
     // Note blocks indexes
@@ -1622,6 +1651,12 @@ class SyncDatabase extends _$SyncDatabase {
               st.deleted.equals(1) & st.updatedAt.isSmallerThanValue(cutoff)))
         .go();
 
+    // v38 tables
+    entitiesPurged += await (delete(syncSongFolders)
+          ..where((sf) =>
+              sf.deleted.equals(1) & sf.updatedAt.isSmallerThanValue(cutoff)))
+        .go();
+
     // v17 tables
     entitiesPurged += await (delete(promisePrayerLinks)
           ..where((l) =>
@@ -1923,6 +1958,7 @@ class SyncDatabase extends _$SyncDatabase {
     await delete(syncPrayerTags).go();
     await delete(syncPrayerPeople).go();
     await delete(syncSongTags).go();
+    await delete(syncSongFolders).go();
     await delete(noteRevisions).go();
     await delete(promisePrayerLinks).go();
     await delete(bibleHighlights).go();

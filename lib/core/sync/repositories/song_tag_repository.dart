@@ -110,6 +110,26 @@ class SongTagRepository extends BaseSyncRepository<SongTagModel> {
     });
   }
 
+  /// Delete every tag link of a permanently deleted song. Left live, they
+  /// would keep the server's GC from ever hard-deleting the song (it skips
+  /// parents with live children). Trash keeps them; only this is final.
+  Future<void> deleteTagsForSong(String songId) async {
+    await _db.transaction(() async {
+      final rows = await (_db.select(_db.syncSongTags)
+            ..where((st) => st.songId.equals(songId) & st.deleted.equals(0)))
+          .get();
+      for (final row in rows) {
+        final deleted = _toModel(row).softDelete();
+        await (_db.update(_db.syncSongTags)
+              ..where((st) => st.id.equals(deleted.id)))
+            .write(_toCompanion(deleted));
+        await _db
+            .into(_db.oplog)
+            .insert(_oplogToCompanion(createDeleteOp(deleted)));
+      }
+    });
+  }
+
   /// Replace all tags for a song with the given set.
   /// Diffs existing vs desired to minimize oplog entries.
   Future<void> setTagsForSong(

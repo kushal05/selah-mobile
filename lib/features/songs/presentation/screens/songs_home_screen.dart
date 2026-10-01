@@ -79,6 +79,9 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
         ? ref.watch(trashedSongsStreamProvider)
         : ref.watch(songsStreamProvider);
     final foldersAsync = ref.watch(songFoldersStreamProvider);
+    // Songbook memberships beyond each song's primary folder.
+    final links = ref.watch(songFolderLinksStreamProvider).valueOrNull ??
+        const <String, Set<String>>{};
 
     return PopScope(
       canPop: false,
@@ -118,7 +121,7 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
             final filteredSongs = _selectedFolderId == null
                 ? songs
                 : songs
-                    .where((s) => s.folderId == _selectedFolderId)
+                    .where((s) => songInFolder(s, _selectedFolderId!, links))
                     .toList();
 
             // Resolve selected folder name
@@ -654,7 +657,10 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
     final hasChildren = children.isNotEmpty;
     final isExpanded = _expandedFolders.contains(folder.id);
     final isActive = _selectedFolderId == folder.id;
-    final songCount = songs.where((s) => s.folderId == folder.id).length;
+    final links = ref.read(songFolderLinksStreamProvider).valueOrNull ??
+        const <String, Set<String>>{};
+    final songCount =
+        songs.where((s) => songInFolder(s, folder.id, links)).length;
 
     final widgets = <Widget>[
       FolderRow(
@@ -776,6 +782,13 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
     }
   }
 
+  Future<void> _moveToSongbook(String songId, String? folderId) =>
+      ref.read(songRepositoryProvider).moveSongToSongbook(
+            songId,
+            folderId,
+            userId: ref.read(currentUserIdProvider),
+          );
+
   Future<void> _moveSong(BuildContext context, String songId) async {
     final result = await FolderSelectionDialog.show(
       context,
@@ -785,9 +798,8 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
 
     // Resolved before the await; the context may not survive the move.
     final strings = l10n(this.context);
-    final repository = ref.read(songRepositoryProvider);
     try {
-      await repository.moveSong(songId, result.folderId);
+      await _moveToSongbook(songId, result.folderId);
       if (mounted) {
         ScaffoldMessenger.of(this.context).showSnackBar(
           SnackBar(
@@ -816,13 +828,12 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
     );
     if (result == null || !mounted) return;
 
-    final repository = ref.read(songRepositoryProvider);
     final ids = _selectedSongIds.toList();
     var movedCount = 0;
 
     for (final id in ids) {
       try {
-        await repository.moveSong(id, result.folderId);
+        await _moveToSongbook(id, result.folderId);
         movedCount++;
       } catch (e) {
         SyncLogger.error('[Songs] moveSong failed for $id', e);

@@ -7,6 +7,7 @@ import '../models/field_timestamps.dart';
 import '../models/folder_model.dart';
 import '../models/oplog_entry.dart';
 import 'base_sync_repository.dart';
+import 'song_folder_repository.dart';
 import '../../testing/test_clock.dart';
 
 /// Repository for folder operations
@@ -388,6 +389,10 @@ class FolderRepository extends BaseSyncRepository<FolderModel> {
 
         await _db.into(_db.oplog).insert(_oplogToCompanion(descendantOplog));
       }
+
+      // Songbook links into any of them go too. The songs themselves stay.
+      await SongFolderRepository(_db, deviceId).deleteLinksForFolders(
+          [id, ...descendants.map((d) => d.id)]);
     });
   }
 

@@ -36,6 +36,15 @@ const _hotQueries = <String, (String sql, String index)>{
     "SELECT * FROM sync_note_tags WHERE note_id='n' AND deleted=0",
     'idx_note_tags_note',
   ),
+  "a song's songbook links": (
+    "SELECT * FROM sync_song_folders WHERE song_id='s' AND deleted=0",
+    'idx_song_folders_song',
+  ),
+  "a songbook's linked songs": (
+    "SELECT song_id FROM sync_song_folders WHERE folder_id IN ('f') "
+        'AND deleted=0 AND trashed_at IS NULL',
+    'idx_song_folders_folder',
+  ),
 };
 
 /// Queries that join, where the scan to rule out is on one side only — the

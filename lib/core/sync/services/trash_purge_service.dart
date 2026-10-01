@@ -114,13 +114,15 @@ class TrashPurgeService {
     }
 
     // Tags
+    // One read of the notes for all of them. Tags notes still write as
+    // #name are kept (deleting them would not stick) and tried again on the
+    // next purge.
     final trashedTags = await _tagRepo.getTrashedTags(_userId);
-    for (final tag in trashedTags) {
-      if (tag.trashedAt != null && tag.trashedAt! < cutoff) {
-        await _tagRepo.deleteTag(tag.id);
-        count++;
-      }
-    }
+    final expiredTags = [
+      for (final tag in trashedTags)
+        if (tag.trashedAt != null && tag.trashedAt! < cutoff) tag.id,
+    ];
+    count += (await _tagRepo.deleteTags(expiredTags)).deleted;
 
     return count;
   }

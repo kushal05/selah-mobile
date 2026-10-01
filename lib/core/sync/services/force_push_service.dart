@@ -73,6 +73,7 @@ class ForcePushService {
       ('Prayer tags', _processPrayerTags),
       ('Promise tags', _processPromiseTags),
       ('Song tags', _processSongTags),
+      ('Song folders', _processSongFolders),
       ('Prayer people', _processPrayerPeople),
       ('Preachers', _processPreachers),
       ('Promise prayer links', _processPromisePrayerLinks),
@@ -868,6 +869,34 @@ class ForcePushService {
       }
     });
     SyncLogger.debug('Force push: ${rows.length} song tags');
+    return rows.length;
+  }
+
+  Future<int> _processSongFolders(int timestamp) async {
+    final rows = await _db.select(_db.syncSongFolders).get();
+    if (rows.isEmpty) return 0;
+    await _db.batch((batch) {
+      for (final r in rows) {
+        batch.insert(_db.oplog, _makeOplog(
+          entityType: 'song_folder',
+          entityId: r.id,
+          entityVersion: r.version,
+          timestamp: timestamp,
+          payload: {
+            'id': r.id,
+            'songId': r.songId,
+            'folderId': r.folderId,
+            'userId': r.userId,
+            'updatedAt': r.updatedAt,
+            'version': r.version,
+            'deleted': r.deleted,
+            if (r.trashedAt != null) 'trashedAt': r.trashedAt,
+            'createdAt': r.createdAt,
+          },
+        ));
+      }
+    });
+    SyncLogger.debug('Force push: ${rows.length} song folders');
     return rows.length;
   }
 

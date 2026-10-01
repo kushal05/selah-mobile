@@ -44,6 +44,15 @@ void main() {
       expect(OplogEntityType.fromDbValue('song'), OplogEntityType.song);
     });
 
+    test('every entity type round-trips through its wire name', () {
+      // song_folder must parse, or the pull drops every songbook membership.
+      expect(OplogEntityType.fromDbValue('song_folder'),
+          OplogEntityType.songFolder);
+      for (final t in OplogEntityType.values) {
+        expect(OplogEntityType.fromDbValue(t.toDbValue()), t);
+      }
+    });
+
     test('fromDbValue throws on unknown value', () {
       expect(
         () => OplogEntityType.fromDbValue('unknown'),

@@ -945,6 +945,9 @@ class SyncEngine {
         case OplogEntityType.songTag:
           hadConflict = await _applySongTagOperation(remoteOp);
           break;
+        case OplogEntityType.songFolder:
+          hadConflict = await _applySongFolderOperation(remoteOp);
+          break;
         case OplogEntityType.pendingGroupMember:
           break;
         case OplogEntityType.promisePrayerLink:
@@ -2093,6 +2096,51 @@ class SyncEngine {
             updatedAt: Value(remoteOp.payload['updatedAt'] as int),
             version: Value(remoteOp.payload['version'] as int),
             deleted: Value(_asIntFlag(remoteOp.payload['deleted'])),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<bool> _applySongFolderOperation(OplogEntry remoteOp) async {
+    final local = await (_db.select(
+      _db.syncSongFolders,
+    )..where((s) => s.id.equals(remoteOp.entityId))).getSingleOrNull();
+    return _applyGeneric(
+      localVersion: local?.version,
+      localUpdatedAt: local?.updatedAt,
+      localIsDeleted: local != null && local.deleted == 1,
+      remoteOp: remoteOp,
+      onInsert: () async {
+        await _db
+            .into(_db.syncSongFolders)
+            .insert(
+              SyncSongFoldersCompanion(
+                id: Value(remoteOp.payload['id'] as String),
+                songId: Value(remoteOp.payload['songId'] as String),
+                folderId: Value(remoteOp.payload['folderId'] as String),
+                userId: Value(remoteOp.payload['userId'] as String),
+                updatedAt: Value(remoteOp.payload['updatedAt'] as int),
+                version: Value(remoteOp.payload['version'] as int),
+                deleted: Value(_asIntFlag(remoteOp.payload['deleted'])),
+                trashedAt: Value(remoteOp.payload['trashedAt'] as int?),
+                createdAt: Value(remoteOp.payload['createdAt'] as int),
+              ),
+              mode: InsertMode.insertOrReplace,
+            );
+      },
+      onUpdate: () async {
+        await (_db.update(
+          _db.syncSongFolders,
+        )..where((s) => s.id.equals(remoteOp.entityId))).write(
+          SyncSongFoldersCompanion(
+            songId: Value(remoteOp.payload['songId'] as String),
+            folderId: Value(remoteOp.payload['folderId'] as String),
+            userId: Value(remoteOp.payload['userId'] as String),
+            updatedAt: Value(remoteOp.payload['updatedAt'] as int),
+            version: Value(remoteOp.payload['version'] as int),
+            deleted: Value(_asIntFlag(remoteOp.payload['deleted'])),
+            trashedAt: Value(remoteOp.payload['trashedAt'] as int?),
           ),
         );
       },

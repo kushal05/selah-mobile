@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/sync/providers/sync_providers.dart';
+import '../../../../core/sync/repositories/tag_repository.dart'
+    show TagStillWrittenException;
 import '../../../../core/testing/test_clock.dart';
 import '../../../notes/domain/models/note.dart';
 import '../../../../core/theme/theme_colors.dart';
@@ -394,7 +396,18 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              await action();
+              try {
+                await action();
+              } on TagStillWrittenException catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(l10n(context)
+                        .tagStillWrittenInNotes(e.name, e.noteCount)),
+                    behavior: SnackBarBehavior.floating,
+                  ));
+                }
+                return;
+              }
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -468,14 +481,17 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
               }
 
               final trashedTags = await tagRepo.getTrashedTags(userId);
-              for (final t in trashedTags) {
-                await tagRepo.deleteTag(t.id);
-              }
+              final keptTags = (await tagRepo
+                      .deleteTags([for (final t in trashedTags) t.id]))
+                  .kept
+                  .length;
 
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(l10n(context).trashEmptied),
+                    content: Text(keptTags > 0
+                        ? l10n(context).tagsKeptStillWritten(keptTags)
+                        : l10n(context).trashEmptied),
                     behavior: SnackBarBehavior.floating,
                   ),
                 );
