@@ -210,6 +210,26 @@ void main() {
     expect(api.calls, isEmpty, reason: 'and must not call anything yet');
   });
 
+  testWidgets('closing the edit dialog does not use a freed controller',
+      (tester) async {
+    await _openTab(tester, 'Announcements', announcements: [_announcement()]);
+    final ctx = tester.element(find.byType(GroupDetailScreen));
+
+    await _choose(tester, l10n(ctx).edit);
+    // Asserted before dismissing: this test's only claim is that nothing
+    // throws, and "nothing threw" is also true of a dialog that never opened.
+    expect(find.text(l10n(ctx).editAnnouncement), findsOneWidget);
+
+    // Dismiss it. The dialog's controllers are disposed the moment showDialog
+    // returns, while the route is still animating out and the fields are
+    // still being rebuilt.
+    await tester.tap(find.text(l10n(ctx).actionCancel).last);
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull,
+        reason: 'the text fields outlive the await by one animation');
+  });
+
   testWidgets('Pin pins, and does not delete', (tester) async {
     final api = await _openTab(tester, 'Announcements',
         role: GroupMemberRole.admin, announcements: [_announcement()]);

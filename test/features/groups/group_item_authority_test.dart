@@ -128,6 +128,10 @@ Future<Set<String>> _openMenu(WidgetTester tester) async {
 
 void main() {
   group('an announcement', () {
+    // Verified against the QA server: a plain member is refused (403) when
+    // they try to post an announcement, so this viewer is not someone who
+    // wrote one as a member — they are a demoted admin. That is the state the
+    // rule exists for, and it is reachable: promoting and demoting both work.
     testWidgets('its author may edit and delete it, but not pin it',
         (tester) async {
       await _openTab(tester, 'Announcements',

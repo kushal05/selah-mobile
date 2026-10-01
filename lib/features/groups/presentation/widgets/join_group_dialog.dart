@@ -11,39 +11,17 @@ import '../../../../l10n/l10n.dart';
 /// Handles not-found, already-member, and error cases.
 /// Shared between [GroupsListScreen] and the people directory.
 Future<void> showJoinGroupDialog(BuildContext context, WidgetRef ref) async {
-  final codeController = TextEditingController();
-
+  // The field owns its own controller, in a StatefulWidget.
+  //
+  // This used to create a TextEditingController here and dispose it the moment
+  // showDialog returned. The route is still animating out at that point and
+  // the TextField rebuilds during the dismissal, so it reached a controller
+  // that had already been freed — "A TextEditingController was used after
+  // being disposed". A State's dispose runs when the field is actually gone.
   final code = await showDialog<String>(
     context: context,
-    builder: (context) => AlertDialog(
-      title: Text(l10n(context).joinAGroup),
-      content: TextField(
-        controller: codeController,
-        textCapitalization: TextCapitalization.characters,
-        decoration: InputDecoration(
-          hintText: l10n(context).enterGroupCode,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          filled: true,
-        ),
-        autofocus: true,
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(l10n(context).actionCancel),
-        ),
-        TextButton(
-          onPressed: () =>
-              Navigator.pop(context, codeController.text.trim()),
-          child: Text(l10n(context).join),
-        ),
-      ],
-    ),
+    builder: (context) => const _JoinCodeDialog(),
   );
-  codeController.dispose();
 
   if (code == null || code.isEmpty) return;
   if (!context.mounted) return;
@@ -92,5 +70,54 @@ Future<void> showJoinGroupDialog(BuildContext context, WidgetRef ref) async {
         ),
       );
     }
+  }
+}
+
+/// The dialog's text field, so the controller's life matches the field's.
+class _JoinCodeDialog extends StatefulWidget {
+  const _JoinCodeDialog();
+
+  @override
+  State<_JoinCodeDialog> createState() => _JoinCodeDialogState();
+}
+
+class _JoinCodeDialogState extends State<_JoinCodeDialog> {
+  final _codeController = TextEditingController();
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(l10n(context).joinAGroup),
+      content: TextField(
+        controller: _codeController,
+        textCapitalization: TextCapitalization.characters,
+        decoration: InputDecoration(
+          hintText: l10n(context).enterGroupCode,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          filled: true,
+        ),
+        autofocus: true,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n(context).actionCancel),
+        ),
+        TextButton(
+          onPressed: () =>
+              Navigator.pop(context, _codeController.text.trim()),
+          child: Text(l10n(context).join),
+        ),
+      ],
+    );
   }
 }
