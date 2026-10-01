@@ -8,7 +8,14 @@ import '../../../../l10n/l10n.dart';
 /// Displays a group announcement
 class AnnouncementCard extends StatelessWidget {
   final GroupAnnouncementModel announcement;
+
+  /// Rewriting someone's words is not moderation, so editing is the author's
+  /// alone. Removing an inappropriate post is, so a group admin gets that.
+  /// Pinning is curation of the group's own board, so it stays with admins.
   final bool canEdit;
+  final bool canDelete;
+  final bool canPin;
+
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final VoidCallback? onTogglePin;
@@ -17,6 +24,8 @@ class AnnouncementCard extends StatelessWidget {
     super.key,
     required this.announcement,
     this.canEdit = false,
+    this.canDelete = false,
+    this.canPin = false,
     this.onEdit,
     this.onDelete,
     this.onTogglePin,
@@ -57,7 +66,7 @@ class AnnouncementCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if (canEdit)
+              if (canEdit || canDelete || canPin)
                 PopupMenuButton<String>(
                   onSelected: (value) {
                     switch (value) {
@@ -70,23 +79,26 @@ class AnnouncementCard extends StatelessWidget {
                     }
                   },
                   itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: 'edit',
-                      child: Text(l10n(context).edit),
-                    ),
-                    PopupMenuItem(
-                      value: 'pin',
-                      child:
-                          Text(announcement.pinned ? 'Unpin' : 'Pin'),
-                    ),
-                    const PopupMenuDivider(),
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: Text(
-                        l10n(context).actionDelete,
-                        style: TextStyle(color: context.dangerText),
+                    if (canEdit)
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: Text(l10n(context).edit),
                       ),
-                    ),
+                    if (canPin)
+                      PopupMenuItem(
+                        value: 'pin',
+                        child: Text(announcement.pinned ? 'Unpin' : 'Pin'),
+                      ),
+                    if (canDelete) ...[
+                      if (canEdit || canPin) const PopupMenuDivider(),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Text(
+                          l10n(context).actionDelete,
+                          style: TextStyle(color: context.dangerText),
+                        ),
+                      ),
+                    ],
                   ],
                   child: Icon(Icons.more_vert, color: context.hintText),
                 ),
@@ -109,12 +121,18 @@ class AnnouncementCard extends StatelessWidget {
               Icon(Icons.person_outline,
                   size: 14, color: context.mutedText),
               const SizedBox(width: 4),
-              Text(
-                announcement.authorUsername,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: context.mutedText,
-                  fontWeight: FontWeight.w500,
+              // Flexible: a long username pushed the timestamp off the card and
+              // overflowed it by a hundred pixels. Nothing here could yield.
+              Flexible(
+                child: Text(
+                  announcement.authorUsername,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: context.mutedText,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),

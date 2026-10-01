@@ -72,8 +72,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
                 loading: () => const SizedBox.shrink(),
                 error: (_, _) => const SizedBox.shrink(),
                 data: (members) {
-                  final authService = ref.read(authServiceProvider);
-                  final userId = authService.currentUserId ?? '';
+                  final userId = ref.watch(currentUserIdProvider);
                   final currentMember = members
                       .where((m) => m.memberUserId == userId)
                       .toList();
@@ -575,6 +574,17 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
   @override
   Widget build(BuildContext context) {
     final groupPrayersAsync = ref.watch(groupPrayersProvider(widget.groupId));
+    // Who may take a share down: the person who shared it, and whoever
+    // manages the group — an inappropriate prayer needs a moderator, and the
+    // author is not always around to remove it.
+    final viewerId = ref.watch(currentUserIdProvider);
+    final canManage = ref
+            .watch(groupMembersProvider(widget.groupId))
+            .valueOrNull
+            ?.where((m) => m.memberUserId == viewerId)
+            .firstOrNull
+            ?.canManage ??
+        false;
     final allPrayersAsync = ref.watch(prayersStreamProvider);
 
     return Stack(
@@ -712,6 +722,23 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
                               ],
                             ),
                           ),
+                          if (gp.addedByUserId == viewerId || canManage)
+                            PopupMenuButton<String>(
+                              tooltip: l10n(context).moreOptions,
+                              onSelected: (_) => removePrayerFromGroup(
+                                  context, ref, widget.groupId, gp.id),
+                              itemBuilder: (context) => [
+                                PopupMenuItem(
+                                  value: 'remove',
+                                  child: Text(
+                                    l10n(context).removePrayerFromGroup,
+                                    style: TextStyle(color: context.dangerText),
+                                  ),
+                                ),
+                              ],
+                              child: Icon(Icons.more_vert,
+                                  color: context.hintText, size: 20),
+                            ),
                           if (status != null) _buildStatusBadge(status),
                           const SizedBox(width: 4),
                           Icon(Icons.chevron_right,
@@ -1001,6 +1028,9 @@ class _PrayersTabState extends ConsumerState<_PrayersTab> {
         prayerId: prayerId,
       );
       ref.invalidate(groupPrayersProvider(widget.groupId));
+      // The feed is a second view of these rows; without this it keeps
+      // showing the old state until someone pulls to refresh.
+      ref.invalidate(groupFeedProvider(widget.groupId));
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1117,8 +1147,11 @@ class _AnnouncementsTabState extends ConsumerState<_AnnouncementsTab> {
       loading: () => const Column(children: [FeedItemSkeleton(), FeedItemSkeleton(), FeedItemSkeleton()]),
       error: (error, stack) => Center(child: Text(UserFacingError.forLoad(error))),
       data: (announcements) {
-        final authService = ref.read(authServiceProvider);
-        final userId = authService.currentUserId ?? '';
+        // currentUserIdProvider, not authService: it is what the hundred-odd other
+        // call sites read and what the prayers tab decides the same permission
+        // from. Two sources would let the two tabs disagree about who may remove
+        // one person's post.
+        final userId = ref.watch(currentUserIdProvider);
 
         final canManage = membersAsync.whenOrNull(
               data: (members) {
@@ -1170,12 +1203,20 @@ class _AnnouncementsTabState extends ConsumerState<_AnnouncementsTab> {
                   final announcement = sorted[index];
                   return AnnouncementCard(
                     announcement: announcement,
-                    canEdit: canManage,
+                    // The author may correct their own words; an admin may take down an
+                    // inappropriate post but not rewrite it; pinning is the group's own
+                    // curation and stays with whoever manages it.
+                    canEdit: announcement.authorUserId == userId,
+                    canDelete: announcement.authorUserId == userId || canManage,
+                    canPin: canManage,
                     onEdit: () =>
-                        _editAnnouncement(announcement.id, announcement.title, announcement.content),
+                        editGroupAnnouncement(context, ref, widget.groupId,
+                          announcement.id, announcement.title,
+                          announcement.content),
                     onTogglePin: () =>
                         _togglePin(announcement.id, !announcement.pinned),
-                    onDelete: () => _deleteAnnouncement(announcement.id),
+                    onDelete: () => deleteGroupAnnouncement(
+                          context, ref, widget.groupId, announcement.id),
                   );
                 },
               ),
@@ -1265,90 +1306,14 @@ class _AnnouncementsTabState extends ConsumerState<_AnnouncementsTab> {
         content: contentController.text.trim(),
       );
       ref.invalidate(groupAnnouncementsProvider(widget.groupId));
+      // The feed is a second view of these rows; without this it keeps
+      // showing the old state until someone pulls to refresh.
+      ref.invalidate(groupFeedProvider(widget.groupId));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(UserFacingError.message(e, action: 'create announcement')),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } finally {
-      titleController.dispose();
-      contentController.dispose();
-    }
-  }
-
-  Future<void> _editAnnouncement(
-      String id, String currentTitle, String currentContent) async {
-    final titleController = TextEditingController(text: currentTitle);
-    final contentController = TextEditingController(text: currentContent);
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n(context).editAnnouncement),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: titleController,
-              decoration: InputDecoration(
-                labelText: l10n(context).title,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: contentController,
-              maxLines: 4,
-              decoration: InputDecoration(
-                labelText: l10n(context).content,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(l10n(context).actionCancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(l10n(context).actionSave),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) {
-      titleController.dispose();
-      contentController.dispose();
-      return;
-    }
-
-    try {
-      final api = ref.read(groupContentApiServiceProvider);
-      await api.updateAnnouncement(
-        groupId: widget.groupId,
-        announcementId: id,
-        title: titleController.text.trim(),
-        content: contentController.text.trim(),
-      );
-      ref.invalidate(groupAnnouncementsProvider(widget.groupId));
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(UserFacingError.message(e, action: 'update')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -1368,6 +1333,9 @@ class _AnnouncementsTabState extends ConsumerState<_AnnouncementsTab> {
         pinned: pinned,
       );
       ref.invalidate(groupAnnouncementsProvider(widget.groupId));
+      // The feed is a second view of these rows; without this it keeps
+      // showing the old state until someone pulls to refresh.
+      ref.invalidate(groupFeedProvider(widget.groupId));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1380,46 +1348,12 @@ class _AnnouncementsTabState extends ConsumerState<_AnnouncementsTab> {
     }
   }
 
-  Future<void> _deleteAnnouncement(String id) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n(context).deleteAnnouncement),
-        content: Text(l10n(context).areYouSureYouWantToDeleteThisAnnouncement),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(l10n(context).actionCancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: context.dangerText),
-            child: Text(l10n(context).actionDelete),
-          ),
-        ],
-      ),
-    );
+  /// Un-shares a prayer from the group.
+  ///
+  /// Worded as removal, not deletion: this drops the group's copy of the
+  /// share and the prayer itself stays in the author's own list. Calling it
+  /// "delete" would read as destroying the prayer.
 
-    if (confirmed != true) return;
-
-    try {
-      final api = ref.read(groupContentApiServiceProvider);
-      await api.deleteAnnouncement(
-        groupId: widget.groupId,
-        announcementId: id,
-      );
-      ref.invalidate(groupAnnouncementsProvider(widget.groupId));
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(UserFacingError.message(e, action: 'delete')),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    }
-  }
 }
 
 /// Members tab showing group members list
@@ -1842,6 +1776,20 @@ class _FeedTab extends ConsumerWidget {
     final feedAsync = ref.watch(groupFeedProvider(groupId));
     final theme = Theme.of(context);
 
+    // The feed carries user ids, not names. Members are the only place a name
+    // lives, so resolve through them — and hold the map as null until they
+    // have actually been read, because a half-loaded map would relabel a
+    // known author as unknown.
+    final members = ref.watch(groupMembersProvider(groupId)).valueOrNull;
+    final namesById = members == null
+        ? null
+        : <String, String>{
+            for (final m in members)
+              m.memberUserId: m.memberDisplayName.trim().isNotEmpty
+                  ? m.memberDisplayName
+                  : m.memberUsername,
+          };
+
     return feedAsync.when(
       loading: () => const Column(
         children: [
@@ -1903,7 +1851,19 @@ class _FeedTab extends ConsumerWidget {
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             itemCount: items.length,
-            itemBuilder: (context, index) => _FeedItemCard(item: items[index], theme: theme),
+            itemBuilder: (context, index) {
+              final item = items[index];
+              // No actions here. The feed is a record of what happened; an
+              // announcement is managed on its own tab and a shared prayer on
+              // the prayers tab, so there is one place that decides who may
+              // change a thing rather than two.
+              return _FeedItemCard(
+                item: item,
+                theme: theme,
+                authorName:
+                    item.userId == null ? null : namesById?[item.userId!],
+              );
+            },
           ),
         );
       },
@@ -1915,7 +1875,17 @@ class _FeedItemCard extends StatelessWidget {
   final GroupFeedItem item;
   final ThemeData theme;
 
-  const _FeedItemCard({required this.item, required this.theme});
+  /// The author's name, or null when it is not known — either the members
+  /// have not been read yet or the author has left the group. Null means the
+  /// byline is omitted; it never falls back to printing the user id, which is
+  /// what this card used to show.
+  final String? authorName;
+
+  const _FeedItemCard({
+    required this.item,
+    required this.theme,
+    required this.authorName,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1952,10 +1922,10 @@ class _FeedItemCard extends StatelessWidget {
                 l10n(context).prayerShared,
                 style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
               ),
-              if (item.userId != null) ...[
+              if (authorName != null) ...[
                 const SizedBox(height: 2),
                 Text(
-                  'by ${item.userId}',
+                  'by $authorName',
                   style: theme.textTheme.bodySmall?.copyWith(color: context.mutedText),
                 ),
               ],
@@ -2034,5 +2004,183 @@ class _FeedItemCard extends StatelessWidget {
       label,
       style: TextStyle(fontSize: 12, color: context.mutedText),
     );
+  }
+}
+
+
+// ─── Actions shared by the Announcements tab and the Feed ────────────────────
+//
+// Top-level rather than methods on the announcements tab: the feed shows the
+// same rows and needs the same three actions, and a second copy of these
+// dialogs is how the two views would start disagreeing about what 'delete'
+// asks and what it invalidates.
+
+Future<void> editGroupAnnouncement(
+  BuildContext context, WidgetRef ref, String groupId,
+    String id, String currentTitle, String currentContent) async {
+  final titleController = TextEditingController(text: currentTitle);
+  final contentController = TextEditingController(text: currentContent);
+
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(l10n(context).editAnnouncement),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: titleController,
+            decoration: InputDecoration(
+              labelText: l10n(context).title,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: contentController,
+            maxLines: 4,
+            decoration: InputDecoration(
+              labelText: l10n(context).content,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(l10n(context).actionCancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(l10n(context).actionSave),
+        ),
+      ],
+    ),
+  );
+
+  if (confirmed != true) {
+    titleController.dispose();
+    contentController.dispose();
+    return;
+  }
+
+  try {
+    final api = ref.read(groupContentApiServiceProvider);
+    await api.updateAnnouncement(
+      groupId: groupId,
+      announcementId: id,
+      title: titleController.text.trim(),
+      content: contentController.text.trim(),
+    );
+    ref.invalidate(groupAnnouncementsProvider(groupId));
+    // The feed is a second view of these rows; without this it keeps
+    // showing the old state until someone pulls to refresh.
+    ref.invalidate(groupFeedProvider(groupId));
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(UserFacingError.message(e, action: 'update')),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  } finally {
+    titleController.dispose();
+    contentController.dispose();
+  }
+}
+
+Future<void> removePrayerFromGroup(
+  BuildContext context, WidgetRef ref, String groupId,String groupPrayerId) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(l10n(context).removePrayerFromGroup),
+      content:
+          Text(l10n(context).removeThisPrayerFromTheGroupItStaysInYourOwnList),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(l10n(context).actionCancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          style: TextButton.styleFrom(foregroundColor: context.dangerText),
+          child: Text(l10n(context).remove),
+        ),
+      ],
+    ),
+  );
+
+  if (confirmed != true) return;
+
+  try {
+    final api = ref.read(groupContentApiServiceProvider);
+    await api.removeGroupPrayer(
+      groupId: groupId,
+      groupPrayerId: groupPrayerId,
+    );
+    ref.invalidate(groupPrayersProvider(groupId));
+    ref.invalidate(groupFeedProvider(groupId));
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content:
+            Text(UserFacingError.message(e, action: 'remove that prayer')),
+      ));
+    }
+  }
+}
+
+Future<void> deleteGroupAnnouncement(
+  BuildContext context, WidgetRef ref, String groupId,String id) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(l10n(context).deleteAnnouncement),
+      content: Text(l10n(context).areYouSureYouWantToDeleteThisAnnouncement),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(l10n(context).actionCancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          style: TextButton.styleFrom(foregroundColor: context.dangerText),
+          child: Text(l10n(context).actionDelete),
+        ),
+      ],
+    ),
+  );
+
+  if (confirmed != true) return;
+
+  try {
+    final api = ref.read(groupContentApiServiceProvider);
+    await api.deleteAnnouncement(
+      groupId: groupId,
+      announcementId: id,
+    );
+    ref.invalidate(groupAnnouncementsProvider(groupId));
+    // The feed is a second view of the same rows; without this the
+    // deleted announcement stays on screen in the Feed tab.
+    ref.invalidate(groupFeedProvider(groupId));
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(UserFacingError.message(e, action: 'delete')),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 }
