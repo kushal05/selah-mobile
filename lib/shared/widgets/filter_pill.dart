@@ -29,6 +29,16 @@ class FilterPill extends StatelessWidget {
   /// Shown after the label, for filters over a countable set.
   final int? count;
 
+  /// Shown last, after any count — a chevron on a pill that opens or closes
+  /// something, so it reads as a control with more behind it rather than as a
+  /// choice in its own right.
+  final IconData? trailingIcon;
+
+  /// For a pill that opens and closes a panel: whether that panel is open.
+  /// Null for an ordinary choice. Announced by screen readers, which cannot see
+  /// the chevron that says the same thing on screen.
+  final bool? expanded;
+
   /// The accent this filter belongs to, usually its tab's colour.
   final Color accent;
 
@@ -52,6 +62,8 @@ class FilterPill extends StatelessWidget {
     required this.onTap,
     this.icon,
     this.count,
+    this.trailingIcon,
+    this.expanded,
     this.accent = AppTheme.brandBlue,
     this.dense = false,
   });
@@ -66,6 +78,7 @@ class FilterPill extends StatelessWidget {
     final pill = Semantics(
       button: true,
       selected: selected,
+      expanded: expanded,
       child: Material(
         color: selected
             ? glyph.withValues(alpha: AppTheme.alphaLight)
@@ -133,6 +146,12 @@ class FilterPill extends StatelessWidget {
                         color: selected ? ink : context.mutedText,
                       ),
                     ),
+                  ],
+                  if (trailingIcon != null) ...[
+                    SizedBox(width: dense ? 2 : 4),
+                    Icon(trailingIcon,
+                        size: dense ? AppTheme.iconSM : AppTheme.iconMD,
+                        color: selected ? glyph : context.mutedText),
                   ],
                 ],
               ),

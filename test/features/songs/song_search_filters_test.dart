@@ -17,6 +17,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart' show SemanticsNode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -42,6 +43,7 @@ typedef _Search = ({
   String? folderId,
   List<String>? folderIds,
   List<String>? tagIds,
+  String? language,
 });
 
 class _RecordingSongRepo implements SongRepository {
@@ -58,6 +60,7 @@ class _RecordingSongRepo implements SongRepository {
     String? scale,
     String? folderId,
     List<String>? folderIds,
+    String? language,
   }) async {
     calls.add((
       text: textQuery,
@@ -65,6 +68,7 @@ class _RecordingSongRepo implements SongRepository {
       folderId: folderId,
       folderIds: folderIds,
       tagIds: tagIds,
+      language: language,
     ));
     return respond?.call(calls.length - 1) ?? const [];
   }
@@ -135,6 +139,7 @@ Future<_RecordingSongRepo> _pumpScreen(
   Duration tagDelay = Duration.zero,
   List<String> songScales = const ['C#m'],
   _RecordingSongRepo? songs,
+  List<String> Function()? languages,
 }) async {
   final repo = songs ?? _RecordingSongRepo();
   await tester.pumpWidget(
@@ -144,6 +149,10 @@ Future<_RecordingSongRepo> _pumpScreen(
         folderRepositoryProvider.overrideWithValue(folders ?? _FolderRepo()),
         currentUserIdProvider.overrideWith((ref) => 'u1'),
         songScalesProvider.overrideWith((ref) async => songScales),
+        // A function, not a list, so a test can change the answer between
+        // opens and see whether the dialog asks again.
+        songLanguagesProvider.overrideWith(
+            (ref) async => languages?.call() ?? const ['English', 'Telugu']),
         songTagsProvider.overrideWith((ref) async {
           if (tagDelay > Duration.zero) await Future<void>.delayed(tagDelay);
           return tags ?? [_tag('t1', 'Worship'), _tag('t2', 'Hymn')];
@@ -182,15 +191,58 @@ Future<void> _openDialog(WidgetTester tester) async {
       reason: 'the filter dialog did not open');
 }
 
-/// Taps a choice inside the dialog by its label.
-Future<void> _choose(WidgetTester tester, String label) async {
-  final pill = find.descendant(
-    of: find.byType(SongFilterDialog),
-    matching: find.widgetWithText(FilterPill, label),
-  );
-  await tester.ensureVisible(pill);
-  await tester.pumpAndSettle();
-  await tester.tap(pill);
+/// The four kinds of filter, each a button in the dialog.
+enum _Cat { key, tags, songbook, language }
+
+/// Found by icon, not label: a button's label changes to what is chosen
+/// ("Key: G", "Telugu"), its icon does not.
+const _catIcon = {
+  _Cat.key: Icons.music_note_rounded,
+  _Cat.tags: Icons.label_outlined,
+  _Cat.songbook: Icons.library_books_outlined,
+  _Cat.language: Icons.translate_rounded,
+};
+
+/// A kind's button. Buttons carry a chevron; the choices under them do not,
+/// which is what keeps "Telugu" the button apart from "Telugu" the choice.
+Finder _button(_Cat c) => find.descendant(
+      of: find.byType(SongFilterDialog),
+      matching: find.byWidgetPredicate((w) =>
+          w is FilterPill && w.trailingIcon != null && w.icon == _catIcon[c]),
+    );
+
+/// A choice, by its label, among those showing.
+Finder _option(String label) => find.descendant(
+      of: find.byType(SongFilterDialog),
+      matching: find.byWidgetPredicate((w) =>
+          w is FilterPill && w.trailingIcon == null && w.label == label),
+    );
+
+/// The labels of every choice showing, in order.
+List<String> _options(WidgetTester tester) => tester
+    .widgetList<FilterPill>(find.descendant(
+      of: find.byType(SongFilterDialog),
+      matching: find.byWidgetPredicate(
+          (w) => w is FilterPill && w.trailingIcon == null),
+    ))
+    .map((p) => p.label)
+    .toList();
+
+/// Opens [c]'s choices if they are not already open. Fixed pumps rather than
+/// settling, so it also works while the screen behind shows an animated skeleton.
+Future<void> _openCategory(WidgetTester tester, _Cat c) async {
+  if (tester.widget<FilterPill>(_button(c)).expanded == true) return;
+  await tester.tap(_button(c));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300));
+}
+
+/// Opens [c] and taps the choice labelled [label].
+Future<void> _choose(WidgetTester tester, _Cat c, String label) async {
+  await _openCategory(tester, c);
+  await tester.ensureVisible(_option(label));
+  await tester.pump();
+  await tester.tap(_option(label));
   await tester.pump();
 }
 
@@ -313,23 +365,35 @@ void main() {
       expect(button.center.dx, greaterThan(field.center.dx));
     });
 
-    testWidgets('offer key, tags and songbook together', (tester) async {
+    testWidgets('offer key, tags, songbook and language as buttons',
+        (tester) async {
       await _pumpScreen(tester);
       await _openDialog(tester);
 
-      final dialog = find.byType(SongFilterDialog);
-      for (final heading in ['Key', 'Tags', 'Songbooks']) {
-        expect(find.descendant(of: dialog, matching: find.text(heading)),
-            findsOneWidget, reason: 'no $heading section');
+      for (final c in _Cat.values) {
+        expect(_button(c), findsOneWidget, reason: 'no ${c.name} button');
       }
-      // A standard key, the odd one a song carries, a tag and a songbook.
-      for (final choice in ['C', 'C#m', 'Worship', 'Hillsong']) {
-        expect(
-          find.descendant(
-              of: dialog, matching: find.widgetWithText(FilterPill, choice)),
-          findsOneWidget,
-          reason: 'no "$choice" choice',
-        );
+      // Nothing open to begin with: the buttons say what is set.
+      expect(_options(tester), isEmpty,
+          reason: 'no choices should show until a button is tapped');
+    });
+
+    testWidgets("and each opens its own choices", (tester) async {
+      await _pumpScreen(tester);
+      await _openDialog(tester);
+
+      // A standard key and the odd one a song carries; a tag; a songbook; a
+      // language.
+      for (final (c, choice) in [
+        (_Cat.key, 'C'),
+        (_Cat.key, 'C#m'),
+        (_Cat.tags, 'Worship'),
+        (_Cat.songbook, 'Hillsong'),
+        (_Cat.language, 'Telugu'),
+      ]) {
+        await _openCategory(tester, c);
+        expect(_option(choice), findsOneWidget,
+            reason: 'no "$choice" under ${c.name}');
       }
     });
 
@@ -340,9 +404,9 @@ void main() {
       final before = repo.calls.length;
 
       await _openDialog(tester);
-      await _choose(tester, 'G');
-      await _choose(tester, 'Worship');
-      await _choose(tester, 'Hymn');
+      await _choose(tester, _Cat.key, 'G');
+      await _choose(tester, _Cat.tags, 'Worship');
+      await _choose(tester, _Cat.tags, 'Hymn');
       await _apply(tester);
 
       expect(repo.calls.length, before + 1, reason: 'Apply should search once');
@@ -356,9 +420,9 @@ void main() {
         (tester) async {
       await _pumpScreen(tester);
       await _openDialog(tester);
-      await _choose(tester, 'G');
-      await _choose(tester, 'Worship');
-      await _choose(tester, 'Hymn');
+      await _choose(tester, _Cat.key, 'G');
+      await _choose(tester, _Cat.tags, 'Worship');
+      await _choose(tester, _Cat.tags, 'Hymn');
       await _apply(tester);
 
       // Key and tags: two kinds, however many tags.
@@ -383,7 +447,7 @@ void main() {
       );
 
       await _openDialog(tester);
-      await _choose(tester, 'Hillsong');
+      await _choose(tester, _Cat.songbook, 'Hillsong');
       await _apply(tester);
 
       expect(repo.calls.last.folderId, 'b1');
@@ -395,7 +459,7 @@ void main() {
       final before = repo.calls.length;
 
       await _openDialog(tester);
-      await _choose(tester, 'Worship');
+      await _choose(tester, _Cat.tags, 'Worship');
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
 
@@ -414,7 +478,7 @@ void main() {
       final before = repo.calls.length;
 
       await _openDialog(tester);
-      await _choose(tester, 'Worship');
+      await _choose(tester, _Cat.tags, 'Worship');
       await tester.tapAt(const Offset(4, 4)); // the barrier
       await tester.pumpAndSettle();
 
@@ -423,11 +487,9 @@ void main() {
 
       // Reopening shows what is actually applied — nothing.
       await _openDialog(tester);
-      final worship = tester.widget<FilterPill>(find.descendant(
-        of: find.byType(SongFilterDialog),
-        matching: find.widgetWithText(FilterPill, 'Worship'),
-      ));
-      expect(worship.selected, isFalse);
+      expect(tester.widget<FilterPill>(_button(_Cat.tags)).selected, isFalse);
+      await _openCategory(tester, _Cat.tags);
+      expect(tester.widget<FilterPill>(_option('Worship')).selected, isFalse);
     });
 
     testWidgets('a slow typed search cannot overwrite applied filters',
@@ -463,11 +525,7 @@ void main() {
       await tester.tap(_filterButton);
       await frames();
       expect(find.byType(SongFilterDialog), findsOneWidget);
-      await tester.tap(find.descendant(
-        of: find.byType(SongFilterDialog),
-        matching: find.widgetWithText(FilterPill, 'G'),
-      ));
-      await tester.pump();
+      await _choose(tester, _Cat.key, 'G');
       await tester.tap(find.widgetWithText(FilledButton, 'Apply'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
@@ -503,19 +561,13 @@ void main() {
       // lists do not have still appears, at the end.
       await _pumpScreen(tester, songScales: const ['C#m', 'Dsus4']);
       await _openDialog(tester);
+      await _openCategory(tester, _Cat.key);
 
-      final keys = tester
-          .widgetList<FilterPill>(find.descendant(
-            of: find.byType(SongFilterDialog),
-            matching: find.byType(FilterPill),
-          ))
-          .map((p) => p.label)
-          .toList();
-      // Everything between "Any key" and the first tag.
-      final start = keys.indexOf('Any key') + 1;
-      final end = keys.indexOf('Worship');
+      // Only the key choices show now, so the whole list is the answer.
+      final keys = _options(tester);
+      expect(keys.first, 'Any key');
 
-      expect(keys.sublist(start, end), [
+      expect(keys.sublist(1), [
         'C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B',
         'Cm', 'C#m', 'Dm', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'Abm', 'Am', 'Bbm',
         'Bm',
@@ -527,11 +579,9 @@ void main() {
       // The dialog-level half of the pill width fix: keys share rows.
       await _pumpScreen(tester);
       await _openDialog(tester);
+      await _openCategory(tester, _Cat.key);
 
-      Rect key(String k) => tester.getRect(find.descendant(
-            of: find.byType(SongFilterDialog),
-            matching: find.widgetWithText(FilterPill, k),
-          ));
+      Rect key(String k) => tester.getRect(_option(k));
       expect(key('C#').top, key('C').top,
           reason: 'neighbouring keys should share a line');
     });
@@ -563,18 +613,57 @@ void main() {
       expect(find.byType(SongFilterDialog), findsOneWidget);
     });
 
+    testWidgets('a language reaches the search, and counts as a kind',
+        (tester) async {
+      final repo = await _pumpScreen(tester);
+      await _openDialog(tester);
+      await _choose(tester, _Cat.language, 'Telugu');
+      await _choose(tester, _Cat.key, 'G');
+      await _apply(tester);
+
+      expect(repo.calls.last.language, 'Telugu');
+      expect(repo.calls.last.scale, 'G');
+      expect(
+        find.descendant(of: _filterButton, matching: find.text('2')),
+        findsOneWidget,
+        reason: 'key and language: two kinds in force',
+      );
+    });
+
+    testWidgets('the choices are read afresh each time the dialog opens',
+        (tester) async {
+      // Keys, tags and languages come from providers that load once and are
+      // kept. Read as they were, a song added in a new language mid-session
+      // never reached the filter until the app restarted.
+      var langs = ['English', 'Telugu'];
+      await _pumpScreen(tester, languages: () => langs);
+
+      await _openDialog(tester);
+      await _openCategory(tester, _Cat.language);
+      expect(_option('Tamil'), findsNothing);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      langs = ['English', 'Tamil', 'Telugu']; // a Tamil song was added
+
+      await _openDialog(tester);
+      await _openCategory(tester, _Cat.language);
+      expect(_option('Tamil'), findsOneWidget,
+          reason: 'the new language should be offered on the next open');
+    });
+
     testWidgets('reopen showing what is applied', (tester) async {
       await _pumpScreen(tester);
       await _openDialog(tester);
-      await _choose(tester, 'Hymn');
+      await _choose(tester, _Cat.tags, 'Hymn');
       await _apply(tester);
 
       await _openDialog(tester);
-      final hymn = tester.widget<FilterPill>(find.descendant(
-        of: find.byType(SongFilterDialog),
-        matching: find.widgetWithText(FilterPill, 'Hymn'),
-      ));
-      expect(hymn.selected, isTrue);
+      // The button says so before anything is opened…
+      expect(tester.widget<FilterPill>(_button(_Cat.tags)).count, 1);
+      // …and the choice is ticked when it is.
+      await _openCategory(tester, _Cat.tags);
+      expect(tester.widget<FilterPill>(_option('Hymn')).selected, isTrue);
     });
   });
 
@@ -585,6 +674,7 @@ void main() {
       SongSearchFilters initial = SongSearchFilters.none,
       List<TagModel> tags = const [],
       List<FolderModel> songbooks = const [],
+      List<String> languages = const [],
       ThemeData? theme,
       Future<void> Function()? interact,
     }) async {
@@ -605,6 +695,7 @@ void main() {
                     scales: const ['C', 'G', 'Am'],
                     tags: tags,
                     songbooks: songbooks,
+                    languages: languages,
                   );
                   closed = true;
                 },
@@ -622,12 +713,10 @@ void main() {
 
     testWidgets('tapping the chosen key again lets it go', (tester) async {
       await pumpDialog(tester, interact: () async {
-        await _choose(tester, 'G');
-        await _choose(tester, 'G');
+        await _choose(tester, _Cat.key, 'G');
+        await _choose(tester, _Cat.key, 'G');
       });
-      final anyKey = tester.widget<FilterPill>(
-          find.widgetWithText(FilterPill, 'Any key'));
-      expect(anyKey.selected, isTrue);
+      expect(tester.widget<FilterPill>(_option('Any key')).selected, isTrue);
     });
 
     testWidgets('Clear all is off when there is nothing to clear',
@@ -649,24 +738,151 @@ void main() {
       );
       expect(find.byType(SongFilterDialog), findsOneWidget,
           reason: 'clearing is still a choice you can Cancel');
-      expect(
-        tester
-            .widget<FilterPill>(find.widgetWithText(FilterPill, 'Any key'))
-            .selected,
-        isTrue,
-      );
+      final key = tester.widget<FilterPill>(_button(_Cat.key));
+      expect(key.label, 'Key');
+      expect(key.selected, isFalse);
+      await _openCategory(tester, _Cat.key);
+      expect(tester.widget<FilterPill>(_option('Any key')).selected, isTrue);
     });
 
     testWidgets('has no songbook section when there are no songbooks',
         (tester) async {
       await pumpDialog(tester);
-      expect(find.text('Songbooks'), findsNothing);
+      expect(_button(_Cat.songbook), findsNothing);
       expect(find.text('All songbooks'), findsNothing);
     });
 
     testWidgets('says so when there are no tags', (tester) async {
       await pumpDialog(tester);
+      await _openCategory(tester, _Cat.tags);
       expect(find.text('No tags available'), findsOneWidget);
+    });
+
+    testWidgets('one kind is open at a time, and tapping it again closes it',
+        (tester) async {
+      await pumpDialog(tester, tags: [_tag('t1', 'Worship')]);
+
+      await _openCategory(tester, _Cat.key);
+      expect(_option('Any key'), findsOneWidget);
+
+      await _openCategory(tester, _Cat.tags);
+      expect(_option('Worship'), findsOneWidget);
+      expect(_option('Any key'), findsNothing,
+          reason: 'opening tags should close key');
+
+      await tester.tap(_button(_Cat.tags));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(_options(tester), isEmpty, reason: 'a second tap closes it');
+    });
+
+    testWidgets('and screen readers hear which one is open', (tester) async {
+      // The chevron says it on screen; `expanded` says it to TalkBack and
+      // VoiceOver, which cannot see the chevron.
+      final handle = tester.ensureSemantics();
+      await pumpDialog(tester);
+
+      // The Semantics node inside the pill. Asking for the pill's own element
+      // returns the nearest ancestor node instead — the whole button row.
+      SemanticsNode node() => tester.getSemantics(find
+          .descendant(of: _button(_Cat.key), matching: find.byType(Semantics))
+          .first);
+
+      expect(node(),
+          isSemantics(isButton: true, hasExpandedState: true, isExpanded: false));
+      await _openCategory(tester, _Cat.key);
+      expect(node(),
+          isSemantics(isButton: true, hasExpandedState: true, isExpanded: true));
+      handle.dispose();
+    });
+
+    testWidgets('each button says what is chosen without being opened',
+        (tester) async {
+      await pumpDialog(
+        tester,
+        initial: const SongSearchFilters(
+          scale: 'G',
+          tagIds: {'t1', 't2'},
+          folderId: 'b1',
+          language: 'Telugu',
+        ),
+        tags: [_tag('t1', 'Worship'), _tag('t2', 'Hymn')],
+        songbooks: [_book('b1', 'Hillsong')],
+        languages: const ['English', 'Telugu'],
+      );
+
+      FilterPill b(_Cat c) => tester.widget<FilterPill>(_button(c));
+      expect(b(_Cat.key).label, 'Key: G');
+      expect(b(_Cat.tags).count, 2);
+      expect(b(_Cat.songbook).label, 'Hillsong');
+      expect(b(_Cat.language).label, 'Telugu');
+      for (final c in _Cat.values) {
+        expect(b(c).selected, isTrue, reason: '${c.name} has a value set');
+      }
+    });
+
+    testWidgets("each section is headed with its button's name",
+        (tester) async {
+      // Songbook used to open under "Songbooks" while the other three matched
+      // their buttons. Two of each name: the button, and the heading it opens.
+      await pumpDialog(
+        tester,
+        tags: [_tag('t1', 'Worship')],
+        songbooks: [_book('b1', 'Hillsong')],
+        languages: const ['English', 'Telugu'],
+      );
+      for (final (c, name) in [
+        (_Cat.key, 'Key'),
+        (_Cat.tags, 'Tags'),
+        (_Cat.songbook, 'Songbook'),
+        (_Cat.language, 'Language'),
+      ]) {
+        await _openCategory(tester, c);
+        expect(
+          find.descendant(
+              of: find.byType(SongFilterDialog), matching: find.text(name)),
+          findsNWidgets(2),
+          reason: '${c.name}: the button and its section heading',
+        );
+      }
+    });
+
+    testWidgets('language is offered only when there is a choice to make',
+        (tester) async {
+      // Every song in one language: a Language button would offer one answer.
+      await pumpDialog(tester, languages: const ['English']);
+      expect(_button(_Cat.language), findsNothing);
+    });
+
+    testWidgets('but stays while a language filter is set, so it can be removed',
+        (tester) async {
+      await pumpDialog(
+        tester,
+        initial: const SongSearchFilters(language: 'English'),
+        languages: const ['English'],
+      );
+      expect(_button(_Cat.language), findsOneWidget);
+    });
+
+    testWidgets('an open kind whose button goes away takes its choices with it',
+        (tester) async {
+      // One language, filtered by it, its choices open. Clear all removes the
+      // filter, so the button is no longer offered — its choices must not be
+      // left hanging under a row without it.
+      await pumpDialog(
+        tester,
+        initial: const SongSearchFilters(language: 'English'),
+        languages: const ['English'],
+        interact: () async {
+          await _openCategory(tester, _Cat.language);
+          expect(_option('Any language'), findsOneWidget);
+          await tester.tap(find.widgetWithText(TextButton, 'Clear all'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+        },
+      );
+      expect(_button(_Cat.language), findsNothing);
+      expect(_options(tester), isEmpty);
     });
 
     for (final theme

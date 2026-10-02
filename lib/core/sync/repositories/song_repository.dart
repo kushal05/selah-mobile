@@ -143,6 +143,7 @@ class SongRepository extends BaseSyncRepository<SongModel> {
     String? scale,
     String? folderId,
     List<String>? folderIds,
+    String? language,
   }) async {
     // Build dynamic WHERE clauses
     final conditions = <String>["s.deleted = 0", "s.trashed_at IS NULL", "s.user_id = ?"];
@@ -159,6 +160,14 @@ class SongRepository extends BaseSyncRepository<SongModel> {
     if (scale != null && scale.isNotEmpty) {
       conditions.add("s.scale = ?");
       variables.add(Variable.withString(scale));
+    }
+
+    // An exact match, so idx_songs_language serves it. The choices offered come
+    // from getUniqueLanguages, which lists the values as stored, so the value
+    // asked for here is always one that exists.
+    if (language != null && language.isNotEmpty) {
+      conditions.add("s.language = ?");
+      variables.add(Variable.withString(language));
     }
 
     if (folderId != null) {
@@ -260,8 +269,17 @@ class SongRepository extends BaseSyncRepository<SongModel> {
 
   /// Get unique languages for a user
   Future<List<String>> getUniqueLanguages(String userId) async {
+    // Blank values are left out. The server's column defaults to '' and the
+    // app substitutes "English" only when the field is missing, so a song
+    // created without a language arrives with an empty one — and would put a
+    // blank chip in the language filter. Such songs still show under "Any
+    // language"; they just do not get an option of their own.
+    //
+    // TRIM is given the characters to strip: on its own it removes only
+    // spaces, so a value of tabs or newlines would still have made a blank
+    // chip. char(9,10,13,32) is tab, line feed, carriage return and space.
     final result = await _db.customSelect(
-      'SELECT DISTINCT language FROM songs WHERE user_id = ? AND deleted = 0 AND trashed_at IS NULL ORDER BY language',
+      "SELECT DISTINCT language FROM songs WHERE user_id = ? AND deleted = 0 AND trashed_at IS NULL AND TRIM(language, char(9, 10, 13, 32)) <> '' ORDER BY language",
       variables: [Variable.withString(userId)],
     ).get();
     return result.map((row) => row.read<String>('language')).toList();

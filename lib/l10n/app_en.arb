@@ -625,6 +625,17 @@
   "@filterSongs": { "description": "Title of the song search filter dialog, and the tooltip on the button that opens it." },
   "songKeyLabel": "Key",
   "@songKeyLabel": { "description": "Heading over the musical keys in the song filter dialog. A musical key (C, G, Am), not a key on a keyboard." },
+  "songKeyChosen": "Key: {key}",
+  "@songKeyChosen": {
+    "description": "The key filter button once a key is chosen, e.g. \"Key: G\". A message rather than two strings joined in code, so a translation can order and punctuate it as its language needs.",
+    "placeholders": { "key": { "type": "String", "example": "G" } }
+  },
+  "songLanguageLabel": "Language",
+  "@songLanguageLabel": { "description": "Button and heading for the language filter in the song filter dialog — the language a song is sung in." },
+  "anyLanguage": "Any language",
+  "@anyLanguage": { "description": "Song filter choice that clears the language filter." },
+  "songbookLabel": "Songbook",
+  "@songbookLabel": { "description": "Button for the songbook filter in the song filter dialog. Singular: it opens a single choice." },
   "filterByPreacher": "Filter by preacher",
   "@filterByPreacher": {
     "description": "Header of the notes filter sheet that picks a preacher."

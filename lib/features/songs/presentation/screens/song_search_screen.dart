@@ -104,6 +104,7 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
         folderId: filters.folderId,
         folderIds: subtreeFolderIds,
         tagIds: filters.tagIds.isEmpty ? null : filters.tagIds.toList(),
+        language: filters.language,
       );
 
       // A newer search owns the screen now, including its loading state.
@@ -263,10 +264,22 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
           return <T>[];
         });
 
-    final (dbScales, tags, songbooks) = await (
+    // The keys, tags and languages come from FutureProviders, which load once
+    // and are then kept for the session. Read as they were, the dialog offered
+    // the choices of whenever it was first opened: a song added in Tamil, or a
+    // new tag, did not appear until the app restarted. Refreshed on each open
+    // instead — three small local queries, the last on an indexed column.
+    // Songbooks need nothing: theirs is a stream, and already current.
+    ref
+      ..invalidate(songScalesProvider)
+      ..invalidate(songTagsProvider)
+      ..invalidate(songLanguagesProvider);
+
+    final (dbScales, tags, songbooks, languages) = await (
       load(ref.read(songScalesProvider.future), 'scales'),
       load(ref.read(songTagsProvider.future), 'tags'),
       load(ref.read(songFoldersStreamProvider.future), 'songbooks'),
+      load(ref.read(songLanguagesProvider.future), 'languages'),
     ).wait;
     if (!mounted) return;
 
@@ -289,6 +302,7 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
       scales: scales,
       tags: tags,
       songbooks: songbooks,
+      languages: languages,
     );
     if (chosen == null || chosen == _filters || !mounted) return;
 

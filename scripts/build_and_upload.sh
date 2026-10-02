@@ -88,10 +88,26 @@ flutter pub get 2>&1 | grep -v "Building with plugins requires symlink" \
                      | grep -v "Please enable Developer Mode" \
                      | grep -v "start ms-settings" || true
 
+# Size, measured on build 37 (80.7MB):
+#   --target-platform android-arm64   only the ABI we ship (android/app/build.gradle.kts
+#                                     filters the plugins' native libs to match)   -> 33.2MB
+#   + compressed native libs (gradle packaging block)                              -> 13.7MB
+#   --split-debug-info                moves Dart symbol tables out of libapp.so    -> 12.8MB
+# --obfuscate was measured too and bought only 0.08MB more, for renaming every
+# identifier, so it is not used.
+#
+# Split debug info makes release stack traces print as addresses. Nothing sends
+# them off the device — there is no crash reporter — but to read one from a
+# device log, run it through the symbols kept here for that build:
+#   flutter symbolize -i trace.txt -d "$DEBUG_INFO_DIR"
+DEBUG_INFO_DIR="build/debug-info/${FLAVOR}-v${APP_VERSION}+${BUILD_NUMBER}"
 flutter build apk --release \
   --flavor "$FLAVOR" \
   --dart-define-from-file="flavors/${FLAVOR}.json" \
+  --target-platform android-arm64 \
+  --split-debug-info="$DEBUG_INFO_DIR" \
   --no-pub
+echo "  Symbols for this build: $DEBUG_INFO_DIR (keep them to read its stack traces)"
 
 # Flutter outputs to different paths depending on whether a flavor is used.
 APK_FLAVOR_PATH="build/app/outputs/flutter-apk/app-${FLAVOR}-release.apk"
@@ -128,6 +144,33 @@ aws s3 cp "$TMP_APK" \
 APK_NAME_URL="${APK_NAME//+/%2B}"
 APK_URL="https://${S3_BUCKET}.s3.${S3_REGION}.amazonaws.com/${APK_S3_PREFIX}/${APK_NAME_URL}"
 echo "  Uploaded: $APK_URL"
+
+# ── Refresh the stable "latest" link ──────────────────────────────────────────
+#
+# One fixed address per flavour that always holds the newest build, for links
+# given to people: the short URLs point here. A link to the versioned file above
+# would go stale the moment the next build ships, and would 404 once rotation
+# (below) deletes that build. This lives outside builds/, so rotation never
+# touches it, and its name has no '+' to percent-encode.
+#
+# Copied server-side from the file just uploaded, with the headers re-set:
+# no-cache so a second download gets the new build, and a filename so the
+# phone saves "Selah.apk" rather than the S3 key.
+if [[ "$FLAVOR" == "qa" ]]; then
+  LATEST_KEY="${S3_PREFIX}/latest/selah-qa.apk";  LATEST_NAME="Selah-QA.apk"
+else
+  LATEST_KEY="${S3_PREFIX}/latest/selah.apk";     LATEST_NAME="Selah.apk"
+fi
+aws s3 cp \
+  "s3://${S3_BUCKET}/${APK_S3_PREFIX}/${APK_NAME}" \
+  "s3://${S3_BUCKET}/${LATEST_KEY}" \
+  --region "$S3_REGION" \
+  --metadata-directive REPLACE \
+  --content-type "application/vnd.android.package-archive" \
+  --cache-control "no-cache, no-store, must-revalidate" \
+  --content-disposition "attachment; filename=\"${LATEST_NAME}\"" \
+  --no-progress
+echo "  Latest:   https://${S3_BUCKET}.s3.${S3_REGION}.amazonaws.com/${LATEST_KEY}"
 
 # ── Update metadata.json ──────────────────────────────────────────────────────
 

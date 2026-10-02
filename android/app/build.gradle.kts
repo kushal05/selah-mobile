@@ -52,6 +52,19 @@ android {
         resValues = true
     }
 
+    packaging {
+        jniLibs {
+            // Deflate the native libraries inside the APK. The modern default
+            // stores them uncompressed so a Play install can map them straight
+            // out of the APK — but this app is installed from a downloaded
+            // APK, where that default made the download 26MB of libraries
+            // instead of ~11MB. Android extracts them once at install. That
+            // costs the extracted copy on disk, and is still less disk in all
+            // than the uncompressed APK it replaces.
+            useLegacyPackaging = true
+        }
+    }
+
     defaultConfig {
         // applicationId is set per flavor below.
         minSdk = flutter.minSdkVersion
@@ -60,8 +73,17 @@ android {
         versionName = flutter.versionName
         ndk {
             // Only ship arm64-v8a for release; covers 95%+ of active devices.
-            // armeabi-v7a and x86_64 add ~15MB each with no user benefit.
-            abiFilters += listOf("arm64-v8a")
+            // armeabi-v7a and x86_64 add ~25MB each with no user benefit.
+            //
+            // clear() first. This used to be `abiFilters += listOf(…)`, which
+            // *added* arm64 to the three ABIs the Flutter plugin had already
+            // put in the set — so it filtered nothing, and every release APK
+            // shipped all three: 80.7MB, 78MB of it native libraries. The
+            // build script also passes --target-platform android-arm64, which
+            // stops Flutter compiling the other two; this is what stops Gradle
+            // packaging the plugins' own native libs (sqlite3) for them.
+            abiFilters.clear()
+            abiFilters += "arm64-v8a"
         }
     }
 
