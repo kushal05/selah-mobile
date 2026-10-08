@@ -863,7 +863,9 @@ class ForcePushService {
             'updatedAt': r.updatedAt,
             'version': r.version,
             'deleted': r.deleted,
+            'trashedAt': r.trashedAt,
             'createdAt': r.createdAt,
+            'weight': r.weight,
           },
         ));
       }

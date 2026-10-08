@@ -25,6 +25,22 @@ class SongTagModel implements SyncEntity {
 
   final int createdAt;
 
+  /// How strongly the song carries the tag, for ranking search: 3 a central
+  /// theme, 2 a clear theme, 1 present but minor.
+  final int weight;
+
+  /// Weight given to links made in the app, and to any older payload or row
+  /// without one.
+  static const defaultWeight = 2;
+
+  /// [value] read from storage or a payload, held to 1-3. Any finite number
+  /// counts (a JSON encoder may write 3 as 3.0); anything else is the default.
+  /// Never throws: this runs inside the sync apply, where a throw fails the
+  /// whole operation.
+  static int clampWeight(Object? value) => value is num && value.isFinite
+      ? value.round().clamp(1, 3)
+      : defaultWeight;
+
   const SongTagModel({
     required this.id,
     required this.songId,
@@ -35,6 +51,7 @@ class SongTagModel implements SyncEntity {
     required this.deleted,
     this.trashedAt,
     required this.createdAt,
+    this.weight = defaultWeight,
   });
 
   @override
@@ -50,8 +67,11 @@ class SongTagModel implements SyncEntity {
       'updatedAt': updatedAt,
       'version': version,
       'deleted': deleted,
-      if (trashedAt != null) 'trashedAt': trashedAt,
+      // Always sent, null included: the server's UPDATE leaves absent keys
+      // untouched, so omitting it meant a restored link stayed trashed there.
+      'trashedAt': trashedAt,
       'createdAt': createdAt,
+      'weight': weight,
     };
   }
 
@@ -66,6 +86,7 @@ class SongTagModel implements SyncEntity {
       deleted: _parseDeleted(json['deleted']),
       trashedAt: json['trashedAt'] as int?,
       createdAt: json['createdAt'] as int,
+      weight: clampWeight(json['weight']),
     );
   }
 
@@ -99,6 +120,7 @@ class SongTagModel implements SyncEntity {
       deleted: 1,
       trashedAt: trashedAt,
       createdAt: createdAt,
+      weight: weight,
     );
   }
 
@@ -115,6 +137,7 @@ class SongTagModel implements SyncEntity {
       deleted: deleted,
       trashedAt: now,
       createdAt: createdAt,
+      weight: weight,
     );
   }
 
@@ -130,6 +153,25 @@ class SongTagModel implements SyncEntity {
       deleted: deleted,
       trashedAt: null,
       createdAt: createdAt,
+      weight: weight,
+    );
+  }
+
+  /// Bring a deleted link back: same row, higher version. Re-creating it at
+  /// version 1 under the old id is ignored by the server (its INSERT is
+  /// ON CONFLICT DO NOTHING), so the tag stayed removed on every other device.
+  SongTagModel revive() {
+    return SongTagModel(
+      id: id,
+      songId: songId,
+      tagId: tagId,
+      userId: userId,
+      updatedAt: TestClock.now(),
+      version: version + 1,
+      deleted: 0,
+      trashedAt: null,
+      createdAt: createdAt,
+      weight: weight,
     );
   }
 

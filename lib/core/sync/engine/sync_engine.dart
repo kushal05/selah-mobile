@@ -9,6 +9,7 @@ import '../../database/sync_database.dart';
 import '../../database/tables/sync_state_table.dart';
 import '../config/sync_config.dart';
 import '../models/oplog_entry.dart';
+import '../models/song_tag_model.dart';
 import '../services/sync_api_client.dart';
 import 'oplog_compressor.dart';
 import '../utils/sync_logger.dart';
@@ -2080,7 +2081,12 @@ class SyncEngine {
                 updatedAt: Value(remoteOp.payload['updatedAt'] as int),
                 version: Value(remoteOp.payload['version'] as int),
                 deleted: Value(_asIntFlag(remoteOp.payload['deleted'])),
+                trashedAt: Value(remoteOp.payload['trashedAt'] as int?),
                 createdAt: Value(remoteOp.payload['createdAt'] as int),
+                // Read here as well as on update: insertOrReplace rewrites the
+                // whole row, so a missing weight would reset it to the default
+                // on every pull. Older payloads have none and get 2.
+                weight: Value(SongTagModel.clampWeight(remoteOp.payload['weight'])),
               ),
               mode: InsertMode.insertOrReplace,
             );
@@ -2096,6 +2102,11 @@ class SyncEngine {
             updatedAt: Value(remoteOp.payload['updatedAt'] as int),
             version: Value(remoteOp.payload['version'] as int),
             deleted: Value(_asIntFlag(remoteOp.payload['deleted'])),
+            trashedAt: Value(remoteOp.payload['trashedAt'] as int?),
+            // A payload from a build without weights has no key: keep ours.
+            weight: remoteOp.payload.containsKey('weight')
+                ? Value(SongTagModel.clampWeight(remoteOp.payload['weight']))
+                : const Value.absent(),
           ),
         );
       },

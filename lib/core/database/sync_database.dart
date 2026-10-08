@@ -149,7 +149,8 @@ class SyncDatabase extends _$SyncDatabase {
   // at the end of every upgrade, so bumping the version is what delivers
   // the index to devices that already have the app.
   // v38 adds sync_song_folders (a song in several songbooks).
-  int get schemaVersion => 38;
+  // v39 adds sync_song_tags.weight, for ranked song search.
+  int get schemaVersion => 39;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -804,6 +805,19 @@ class SyncDatabase extends _$SyncDatabase {
             );
           }
 
+          if (from < 39) {
+            // v39: how strongly a song carries each tag, for ranking search.
+            await _addColumn('sync_song_tags', 'weight',
+                'weight INTEGER NOT NULL DEFAULT 2');
+            // Weights reach devices as song_tag updates. A build without the
+            // column applied those updates and had nowhere to keep the weight,
+            // and its cursor has moved past them. Pull from the start once so
+            // every link arrives with its weight (snapshots carry the column).
+            await (update(syncState)..where((s) => s.id.equals(1))).write(
+              const SyncStateCompanion(lastRemoteCursor: Value(null)),
+            );
+          }
+
           // After every step, for the same reason as onCreate: the migration
           // chain only ever created indexes for tables added from v26 on, so
           // the oldest and busiest tables had none on any device. Every
@@ -1152,6 +1166,17 @@ class SyncDatabase extends _$SyncDatabase {
     await customStatement('''
       CREATE INDEX IF NOT EXISTS idx_note_tags_note
       ON sync_note_tags(note_id, deleted)
+    ''');
+
+    // Song tags: a song's tags (result cards, editor) and a tag's songs (the
+    // tag filter). There were none, so both scanned every link.
+    await customStatement('''
+      CREATE INDEX IF NOT EXISTS idx_song_tags_song
+      ON sync_song_tags(song_id, deleted)
+    ''');
+    await customStatement('''
+      CREATE INDEX IF NOT EXISTS idx_song_tags_tag
+      ON sync_song_tags(tag_id, deleted)
     ''');
 
     // Song folders: a song's songbooks (detail screen, editor) and a

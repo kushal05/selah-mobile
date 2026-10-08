@@ -62,24 +62,32 @@ class SongTagRepository extends BaseSyncRepository<SongTagModel> {
     required String tagId,
     required String userId,
   }) async {
-    // Check for existing (including soft-deleted) to prevent duplicates
-    final existing = await (_db.select(_db.syncSongTags)
-          ..where((st) =>
-              st.songId.equals(songId) & st.tagId.equals(tagId)))
-        .getSingleOrNull();
+    // Two devices can each link the same pair, so there may be several rows.
+    final rows = await (_db.select(_db.syncSongTags)
+          ..where((st) => st.songId.equals(songId) & st.tagId.equals(tagId)))
+        .get();
 
-    if (existing != null && existing.deleted == 0) {
-      return _toModel(existing);
+    for (final row in rows) {
+      if (row.deleted == 0 && row.trashedAt == null) return _toModel(row);
     }
 
-    final songTag = SongTagModel.create(
-      id: existing?.id ?? generateId(),
-      songId: songId,
-      tagId: tagId,
-      userId: userId,
-    );
-
-    final oplogEntry = createInsertOp(songTag);
+    final SongTagModel songTag;
+    final OplogEntry oplogEntry;
+    if (rows.isEmpty) {
+      songTag = SongTagModel.create(
+        id: generateId(),
+        songId: songId,
+        tagId: tagId,
+        userId: userId,
+      );
+      oplogEntry = createInsertOp(songTag);
+    } else {
+      // Revive the newest dead row: same id, higher version, so the server
+      // applies it. Re-inserting it at version 1 was ignored there.
+      rows.sort((a, b) => b.version.compareTo(a.version));
+      songTag = _toModel(rows.first).revive();
+      oplogEntry = createUpdateOp(songTag);
+    }
 
     await _db.transaction(() async {
       await _db.into(_db.syncSongTags).insertOnConflictUpdate(_toCompanion(songTag));
@@ -89,24 +97,23 @@ class SongTagRepository extends BaseSyncRepository<SongTagModel> {
     return songTag;
   }
 
+  /// Removes every live row for the pair: two devices may each have made one.
   Future<void> removeTagFromSong(String songId, String tagId) async {
-    final query = _db.select(_db.syncSongTags)
-      ..where((st) =>
-          st.songId.equals(songId) &
-          st.tagId.equals(tagId) &
-          st.deleted.equals(0));
-
-    final row = await query.getSingleOrNull();
-    if (row == null) return;
-
-    final model = _toModel(row);
-    final deleted = model.softDelete();
-    final oplogEntry = createDeleteOp(deleted);
+    final rows = await (_db.select(_db.syncSongTags)
+          ..where((st) =>
+              st.songId.equals(songId) &
+              st.tagId.equals(tagId) &
+              st.deleted.equals(0)))
+        .get();
+    if (rows.isEmpty) return;
 
     await _db.transaction(() async {
-      await (_db.update(_db.syncSongTags)..where((st) => st.id.equals(model.id)))
-          .write(_toCompanion(deleted));
-      await _db.into(_db.oplog).insert(_oplogToCompanion(oplogEntry));
+      for (final row in rows) {
+        final deleted = _toModel(row).softDelete();
+        await (_db.update(_db.syncSongTags)..where((st) => st.id.equals(deleted.id)))
+            .write(_toCompanion(deleted));
+        await _db.into(_db.oplog).insert(_oplogToCompanion(createDeleteOp(deleted)));
+      }
     });
   }
 
@@ -167,6 +174,7 @@ class SongTagRepository extends BaseSyncRepository<SongTagModel> {
       deleted: row.deleted,
       trashedAt: row.trashedAt,
       createdAt: row.createdAt,
+      weight: SongTagModel.clampWeight(row.weight),
     );
   }
 
@@ -181,6 +189,7 @@ class SongTagRepository extends BaseSyncRepository<SongTagModel> {
       deleted: Value(model.deleted),
       trashedAt: Value(model.trashedAt),
       createdAt: Value(model.createdAt),
+      weight: Value(model.weight),
     );
   }
 

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/services/chord_transposition.dart';
 import '../../../../core/sync/models/song_model.dart';
+import '../../domain/song_search_ranker.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
 import '../../../../core/theme/theme_colors.dart';
@@ -27,7 +28,7 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
   final _searchController = TextEditingController();
   Timer? _debounce;
 
-  List<SongModel> _results = [];
+  List<RankedSong> _results = [];
   bool _isLoading = false;
   bool _hasSearched = false;
 
@@ -95,7 +96,7 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
         ];
       }
 
-      final results = await songRepo.searchSongsFiltered(
+      final results = await songRepo.searchSongsRanked(
         userId: userId,
         textQuery: _searchController.text.trim().isEmpty
             ? null
@@ -180,7 +181,7 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
         autofocus: true,
         cursorColor: ink,
         decoration: InputDecoration(
-          hintText: l10n(context).searchByTitle,
+          hintText: l10n(context).searchTitleTagsOrLyrics,
           filled: true,
           fillColor: AppTheme.orange.withValues(alpha: AppTheme.alphaLight),
           prefixIcon: Icon(Icons.search, color: ink),
@@ -339,9 +340,11 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: _results.length,
       itemBuilder: (context, index) {
-        final song = _results[index];
+        final ranked = _results[index];
+        final song = ranked.song;
         return _SongSearchResultCard(
           song: song,
+          matchedTagIds: ranked.matchedTagIds,
           searchQuery: _searchController.text.trim(),
           onTap: () => context.push('/songs/${song.id}'),
         );
@@ -356,11 +359,15 @@ class _SongSearchScreenState extends ConsumerState<SongSearchScreen> {
 
 class _SongSearchResultCard extends StatelessWidget {
   final SongModel song;
+
+  /// Tags that matched the search or the filter, strongest first.
+  final List<String> matchedTagIds;
   final String searchQuery;
   final VoidCallback onTap;
 
   const _SongSearchResultCard({
     required this.song,
+    this.matchedTagIds = const [],
     required this.searchQuery,
     required this.onTap,
   });
@@ -452,7 +459,7 @@ class _SongSearchResultCard extends StatelessWidget {
                   ),
 
                   // Tag chips from junction table
-                  _SongTagChips(songId: song.id),
+                  _SongTagChips(songId: song.id, matchedTagIds: matchedTagIds),
 
                   // Lyric snippet (if text search matched lyrics)
                   if (lyricSnippet != null) ...[
@@ -487,7 +494,10 @@ class _SongSearchResultCard extends StatelessWidget {
 class _SongTagChips extends ConsumerWidget {
   final String songId;
 
-  const _SongTagChips({required this.songId});
+  /// Shown first, so the three chips that fit say why the song is a result.
+  final List<String> matchedTagIds;
+
+  const _SongTagChips({required this.songId, this.matchedTagIds = const []});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -500,7 +510,11 @@ class _SongTagChips extends ConsumerWidget {
         return allTagsAsync.when(
           data: (allTags) {
             final tagMap = {for (final t in allTags) t.id: t.name};
-            final names = tagIds
+            final ordered = [
+              ...matchedTagIds.where(tagIds.contains),
+              ...tagIds.where((id) => !matchedTagIds.contains(id)),
+            ];
+            final names = ordered
                 .where((id) => tagMap.containsKey(id))
                 .map((id) => tagMap[id]!)
                 .take(3)

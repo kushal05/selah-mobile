@@ -21184,6 +21184,16 @@ class $SyncSongTagsTable extends SyncSongTags
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _weightMeta = const VerificationMeta('weight');
+  @override
+  late final GeneratedColumn<int> weight = GeneratedColumn<int>(
+    'weight',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(2),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -21195,6 +21205,7 @@ class $SyncSongTagsTable extends SyncSongTags
     deleted,
     trashedAt,
     createdAt,
+    weight,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -21271,6 +21282,12 @@ class $SyncSongTagsTable extends SyncSongTags
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('weight')) {
+      context.handle(
+        _weightMeta,
+        weight.isAcceptableOrUnknown(data['weight']!, _weightMeta),
+      );
+    }
     return context;
   }
 
@@ -21316,6 +21333,10 @@ class $SyncSongTagsTable extends SyncSongTags
         DriftSqlType.int,
         data['${effectivePrefix}created_at'],
       )!,
+      weight: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}weight'],
+      )!,
     );
   }
 
@@ -21337,6 +21358,10 @@ class SyncSongTag extends DataClass implements Insertable<SyncSongTag> {
   /// Timestamp when moved to trash (Unix milliseconds, null = not trashed)
   final int? trashedAt;
   final int createdAt;
+
+  /// How strongly the song carries the tag, for ranking search: 3 a central
+  /// theme, 2 a clear theme, 1 present but minor. 2 for links made in the app.
+  final int weight;
   const SyncSongTag({
     required this.id,
     required this.songId,
@@ -21347,6 +21372,7 @@ class SyncSongTag extends DataClass implements Insertable<SyncSongTag> {
     required this.deleted,
     this.trashedAt,
     required this.createdAt,
+    required this.weight,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -21362,6 +21388,7 @@ class SyncSongTag extends DataClass implements Insertable<SyncSongTag> {
       map['trashed_at'] = Variable<int>(trashedAt);
     }
     map['created_at'] = Variable<int>(createdAt);
+    map['weight'] = Variable<int>(weight);
     return map;
   }
 
@@ -21378,6 +21405,7 @@ class SyncSongTag extends DataClass implements Insertable<SyncSongTag> {
           ? const Value.absent()
           : Value(trashedAt),
       createdAt: Value(createdAt),
+      weight: Value(weight),
     );
   }
 
@@ -21396,6 +21424,7 @@ class SyncSongTag extends DataClass implements Insertable<SyncSongTag> {
       deleted: serializer.fromJson<int>(json['deleted']),
       trashedAt: serializer.fromJson<int?>(json['trashedAt']),
       createdAt: serializer.fromJson<int>(json['createdAt']),
+      weight: serializer.fromJson<int>(json['weight']),
     );
   }
   @override
@@ -21411,6 +21440,7 @@ class SyncSongTag extends DataClass implements Insertable<SyncSongTag> {
       'deleted': serializer.toJson<int>(deleted),
       'trashedAt': serializer.toJson<int?>(trashedAt),
       'createdAt': serializer.toJson<int>(createdAt),
+      'weight': serializer.toJson<int>(weight),
     };
   }
 
@@ -21424,6 +21454,7 @@ class SyncSongTag extends DataClass implements Insertable<SyncSongTag> {
     int? deleted,
     Value<int?> trashedAt = const Value.absent(),
     int? createdAt,
+    int? weight,
   }) => SyncSongTag(
     id: id ?? this.id,
     songId: songId ?? this.songId,
@@ -21434,6 +21465,7 @@ class SyncSongTag extends DataClass implements Insertable<SyncSongTag> {
     deleted: deleted ?? this.deleted,
     trashedAt: trashedAt.present ? trashedAt.value : this.trashedAt,
     createdAt: createdAt ?? this.createdAt,
+    weight: weight ?? this.weight,
   );
   SyncSongTag copyWithCompanion(SyncSongTagsCompanion data) {
     return SyncSongTag(
@@ -21446,6 +21478,7 @@ class SyncSongTag extends DataClass implements Insertable<SyncSongTag> {
       deleted: data.deleted.present ? data.deleted.value : this.deleted,
       trashedAt: data.trashedAt.present ? data.trashedAt.value : this.trashedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      weight: data.weight.present ? data.weight.value : this.weight,
     );
   }
 
@@ -21460,7 +21493,8 @@ class SyncSongTag extends DataClass implements Insertable<SyncSongTag> {
           ..write('version: $version, ')
           ..write('deleted: $deleted, ')
           ..write('trashedAt: $trashedAt, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('weight: $weight')
           ..write(')'))
         .toString();
   }
@@ -21476,6 +21510,7 @@ class SyncSongTag extends DataClass implements Insertable<SyncSongTag> {
     deleted,
     trashedAt,
     createdAt,
+    weight,
   );
   @override
   bool operator ==(Object other) =>
@@ -21489,7 +21524,8 @@ class SyncSongTag extends DataClass implements Insertable<SyncSongTag> {
           other.version == this.version &&
           other.deleted == this.deleted &&
           other.trashedAt == this.trashedAt &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.weight == this.weight);
 }
 
 class SyncSongTagsCompanion extends UpdateCompanion<SyncSongTag> {
@@ -21502,6 +21538,7 @@ class SyncSongTagsCompanion extends UpdateCompanion<SyncSongTag> {
   final Value<int> deleted;
   final Value<int?> trashedAt;
   final Value<int> createdAt;
+  final Value<int> weight;
   final Value<int> rowid;
   const SyncSongTagsCompanion({
     this.id = const Value.absent(),
@@ -21513,6 +21550,7 @@ class SyncSongTagsCompanion extends UpdateCompanion<SyncSongTag> {
     this.deleted = const Value.absent(),
     this.trashedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.weight = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SyncSongTagsCompanion.insert({
@@ -21525,6 +21563,7 @@ class SyncSongTagsCompanion extends UpdateCompanion<SyncSongTag> {
     this.deleted = const Value.absent(),
     this.trashedAt = const Value.absent(),
     required int createdAt,
+    this.weight = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        songId = Value(songId),
@@ -21542,6 +21581,7 @@ class SyncSongTagsCompanion extends UpdateCompanion<SyncSongTag> {
     Expression<int>? deleted,
     Expression<int>? trashedAt,
     Expression<int>? createdAt,
+    Expression<int>? weight,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -21554,6 +21594,7 @@ class SyncSongTagsCompanion extends UpdateCompanion<SyncSongTag> {
       if (deleted != null) 'deleted': deleted,
       if (trashedAt != null) 'trashed_at': trashedAt,
       if (createdAt != null) 'created_at': createdAt,
+      if (weight != null) 'weight': weight,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -21568,6 +21609,7 @@ class SyncSongTagsCompanion extends UpdateCompanion<SyncSongTag> {
     Value<int>? deleted,
     Value<int?>? trashedAt,
     Value<int>? createdAt,
+    Value<int>? weight,
     Value<int>? rowid,
   }) {
     return SyncSongTagsCompanion(
@@ -21580,6 +21622,7 @@ class SyncSongTagsCompanion extends UpdateCompanion<SyncSongTag> {
       deleted: deleted ?? this.deleted,
       trashedAt: trashedAt ?? this.trashedAt,
       createdAt: createdAt ?? this.createdAt,
+      weight: weight ?? this.weight,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -21614,6 +21657,9 @@ class SyncSongTagsCompanion extends UpdateCompanion<SyncSongTag> {
     if (createdAt.present) {
       map['created_at'] = Variable<int>(createdAt.value);
     }
+    if (weight.present) {
+      map['weight'] = Variable<int>(weight.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -21632,6 +21678,7 @@ class SyncSongTagsCompanion extends UpdateCompanion<SyncSongTag> {
           ..write('deleted: $deleted, ')
           ..write('trashedAt: $trashedAt, ')
           ..write('createdAt: $createdAt, ')
+          ..write('weight: $weight, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -40863,6 +40910,7 @@ typedef $$SyncSongTagsTableCreateCompanionBuilder =
       Value<int> deleted,
       Value<int?> trashedAt,
       required int createdAt,
+      Value<int> weight,
       Value<int> rowid,
     });
 typedef $$SyncSongTagsTableUpdateCompanionBuilder =
@@ -40876,6 +40924,7 @@ typedef $$SyncSongTagsTableUpdateCompanionBuilder =
       Value<int> deleted,
       Value<int?> trashedAt,
       Value<int> createdAt,
+      Value<int> weight,
       Value<int> rowid,
     });
 
@@ -40930,6 +40979,11 @@ class $$SyncSongTagsTableFilterComposer
 
   ColumnFilters<int> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get weight => $composableBuilder(
+    column: $table.weight,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -40987,6 +41041,11 @@ class $$SyncSongTagsTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get weight => $composableBuilder(
+    column: $table.weight,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SyncSongTagsTableAnnotationComposer
@@ -41024,6 +41083,9 @@ class $$SyncSongTagsTableAnnotationComposer
 
   GeneratedColumn<int> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get weight =>
+      $composableBuilder(column: $table.weight, builder: (column) => column);
 }
 
 class $$SyncSongTagsTableTableManager
@@ -41066,6 +41128,7 @@ class $$SyncSongTagsTableTableManager
                 Value<int> deleted = const Value.absent(),
                 Value<int?> trashedAt = const Value.absent(),
                 Value<int> createdAt = const Value.absent(),
+                Value<int> weight = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SyncSongTagsCompanion(
                 id: id,
@@ -41077,6 +41140,7 @@ class $$SyncSongTagsTableTableManager
                 deleted: deleted,
                 trashedAt: trashedAt,
                 createdAt: createdAt,
+                weight: weight,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -41090,6 +41154,7 @@ class $$SyncSongTagsTableTableManager
                 Value<int> deleted = const Value.absent(),
                 Value<int?> trashedAt = const Value.absent(),
                 required int createdAt,
+                Value<int> weight = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SyncSongTagsCompanion.insert(
                 id: id,
@@ -41101,6 +41166,7 @@ class $$SyncSongTagsTableTableManager
                 deleted: deleted,
                 trashedAt: trashedAt,
                 createdAt: createdAt,
+                weight: weight,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

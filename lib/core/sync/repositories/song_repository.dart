@@ -9,6 +9,8 @@ import '../models/song_model.dart';
 import 'base_sync_repository.dart';
 import 'song_folder_repository.dart';
 import 'song_tag_repository.dart';
+import '../models/song_tag_model.dart';
+import '../../../features/songs/domain/song_search_ranker.dart';
 import 'entity_access_repository.dart';
 
 /// Repository for song operations
@@ -93,49 +95,15 @@ class SongRepository extends BaseSyncRepository<SongModel> {
     return row != null ? _toModel(row) : null;
   }
 
-  /// Search songs by title or lyrics for a user
-  Future<List<SongModel>> searchSongs(String query, String userId) async {
-    final escaped = _escapeLikePattern(query);
-    final pattern = '%$escaped%';
-    final rows = await _db.customSelect(
-      'SELECT * FROM songs WHERE deleted = 0 AND trashed_at IS NULL AND user_id = ? '
-      "AND (title LIKE ? ESCAPE '\\' OR lyrics LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\') "
-      'ORDER BY title ASC',
-      variables: [
-        Variable.withString(userId),
-        Variable.withString(pattern),
-        Variable.withString(pattern),
-        Variable.withString(pattern),
-      ],
-    ).get();
-    return rows.map((row) {
-      return SongModel(
-        id: row.read<String>('id'),
-        userId: row.read<String>('user_id'),
-        title: row.read<String>('title'),
-        folderId: row.readNullable<String>('folder_id'),
-        lyrics: row.read<String>('lyrics'),
-        chords: row.read<String>('chords'),
-        scale: row.read<String>('scale'),
-        chordLinesJson: row.read<String>('chord_lines'),
-        language: row.read<String>('language'),
-        book: row.readNullable<String>('book'),
-        preview: row.read<String>('preview'),
-        tags: row.read<String>('tags'),
-        notes: row.read<String>('notes'),
-        hasChords: row.read<int>('has_chords') == 1,
-        isFavorite: row.read<int>('is_favorite') == 1,
-        updatedAt: row.read<int>('updated_at'),
-        version: row.read<int>('version'),
-        deleted: row.read<int>('deleted'),
-        createdAt: row.read<int>('created_at'),
-      );
-    }).toList();
-  }
+  /// Global search: the same ranking as the song search screen, with no
+  /// filters. It used to match the legacy `songs.tags` text, which the app has
+  /// not written since tags moved to sync_song_tags, so real tags were missed.
+  Future<List<SongModel>> searchSongs(String query, String userId) async =>
+      (await searchSongsRanked(userId: userId, textQuery: query))
+          .map((r) => r.song)
+          .toList();
 
-  /// Advanced song search with combinable filters.
-  /// All filters are optional and applied via AND logic.
-  /// Tag filtering uses the sync_song_tags junction table (tag IDs).
+  /// [searchSongsRanked] without the scores.
   Future<List<SongModel>> searchSongsFiltered({
     required String userId,
     String? textQuery,
@@ -144,18 +112,36 @@ class SongRepository extends BaseSyncRepository<SongModel> {
     String? folderId,
     List<String>? folderIds,
     String? language,
+  }) async =>
+      (await searchSongsRanked(
+        userId: userId,
+        textQuery: textQuery,
+        tagIds: tagIds,
+        scale: scale,
+        folderId: folderId,
+        folderIds: folderIds,
+        language: language,
+      ))
+          .map((r) => r.song)
+          .toList();
+
+  /// Song search with combinable filters, ranked by [SongSearchRanker]:
+  /// title, then tags by weight, then lyrics.
+  ///
+  /// SQL applies only the hard filters (key, language, songbook, tags — any
+  /// of them, AND-ed together); a typed query decides which songs match and in
+  /// what order, in Dart, where Unicode case and word boundaries are right.
+  Future<List<RankedSong>> searchSongsRanked({
+    required String userId,
+    String? textQuery,
+    List<String>? tagIds,
+    String? scale,
+    String? folderId,
+    List<String>? folderIds,
+    String? language,
   }) async {
-    // Build dynamic WHERE clauses
     final conditions = <String>["s.deleted = 0", "s.trashed_at IS NULL", "s.user_id = ?"];
     final variables = <Variable>[Variable.withString(userId)];
-
-    if (textQuery != null && textQuery.trim().isNotEmpty) {
-      final escaped = _escapeLikePattern(textQuery.trim());
-      final pattern = '%$escaped%';
-      conditions.add("(s.title LIKE ? ESCAPE '\\' OR s.lyrics LIKE ? ESCAPE '\\')");
-      variables.add(Variable.withString(pattern));
-      variables.add(Variable.withString(pattern));
-    }
 
     if (scale != null && scale.isNotEmpty) {
       conditions.add("s.scale = ?");
@@ -188,44 +174,83 @@ class SongRepository extends BaseSyncRepository<SongModel> {
       }
     }
 
-    // Tag filter: uses the sync_song_tags junction table (match any)
+    // Tag filter: any of the chosen tags, through live links to live tags.
+    // Trashed links and deleted tags used to count, so a song could match a
+    // tag it no longer showed.
     if (tagIds != null && tagIds.isNotEmpty) {
       final placeholders = tagIds.map((_) => '?').join(', ');
       conditions.add(
-        "s.id IN (SELECT song_id FROM sync_song_tags WHERE tag_id IN ($placeholders) AND deleted = 0)",
+        "s.id IN (SELECT st.song_id FROM sync_song_tags st "
+        "JOIN sync_tags t ON t.id = st.tag_id "
+        "WHERE st.tag_id IN ($placeholders) AND st.deleted = 0 "
+        "AND st.trashed_at IS NULL AND t.deleted = 0 AND t.trashed_at IS NULL)",
       );
       for (final tagId in tagIds) {
         variables.add(Variable.withString(tagId));
       }
     }
 
-    final whereClause = conditions.join(' AND ');
-    final sql = 'SELECT s.* FROM songs s WHERE $whereClause ORDER BY s.title ASC';
+    final rows = await _db
+        .customSelect('SELECT s.* FROM songs s WHERE ${conditions.join(' AND ')}',
+            variables: variables)
+        .get();
+    final songs = rows.map(_songFromRow).toList();
 
-    final rows = await _db.customSelect(sql, variables: variables).get();
-    return rows.map((row) {
-      return SongModel(
-        id: row.read<String>('id'),
-        userId: row.read<String>('user_id'),
-        title: row.read<String>('title'),
-        folderId: row.readNullable<String>('folder_id'),
-        lyrics: row.read<String>('lyrics'),
-        chords: row.read<String>('chords'),
-        scale: row.read<String>('scale'),
-        chordLinesJson: row.read<String>('chord_lines'),
-        language: row.read<String>('language'),
-        book: row.readNullable<String>('book'),
-        preview: row.read<String>('preview'),
-        tags: row.read<String>('tags'),
-        notes: row.read<String>('notes'),
-        hasChords: row.read<int>('has_chords') == 1,
-        isFavorite: row.read<int>('is_favorite') == 1,
-        updatedAt: row.read<int>('updated_at'),
-        version: row.read<int>('version'),
-        deleted: row.read<int>('deleted'),
-        createdAt: row.read<int>('created_at'),
-      );
-    }).toList();
+    return SongSearchRanker.rank(
+      songs: songs,
+      tagsBySong: await _liveTagsBySong(userId),
+      query: textQuery ?? '',
+      selectedTagIds: {...?tagIds},
+    );
+  }
+
+  /// Every live tag on the user's songs, by song: one query, not one per song.
+  ///
+  /// Scoped by the song's owner, the same test the song query uses, so a song
+  /// that is found always brings its tags with it.
+  Future<Map<String, List<SongTagHit>>> _liveTagsBySong(String userId) async {
+    final rows = await _db.customSelect(
+      'SELECT st.song_id, st.tag_id, st.weight, t.name FROM sync_song_tags st '
+      'JOIN songs s ON s.id = st.song_id '
+      'JOIN sync_tags t ON t.id = st.tag_id '
+      'WHERE s.user_id = ? AND st.deleted = 0 AND st.trashed_at IS NULL '
+      'AND t.deleted = 0 AND t.trashed_at IS NULL',
+      variables: [Variable.withString(userId)],
+      readsFrom: {_db.syncSongTags, _db.songs, _db.syncTags},
+    ).get();
+    final bySong = <String, List<SongTagHit>>{};
+    for (final r in rows) {
+      (bySong[r.read<String>('song_id')] ??= []).add(SongTagHit(
+        tagId: r.read<String>('tag_id'),
+        name: r.read<String>('name'),
+        weight: SongTagModel.clampWeight(r.read<int>('weight')),
+      ));
+    }
+    return bySong;
+  }
+
+  SongModel _songFromRow(QueryRow row) {
+    return SongModel(
+      id: row.read<String>('id'),
+      userId: row.read<String>('user_id'),
+      title: row.read<String>('title'),
+      folderId: row.readNullable<String>('folder_id'),
+      lyrics: row.read<String>('lyrics'),
+      chords: row.read<String>('chords'),
+      scale: row.read<String>('scale'),
+      chordLinesJson: row.read<String>('chord_lines'),
+      language: row.read<String>('language'),
+      book: row.readNullable<String>('book'),
+      preview: row.read<String>('preview'),
+      tags: row.read<String>('tags'),
+      notes: row.read<String>('notes'),
+      hasChords: row.read<int>('has_chords') == 1,
+      isFavorite: row.read<int>('is_favorite') == 1,
+      updatedAt: row.read<int>('updated_at'),
+      version: row.read<int>('version'),
+      deleted: row.read<int>('deleted'),
+      createdAt: row.read<int>('created_at'),
+    );
   }
 
   /// Watch all songs (reactive stream) for a user
@@ -551,16 +576,6 @@ class SongRepository extends BaseSyncRepository<SongModel> {
     // Cascade: revoke entity_access grants for this song so recipients'
     // local DBs drop their stale access rows on next sync.
     await _entityAccessRepo.deleteAllAccessForEntity('song', id);
-  }
-
-  // ==================== SEARCH HELPERS ====================
-
-  /// Escape SQL LIKE wildcard characters in user input.
-  static String _escapeLikePattern(String input) {
-    return input
-        .replaceAll('\\', '\\\\')
-        .replaceAll('%', '\\%')
-        .replaceAll('_', '\\_');
   }
 
   // ==================== HELPER METHODS ====================

@@ -20,6 +20,7 @@ import 'package:notify/core/sync/repositories/prayer_repository.dart';
 import 'package:notify/core/sync/repositories/promise_repository.dart';
 import 'package:notify/core/sync/repositories/song_folder_repository.dart';
 import 'package:notify/core/sync/repositories/song_repository.dart';
+import 'package:notify/core/sync/repositories/song_tag_repository.dart';
 import 'package:notify/core/sync/repositories/tag_repository.dart';
 import 'package:notify/core/database/services/note_block_fts_service.dart';
 import 'package:notify/core/sync/services/sync_api_client.dart';
@@ -856,6 +857,99 @@ void main() {
           .getSingle();
       expect(row.trashedAt, now);
       expect(row.deleted, 0);
+    });
+  });
+
+  group('song tag weights (song_tag.weight)', () {
+    Map<String, dynamic> link(String id, {int version = 1, Object? weight = 'absent'}) {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      return {
+        'id': id,
+        'songId': 'song-w',
+        'tagId': 'tag-w',
+        'userId': _userId,
+        'updatedAt': now + version,
+        'version': version,
+        'deleted': false,
+        'trashedAt': null,
+        'createdAt': now,
+        if (weight != 'absent') 'weight': weight,
+      };
+    }
+
+    void serve(OplogOperation op, Map<String, dynamic> payload, int ts) {
+      api.addRemoteOperation(
+        OplogEntry(
+          opId: 'srv-w-$ts',
+          entityType: OplogEntityType.songTag,
+          entityId: payload['id'] as String,
+          operation: op,
+          payload: payload,
+          timestamp: payload['updatedAt'] as int,
+          deviceId: 'server',
+          entityVersion: payload['version'] as int,
+        ),
+        serverTimestamp: ts,
+      );
+    }
+
+    Future<int> weightOnB(String id) async => (await (dbB.select(dbB.syncSongTags)
+              ..where((r) => r.id.equals(id)))
+            .getSingle())
+        .weight;
+
+    test('a pulled insert keeps its weight; an update changes it', () async {
+      serve(OplogOperation.insert, link('w1', weight: 3), 1000);
+      await engineB.syncNow();
+      expect(await weightOnB('w1'), 3);
+
+      serve(OplogOperation.update, link('w1', version: 2, weight: 1), 1001);
+      await engineB.syncNow();
+      expect(await weightOnB('w1'), 1);
+    });
+
+    test('an older payload with no weight: 2 on insert, unchanged on update',
+        () async {
+      serve(OplogOperation.insert, link('w2'), 1000);
+      await engineB.syncNow();
+      expect(await weightOnB('w2'), 2);
+
+      serve(OplogOperation.update, link('w2', version: 2, weight: 3), 1001);
+      serve(OplogOperation.update, link('w2', version: 3), 1002);
+      await engineB.syncNow();
+      expect(await weightOnB('w2'), 3,
+          reason: 'an update from a build without weights must not reset it');
+    });
+
+    test('an out-of-range weight is clamped', () async {
+      serve(OplogOperation.insert, link('w3', weight: 9), 1000);
+      serve(OplogOperation.insert, link('w4', weight: 0), 1001);
+      await engineB.syncNow();
+      expect(await weightOnB('w3'), 3);
+      expect(await weightOnB('w4'), 1);
+    });
+
+    test('a tag removed and added back reaches the other device', () async {
+      final tagsA = SongTagRepository(dbA, _deviceA);
+      final song = await songRepoA.createSong(userId: _userId, title: 'S');
+      final tag = await tagRepoA.createTag(userId: _userId, name: 'grace');
+      await tagsA.addTagToSong(songId: song.id, tagId: tag.id, userId: _userId);
+      await engineA.syncNow();
+      await engineB.syncNow();
+      final tagsB = SongTagRepository(dbB, _deviceB);
+      expect(await tagsB.getTagIdsForSong(song.id), [tag.id]);
+
+      await tagsA.removeTagFromSong(song.id, tag.id);
+      await engineA.syncNow();
+      await engineB.syncNow();
+      expect(await tagsB.getTagIdsForSong(song.id), isEmpty);
+
+      await tagsA.addTagToSong(songId: song.id, tagId: tag.id, userId: _userId);
+      await engineA.syncNow();
+      await engineB.syncNow();
+      expect(await tagsB.getTagIdsForSong(song.id), [tag.id],
+          reason: 're-adding reused the row at version 1, which loses to the '
+              'version-2 tombstone everywhere else');
     });
   });
 }

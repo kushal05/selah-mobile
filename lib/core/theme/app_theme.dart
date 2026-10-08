@@ -365,6 +365,26 @@ class AppTheme {
   static Color accentSurface(Color accent) =>
       _accentSurface[accent] ?? brandBlueSurface;
 
+  /// The fill and label for a filled button carrying *text* in [accent].
+  ///
+  /// The true accent when a label clears 4.5:1 on it, so the button stays the
+  /// colour of its screen — blue with white (4.86), orange with dark (8.3).
+  /// Otherwise [accentSurface], the darkened fill that does: white on the true
+  /// brandPurple is 4.20, short for a label. Pass [errorSurface] for a
+  /// destructive action.
+  static ({Color fill, Color label}) filledFor(Color accent) {
+    final label = onAccent(accent);
+    if (_contrast(label, accent) >= 4.5) return (fill: accent, label: label);
+    // accentSurface falls back to blue for a colour it has no darker fill for,
+    // which would turn, say, a tag-coloured button blue without a word.
+    assert(
+      _accentSurface.containsKey(accent),
+      'filledFor($accent): no label reads on it and it has no darker fill in '
+      '_accentSurface. Add one there, or pass a screen accent.',
+    );
+    final surface = accentSurface(accent);
+    return (fill: surface, label: onAccent(surface));
+  }
 
   /// Ground for snackbars in both themes. Fixing it here rather than letting
   /// each theme derive `inverseSurface` keeps the action-label contrast
@@ -1353,6 +1373,15 @@ class AppTheme {
       ),
 
       listTileTheme: base.listTileTheme.copyWith(iconColor: darkTextMuted),
+
+      // The ⋮ on note rows, prayer cards and Pray Today. PopupMenuButton takes
+      // its icon colour from here, then from the global IconTheme — and this
+      // theme never sets a global icon colour, so it fell through to Material's
+      // default black and drew near-black dots on the dark cards. The same muted
+      // tone list tiles use. The gap is wider than menus: this theme sets an
+      // icon colour only inside appBarTheme, so any icon elsewhere that has no
+      // colour of its own is near-black on dark surfaces too.
+      popupMenuTheme: base.popupMenuTheme.copyWith(iconColor: darkTextMuted),
       bottomSheetTheme: base.bottomSheetTheme.copyWith(
         backgroundColor: darkSurface,
       ),

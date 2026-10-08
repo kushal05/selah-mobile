@@ -132,4 +132,26 @@ void main() {
             'on the server');
     expect((await liveLinks(belief.id)).values, everyElement(1));
   });
+
+  test("a merge carries a song link's weight to the new link", () async {
+    final faith = await tags.createTag(userId: _user, name: 'faith');
+    final belief = await tags.createTag(userId: _user, name: 'belief');
+    await db.customStatement(
+      'INSERT INTO sync_song_tags (id, song_id, tag_id, user_id, updated_at, '
+      'version, deleted, created_at, weight) VALUES (?, ?, ?, ?, 1, 1, 0, 1, 3)',
+      ['old-link', 'song-1', faith.id, _user],
+    );
+
+    await tags.mergeTags(sourceTagId: faith.id, targetTagId: belief.id);
+
+    final moved = await (db.select(db.syncSongTags)
+          ..where((r) => r.tagId.equals(belief.id)))
+        .getSingle();
+    expect(moved.weight, 3, reason: 'it used to come back as the default, 2');
+    final op = await (db.select(db.oplog)
+          ..where((o) => o.entityId.equals(moved.id)))
+        .getSingle();
+    expect(jsonDecode(op.payloadJson)['weight'], 3,
+        reason: 'and other devices must get it too');
+  });
 }

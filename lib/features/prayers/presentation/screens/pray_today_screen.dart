@@ -6,6 +6,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/sync/models/prayer_model.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../providers/pray_today_provider.dart';
+import '../widgets/log_prayer_sheet.dart';
 import '../widgets/pray_today_card.dart';
 import '../widgets/pray_today_completion.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
@@ -34,6 +35,16 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
   final Map<String, GlobalKey> _cardKeys = {};
   List<PrayerModel> _todaysPrayers = [];
   Set<String> _loggedPrayerIds = {};
+
+  /// Prayers whose description is open in full. Held here, beside which are
+  /// logged, because the list disposes cards that scroll out of view.
+  final Set<String> _expandedPrayerIds = {};
+
+  /// Prayers with a log under way — sheet open or write in flight. The card's
+  /// button stays live until the write lands and the card shows it logged, so
+  /// without this a second tap in that gap opened the sheet again and could
+  /// record the prayer twice.
+  final Set<String> _loggingPrayerIds = {};
   bool _isLoading = true;
   bool _autoLogAttempted = false;
   String _sessionDate = '';
@@ -112,12 +123,29 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
   }
 
   Future<void> _logPrayer(String prayerId) async {
+    if (!_loggingPrayerIds.add(prayerId)) return;
+    try {
+      await _logPrayerOnce(prayerId);
+    } finally {
+      _loggingPrayerIds.remove(prayerId);
+    }
+  }
+
+  Future<void> _logPrayerOnce(String prayerId) async {
     final userId = ref.read(currentUserIdProvider);
     final prayerLogRepo = ref.read(prayerLogRepositoryProvider);
 
-    // Show optional note dialog
-    final note = await _showNoteDialog();
-    if (note == null) return; // User cancelled
+    // The same sheet the prayer's detail page opens, so logging looks and
+    // works the same from either place. This screen used to have its own
+    // AlertDialog with a text field — the reason the two disagreed. The sheet
+    // returns null on cancel and the note (possibly empty) otherwise.
+    final title = _todaysPrayers
+            .where((p) => p.id == prayerId)
+            .map((p) => p.title)
+            .firstOrNull ??
+        '';
+    final note = await showLogPrayerSheet(context, prayerTitle: title);
+    if (note == null || !mounted) return; // cancelled, or left mid-sheet
 
     try {
       await prayerLogRepo.logPrayer(
@@ -147,52 +175,6 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
 
     // Auto-scroll to next unlogged prayer
     _scrollToNextUnlogged(prayerId);
-  }
-
-  Future<String?> _showNoteDialog() async {
-    final controller = TextEditingController();
-    try {
-      final result = await showDialog<String>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(l10n(context).logPrayer),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                l10n(context).addAnOptionalNoteOrLeaveBlank,
-                style: TextStyle(fontSize: 16, color: context.mutedText),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: controller,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  hintText: l10n(context).optionalReflection,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: context.hairline),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(null),
-              child: Text(l10n(context).actionCancel),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(controller.text),
-              child: Text(l10n(context).log),
-            ),
-          ],
-        ),
-      );
-      return result;
-    } finally {
-      controller.dispose();
-    }
   }
 
   void _scrollToNextUnlogged(String justLoggedId) {
@@ -449,6 +431,12 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
                 prayer: prayer,
                 isLogged: _loggedPrayerIds.contains(prayer.id),
                 onLogPress: () => _logPrayer(prayer.id),
+                isExpanded: _expandedPrayerIds.contains(prayer.id),
+                onToggleExpanded: () => setState(() {
+                  if (!_expandedPrayerIds.remove(prayer.id)) {
+                    _expandedPrayerIds.add(prayer.id);
+                  }
+                }),
                 onTap: () => context.push('/prayers/${prayer.id}'),
                 // Answering a prayer usually happens *while* praying it, so
                 // the session is exactly where the state change belongs. It

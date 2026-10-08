@@ -18,6 +18,10 @@ class SyncSongTags extends Table {
 
   IntColumn get createdAt => integer()();
 
+  /// How strongly the song carries the tag, for ranking search: 3 a central
+  /// theme, 2 a clear theme, 1 present but minor. 2 for links made in the app.
+  IntColumn get weight => integer().withDefault(const Constant(2))();
+
   @override
   Set<Column> get primaryKey => {id};
 }

@@ -36,6 +36,14 @@ const _hotQueries = <String, (String sql, String index)>{
     "SELECT * FROM sync_note_tags WHERE note_id='n' AND deleted=0",
     'idx_note_tags_note',
   ),
+  "a song's tags": (
+    "SELECT * FROM sync_song_tags WHERE song_id='s' AND deleted=0",
+    'idx_song_tags_song',
+  ),
+  "a tag's songs (the tag filter)": (
+    "SELECT song_id FROM sync_song_tags WHERE tag_id IN ('t') AND deleted=0",
+    'idx_song_tags_tag',
+  ),
   "a song's songbook links": (
     "SELECT * FROM sync_song_folders WHERE song_id='s' AND deleted=0",
     'idx_song_folders_song',

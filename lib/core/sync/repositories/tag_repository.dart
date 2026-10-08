@@ -442,6 +442,21 @@ class TagRepository extends BaseSyncRepository<TagModel> {
           'created_at) VALUES (?, ?, ?, ?, ?, 1, 0, ?)',
           [newId, ownerId, targetTagId, userId, now, now],
         );
+        // Song links carry a weight for search ranking. The new link takes
+        // the old one's, or a merge would quietly reset it to the default.
+        // (A song that already had the target tag keeps that link's weight.)
+        int? weight;
+        if (table == 'sync_song_tags') {
+          weight = await _db
+              .customSelect('SELECT weight FROM sync_song_tags WHERE id = ?',
+                  variables: [Variable.withString(row.read<String>('id'))])
+              .map((r) => r.read<int>('weight'))
+              .getSingle();
+          await _db.customStatement(
+            'UPDATE sync_song_tags SET weight = ? WHERE id = ?',
+            [weight, newId],
+          );
+        }
         await _writeJunctionOp(
           entityType: entityType,
           operation: OplogOperation.insert,
@@ -454,6 +469,7 @@ class TagRepository extends BaseSyncRepository<TagModel> {
           version: 1,
           deleted: 0,
           createdAt: now,
+          weight: weight,
         );
       }
 
@@ -543,6 +559,7 @@ class TagRepository extends BaseSyncRepository<TagModel> {
     required int version,
     required int deleted,
     required int createdAt,
+    int? weight,
   }) async {
     final payload = <String, dynamic>{
       'id': id,
@@ -556,6 +573,7 @@ class TagRepository extends BaseSyncRepository<TagModel> {
       // merge rewrote the link's creation date on the server to the moment
       // it was retired.
       'createdAt': createdAt,
+      if (weight != null) 'weight': weight,
     };
     final entry = OplogEntry(
       opId: generateOpId(),

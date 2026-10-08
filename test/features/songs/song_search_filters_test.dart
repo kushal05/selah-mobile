@@ -29,6 +29,7 @@ import 'package:notify/core/sync/repositories/folder_repository.dart';
 import 'package:notify/core/sync/repositories/song_repository.dart';
 import 'package:notify/core/theme/app_theme.dart';
 import 'package:notify/core/theme/theme_colors.dart';
+import 'package:notify/features/songs/domain/song_search_ranker.dart';
 import 'package:notify/features/songs/presentation/screens/song_search_screen.dart';
 import 'package:notify/features/songs/presentation/widgets/song_filter_dialog.dart';
 import 'package:notify/l10n/l10n.dart';
@@ -36,7 +37,7 @@ import 'package:notify/shared/widgets/filter_pill.dart';
 
 // ── fakes ────────────────────────────────────────────────────────────────────
 
-/// One call to searchSongsFiltered, as the screen made it.
+/// One call to searchSongsRanked, as the screen made it.
 typedef _Search = ({
   String? text,
   String? scale,
@@ -53,7 +54,7 @@ class _RecordingSongRepo implements SongRepository {
   Future<List<SongModel>> Function(int index)? respond;
 
   @override
-  Future<List<SongModel>> searchSongsFiltered({
+  Future<List<RankedSong>> searchSongsRanked({
     required String userId,
     String? textQuery,
     List<String>? tagIds,
@@ -70,7 +71,8 @@ class _RecordingSongRepo implements SongRepository {
       tagIds: tagIds,
       language: language,
     ));
-    return respond?.call(calls.length - 1) ?? const [];
+    final songs = await (respond?.call(calls.length - 1) ?? Future.value(const <SongModel>[]));
+    return [for (final s in songs) RankedSong(song: s)];
   }
 
   @override
