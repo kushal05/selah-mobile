@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The logo's ground, behind the wave in the adaptive icon. -->
+    <color name="ic_launcher_background">#FFF7F7F5</color>
+    <!-- Tints the notification icon and its app name (brandBlue). -->
+    <color name="notification_accent">#FF2D6CDF</color>
+</resources>

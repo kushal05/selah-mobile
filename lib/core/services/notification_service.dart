@@ -3,6 +3,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
 
+import '../theme/app_theme.dart';
+
 /// Service for managing local notifications
 class NotificationService {
   final FlutterLocalNotificationsPlugin _plugin =
@@ -10,14 +12,21 @@ class NotificationService {
 
   bool _initialized = false;
 
+  /// The notification icon's tint, and that of the app name beside it; the
+  /// same brandBlue the manifest gives pushes (`notification_accent`).
+  static const _accent = AppTheme.brandBlue;
+
   /// Initialize the notification plugin with platform-specific settings
   Future<void> initialize() async {
     if (_initialized) return;
 
     tz_data.initializeTimeZones();
 
+    // A white silhouette of the logo, not the launcher icon: the status bar
+    // keeps only an icon's alpha, so the full-colour square came out as a
+    // solid white box. Kept through release shrinking by res/raw/keep.xml.
     const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('@drawable/ic_stat_selah');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,
@@ -93,6 +102,7 @@ class NotificationService {
       android: AndroidNotificationDetails(
         'notify_general',
         'General',
+        color: _accent,
         channelDescription: 'General notifications',
         importance: Importance.defaultImportance,
         priority: Priority.defaultPriority,
@@ -252,6 +262,7 @@ class NotificationService {
         android: AndroidNotificationDetails(
           'notify_social',
           'Social',
+          color: _accent,
           channelDescription: 'Friend requests, group invites, and more',
           importance: Importance.defaultImportance,
           priority: Priority.defaultPriority,
@@ -264,6 +275,7 @@ class NotificationService {
         android: AndroidNotificationDetails(
           'notify_reminders',
           'Reminders',
+          color: _accent,
           channelDescription: 'Daily habit and prayer reminders',
           importance: Importance.high,
           priority: Priority.high,
@@ -275,6 +287,7 @@ class NotificationService {
       android: AndroidNotificationDetails(
         'notify_general',
         'General',
+        color: _accent,
         channelDescription: 'General notifications',
         importance: Importance.defaultImportance,
         priority: Priority.defaultPriority,
@@ -288,6 +301,7 @@ class NotificationService {
       android: AndroidNotificationDetails(
         'notify_prayer_reminders',
         'Prayer reminders',
+        color: _accent,
         channelDescription: 'Reminders for your prayer times',
         importance: Importance.high,
         priority: Priority.high,

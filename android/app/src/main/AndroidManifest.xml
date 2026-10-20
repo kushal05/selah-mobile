@@ -9,7 +9,8 @@
     <application
         android:label="@string/app_name"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -55,6 +56,15 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="notify_reminders" />
+        <!-- FCM: the icon and tint for pushes the system shows while the app is
+             closed. Unset, it used the full-colour launcher icon, which the
+             status bar reduces to its outline: a white square. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_selah" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_accent" />
         <!-- FileProvider for APK install intents (OTA updates) -->
         <provider
             android:name="androidx.core.content.FileProvider"

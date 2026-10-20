@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- flutter_local_notifications names its icon by string from Dart, which
+     release resource shrinking cannot see; without this the icon is stripped
+     and notifications fall back to a blank square. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_selah" />
