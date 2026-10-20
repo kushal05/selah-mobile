@@ -655,6 +655,12 @@ final todaysPrayerLogsProvider = StreamProvider<List<PrayerLogModel>>((ref) {
   return repository.watchLogsBySessionDate(today, userId);
 });
 
+/// A prayer's log count and last-logged time, for its Activity section.
+final prayerLogSummaryProvider = StreamProvider.autoDispose
+    .family<({int count, int? lastLoggedAt}), String>((ref, prayerId) {
+  return ref.watch(prayerLogRepositoryProvider).watchLogSummary(prayerId);
+});
+
 /// Future provider for today's log count
 final prayerLogCountTodayProvider = FutureProvider<int>((ref) async {
   final repository = ref.watch(prayerLogRepositoryProvider);

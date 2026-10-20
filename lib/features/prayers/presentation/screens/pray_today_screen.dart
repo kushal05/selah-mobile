@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/sync/models/prayer_log_model.dart';
 import '../../../../core/sync/models/prayer_model.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../providers/pray_today_provider.dart';
-import '../widgets/log_prayer_sheet.dart';
 import '../widgets/pray_today_card.dart';
 import '../widgets/pray_today_completion.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
@@ -14,6 +14,8 @@ import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../core/services/user_facing_error.dart';
 import '../../../../shared/utils/date_format.dart';
+import '../../../../shared/widgets/undo_snackbar.dart';
+import '../../../../core/navigation/routes.dart';
 
 /// Unified daily prayer flow screen
 ///
@@ -135,23 +137,16 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
     final userId = ref.read(currentUserIdProvider);
     final prayerLogRepo = ref.read(prayerLogRepositoryProvider);
 
-    // The same sheet the prayer's detail page opens, so logging looks and
-    // works the same from either place. This screen used to have its own
-    // AlertDialog with a text field — the reason the two disagreed. The sheet
-    // returns null on cancel and the note (possibly empty) otherwise.
-    final title = _todaysPrayers
-            .where((p) => p.id == prayerId)
-            .map((p) => p.title)
-            .firstOrNull ??
-        '';
-    final note = await showLogPrayerSheet(context, prayerTitle: title);
-    if (note == null || !mounted) return; // cancelled, or left mid-sheet
-
+    // One tap logs it. This used to open a sheet asking how it went, but the
+    // note it collected was never shown anywhere — a second tap per prayer,
+    // and from the home-screen widget a form before anything was logged, for
+    // text nobody could read back. Written thoughts go in "Add update" on the
+    // prayer, which is shown. A mistaken tap is undone from the snackbar.
+    final PrayerLogModel log;
     try {
-      await prayerLogRepo.logPrayer(
+      log = await prayerLogRepo.logPrayer(
         prayerId: prayerId,
         userId: userId,
-        note: note,
         sessionDate: _sessionDate,
       );
     } catch (e, st) {
@@ -175,6 +170,21 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
 
     // Auto-scroll to next unlogged prayer
     _scrollToNextUnlogged(prayerId);
+
+    final strings = l10n(context);
+    showUndoSnackBar(
+      context,
+      itemLabel: strings.prayer,
+      customMessage: strings.prayerLogged,
+      undoneMessage: strings.prayerLogUndone,
+      undoFailedMessage: strings.couldNotUndoPrayerLog,
+      onUndo: () async {
+        await prayerLogRepo.deleteLog(log.id);
+        // Back to unlogged — and, if this was the last one, from the
+        // completion screen back to the list.
+        if (mounted) setState(() => _loggedPrayerIds.remove(prayerId));
+      },
+    );
   }
 
   void _scrollToNextUnlogged(String justLoggedId) {
@@ -232,61 +242,15 @@ class _PrayTodayScreenState extends ConsumerState<PrayTodayScreen> {
               : _allPrayersLogged
                   ? PrayTodayCompletion(
                       totalPrayers: _todaysPrayers.length,
-                      onReviewLogs: () {
-                        // Could navigate to log history
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(l10n(context).prayerLogsSaved),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      },
-                      onAddReflection: () async {
-                        final controller = TextEditingController();
-                        try {
-                          await showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: Text(l10n(context).todaysReflection),
-                              content: TextField(
-                                controller: controller,
-                                maxLines: 5,
-                                decoration: InputDecoration(
-                                  hintText:
-                                      l10n(context).whatStoodOutDuringPrayerToday,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide:
-                                        BorderSide(color: context.hairline),
-                                  ),
-                                ),
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(context).pop(),
-                                  child: Text(l10n(context).actionCancel),
-                                ),
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.of(context).pop();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content:
-                                            Text(l10n(context).reflectionSaved),
-                                        behavior: SnackBarBehavior.floating,
-                                      ),
-                                    );
-                                  },
-                                  child: Text(l10n(context).actionSave),
-                                ),
-                              ],
-                            ),
-                          );
-                        } finally {
-                          controller.dispose();
-                        }
-                      },
+                      // Per-prayer log counts live on Prayer analytics.
+                      // This showed a "Prayer logs saved" message and went
+                      // nowhere.
+                      onReviewLogs: () =>
+                          context.push(Routes.prayerAnalytics),
+                      // The session's logs are what Habits' prayer streak
+                      // counts. This was "Add a reflection", whose dialog
+                      // said "Reflection saved" and kept nothing.
+                      onViewHabits: () => context.push(Routes.habits),
                       onExit: () => context.pop(),
                     )
                   : _buildPrayerList(),

@@ -596,6 +596,33 @@ def scan_literals():
     return findings
 
 
+# Colour constructors outside the theme.
+#
+# The literal scan above only knows Colors.* names, so the "Add update" sheet's
+# Color.fromARGB(255, 251, 250, 250) field fill and fromARGB(189, 189, 189)
+# hint went unseen — a white slab in dark mode, with the dark theme's light text
+# on it — while this gate reported no failing literals. A colour built from
+# channel values in feature code is one fixed colour in both themes, so these
+# are flagged by construction, whatever they are used for. (Color(0x…) hex
+# literals are not yet covered: the ones outside the theme need triage first.)
+CTOR_RE = re.compile(r'\bColor\.from(ARGB|RGBO)\s*\(')
+THEME_DIR = LIB / 'core' / 'theme'
+
+
+def scan_color_constructors():
+    findings = []
+    for path in sorted(LIB.rglob('*.dart')):
+        if THEME_DIR in path.parents:
+            continue
+        for i, line in enumerate(path.read_text(encoding='utf-8').split('\n')):
+            if line.lstrip().startswith('//'):
+                continue
+            for m in CTOR_RE.finditer(line):
+                findings.append((str(path.relative_to(LIB.parent)), i + 1,
+                                 f'Color.from{m.group(1)}'))
+    return findings
+
+
 # A brand accent used raw as a foreground.
 #
 # The gap that let the whole Groups feature sit unmigrated behind a green
@@ -750,6 +777,17 @@ def main():
         print(f'\ncontrast_audit: {len(literals)} literal(s) bypass the tokens '
               'and fail. Use the theme colours (colorScheme.onSurfaceVariant, '
               'AppTheme.hintColor, AppTheme.semanticFor) instead.')
+        return 1
+
+    ctors = scan_color_constructors()
+    if ctors:
+        print('\ncontrast_audit: COLOUR CONSTRUCTORS OUTSIDE THE THEME')
+        for path, line, name in ctors:
+            print(f'  {name:16} {path}:{line}')
+        print(f'\ncontrast_audit: {len(ctors)} colour(s) built from channel '
+              'values in feature code — the same colour in both themes. Use '
+              'the theme tokens (context.subtleFill, context.hintText, '
+              'context.mutedText, AppTheme.semanticFor) instead.')
         return 1
 
     print(f'\ncontrast_audit: all {len(cases)} pairings pass in both themes, '

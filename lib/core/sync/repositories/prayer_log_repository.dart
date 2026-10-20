@@ -123,6 +123,27 @@ class PrayerLogRepository extends BaseSyncRepository<PrayerLogModel> {
     return query.watch().map((rows) => rows.map(_toModel).toList());
   }
 
+  /// How many times a prayer has been logged, and when it last was — live.
+  ///
+  /// Counted exactly as Prayer analytics counts a prayer's logs (every log not
+  /// deleted), so the prayer page and the analytics page never disagree. The
+  /// literal `deleted = 0` lets SQLite use the partial index
+  /// idx_prayer_logs_prayer.
+  Stream<({int count, int? lastLoggedAt})> watchLogSummary(String prayerId) {
+    return _db
+        .customSelect(
+          'SELECT COUNT(*) AS c, MAX(logged_at) AS last FROM prayer_logs '
+          'WHERE prayer_id = ? AND deleted = 0',
+          variables: [Variable.withString(prayerId)],
+          readsFrom: {_db.prayerLogs},
+        )
+        .watchSingle()
+        .map((row) => (
+              count: row.read<int>('c'),
+              lastLoggedAt: row.readNullable<int>('last'),
+            ));
+  }
+
   /// Watch prayer logs for a specific prayer (reactive stream)
   Stream<List<PrayerLogModel>> watchLogsByPrayer(String prayerId, String userId) {
     final query = _db.select(_db.prayerLogs)

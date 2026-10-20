@@ -12,6 +12,10 @@ import '../../l10n/l10n.dart';
 ///
 /// [itemLabel] names what was removed ('Prayer', 'Note', 'Song'), so the
 /// message reads as a specific fact rather than a generic acknowledgement.
+///
+/// The wording defaults to Trash. An Undo for something else — logging a
+/// prayer — passes [customMessage], [undoneMessage] and [undoFailedMessage],
+/// since "restored" and "find it in Trash" would be untrue there.
 /// [onUndo] should restore the item; anything it throws is surfaced to the
 /// user rather than swallowed, since a failed undo is exactly the case where
 /// silence would be worst.
@@ -20,6 +24,8 @@ void showUndoSnackBar(
   required String itemLabel,
   required Future<void> Function() onUndo,
   String? customMessage,
+  String? undoneMessage,
+  String? undoFailedMessage,
 }) {
   final messenger = ScaffoldMessenger.of(context);
   messenger.clearSnackBars();
@@ -39,7 +45,7 @@ void showUndoSnackBar(
               ..clearSnackBars()
               ..showSnackBar(
                 SnackBar(
-                  content: Text('$itemLabel restored'),
+                  content: Text(undoneMessage ?? '$itemLabel restored'),
                   duration: const Duration(seconds: 3),
                   behavior: SnackBarBehavior.floating,
                 ),
@@ -50,8 +56,9 @@ void showUndoSnackBar(
               ..showSnackBar(
                 SnackBar(
                   content: Text(
-                    "Couldn't restore that $itemLabel. "
-                    'You can still find it in Settings → Trash.',
+                    undoFailedMessage ??
+                        "Couldn't restore that $itemLabel. "
+                            'You can still find it in Settings → Trash.',
                   ),
                   duration: const Duration(seconds: 6),
                   behavior: SnackBarBehavior.floating,

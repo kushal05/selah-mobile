@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:collection/collection.dart' show mergeSort;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -25,7 +27,7 @@ import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../shared/widgets/section_label.dart';
 import '../../../../shared/utils/date_format.dart';
-import '../widgets/log_prayer_sheet.dart';
+import '../widgets/add_update_sheet.dart';
 
 const _updatesSeparator = '\n<!-- updates -->\n';
 
@@ -43,6 +45,24 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
   bool _isEditingTitle = false;
   bool _isEditingDescription = false;
   bool _controllersInitialized = false;
+
+  /// Log prayer is off — dimmed, and deaf to taps — while a log is being
+  /// written and for a moment after. The sheet that used to open was modal,
+  /// which happened to stop a second tap; without it a quick double tap
+  /// recorded the prayer twice, and Undo took back only one. The write alone
+  /// is too short a window — it lands in milliseconds, before the second tap of
+  /// a double tap arrives — and, unlike Pray Today's card, this button does not
+  /// stay off once logged, since a prayer can rightly be logged more than once
+  /// a day. Undo ends the pause, so a corrected log can follow at once.
+  bool _logging = false;
+
+  /// Runs only to be asked [Timer.isActive], so its callback just redraws the
+  /// button. A Timer rather than a timestamp: dispose can cancel it, and tests
+  /// can step past it on the fake clock.
+  Timer? _logCooldown;
+  static const _logCooldownDuration = Duration(seconds: 2);
+
+  bool get _logPaused => _logging || (_logCooldown?.isActive ?? false);
 
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
@@ -99,6 +119,7 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
 
   @override
   void dispose() {
+    _logCooldown?.cancel();
     _titleController.dispose();
     _descriptionController.dispose();
     super.dispose();
@@ -480,23 +501,35 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
-  Future<void> _logPrayer({String note = ''}) async {
+  /// Logs the prayer in one tap, with Undo — the same as Pray Today. It used to
+  /// open a sheet asking for a note that no screen ever showed.
+  Future<void> _logPrayer() async {
+    if (_logPaused) return;
+    setState(() => _logging = true);
     try {
       final userId = ref.read(currentUserIdProvider);
       final repo = ref.read(prayerLogRepositoryProvider);
-      await repo.logPrayer(
+      final log = await repo.logPrayer(
         prayerId: widget.prayerId,
         userId: userId,
-        note: note,
         sessionDate: _todaySessionDate(),
       );
-
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n(context).prayerLogged),
-            behavior: SnackBarBehavior.floating,
-          ),
+        _logCooldown = Timer(_logCooldownDuration, () {
+          if (mounted) setState(() {});
+        });
+        final strings = l10n(context);
+        showUndoSnackBar(
+          context,
+          itemLabel: strings.prayer,
+          customMessage: strings.prayerLogged,
+          undoneMessage: strings.prayerLogUndone,
+          undoFailedMessage: strings.couldNotUndoPrayerLog,
+          onUndo: () async {
+            await repo.deleteLog(log.id);
+            _logCooldown?.cancel();
+            if (mounted) setState(() {});
+          },
         );
       }
     } catch (e) {
@@ -508,17 +541,12 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
           ),
         );
       }
-    }
-  }
-
-  Future<void> _showLogPrayerDialog() async {
-    final prayer = ref.read(prayerByIdProvider(widget.prayerId)).valueOrNull;
-    final note = await showLogPrayerSheet(
-      context,
-      prayerTitle: prayer?.title ?? '',
-    );
-    if (note != null) {
-      await _logPrayer(note: note);
+    } finally {
+      if (mounted) {
+        setState(() => _logging = false);
+      } else {
+        _logging = false;
+      }
     }
   }
 
@@ -1020,6 +1048,11 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
     // Also show legacy updates embedded in content (for pre-migration data)
     final legacyUpdates = _parseLegacyUpdates(prayer.content);
 
+    // How often it has been prayed: one entry, rewritten in place on every log
+    // ("Prayed 15 times" becomes "Prayed 16 times") rather than one per log.
+    final logSummary =
+        ref.watch(prayerLogSummaryProvider(widget.prayerId)).valueOrNull;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -1205,7 +1238,7 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
                     icon: Icons.check_rounded,
                     label: l10n(context).logPrayer,
                     accent: AppTheme.brandBlue,
-                    onPressed: permissions.canLog ? _showLogPrayerDialog : null,
+                    onPressed: permissions.canLog && !_logPaused ? _logPrayer : null,
                   ),
                   if (permissions.canManageSharing)
                     _PrayerAction(
@@ -1250,27 +1283,14 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
               const SizedBox(height: 24),
               SectionLabel(l10n(context).activity),
               const SizedBox(height: 12),
-              // Show structured updates (newest first — already sorted by provider)
-              ...structuredUpdates.map((update) {
-                return TimelineItem(
-                  text: update.content,
-                  author: authorName(update.userId),
-                  time: _formatDate(
-                      DateTime.fromMillisecondsSinceEpoch(update.createdAt)),
-                );
-              }),
-              // Show legacy updates (pre-migration data embedded in content)
-              ...legacyUpdates.reversed.map((update) {
-                final text = update['text'] as String? ?? '';
-                final timestamp = update['timestamp'] as int? ?? 0;
-                final time = timestamp > 0
-                    ? _formatDate(
-                        DateTime.fromMillisecondsSinceEpoch(timestamp))
-                    : '';
-                return TimelineItem(text: text, time: time);
-              }),
+              ..._activityEntries(
+                structuredUpdates: structuredUpdates,
+                legacyUpdates: legacyUpdates,
+                logSummary: logSummary,
+                authorName: authorName,
+              ),
               TimelineItem(
-                text: 'Prayer created',
+                text: l10n(context).prayerCreated,
                 time: _formatDate(
                     DateTime.fromMillisecondsSinceEpoch(prayer.createdAt)),
               ),
@@ -1527,173 +1547,69 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
     );
   }
 
-  void _showAddUpdateBottomSheet(
+  /// The Activity timeline above "Prayer created": updates and the prayed
+  /// count, newest first. The count's place is its last-logged time, so it
+  /// rises to the top whenever the prayer is prayed.
+  List<Widget> _activityEntries({
+    required List<PrayerUpdateModel> structuredUpdates,
+    required List<Map<String, dynamic>> legacyUpdates,
+    required ({int count, int? lastLoggedAt})? logSummary,
+    required String Function(String userId) authorName,
+  }) {
+    final entries = <(int, Widget)>[
+      for (final update in structuredUpdates)
+        (
+          update.createdAt,
+          TimelineItem(
+            text: update.content,
+            author: authorName(update.userId),
+            time: _formatDate(
+                DateTime.fromMillisecondsSinceEpoch(update.createdAt)),
+          ),
+        ),
+      // Updates from before they had their own table, stored oldest first.
+      // Reversed, so any without a timestamp — which tie at 0 and keep their
+      // order through the stable sort below — still read newest first, as
+      // they did before the timeline was sorted.
+      for (final update in legacyUpdates.reversed)
+        (
+          update['timestamp'] as int? ?? 0,
+          TimelineItem(
+            text: update['text'] as String? ?? '',
+            time: (update['timestamp'] as int? ?? 0) > 0
+                ? _formatDate(DateTime.fromMillisecondsSinceEpoch(
+                    update['timestamp'] as int))
+                : '',
+          ),
+        ),
+      if (logSummary != null &&
+          logSummary.count > 0 &&
+          logSummary.lastLoggedAt != null)
+        (
+          logSummary.lastLoggedAt!,
+          TimelineItem(
+            text: l10n(context).prayedNTimes(logSummary.count),
+            time: formatDateAndTime(
+                DateTime.fromMillisecondsSinceEpoch(logSummary.lastLoggedAt!)),
+          ),
+        ),
+    ];
+    // Stable, so equal times keep the order given above.
+    mergeSort(entries, compare: (a, b) => b.$1.compareTo(a.$1));
+    return [for (final e in entries) e.$2];
+  }
+
+  Future<void> _showAddUpdateBottomSheet(
     BuildContext context,
     List<PrayerCollaboratorModel> collaborators,
-  ) {
-    final textController = TextEditingController();
-
-    void insertMention(String username, StateSetter setSheetState) {
-      final text = textController.text;
-      final selection = textController.selection;
-      final offset = selection.isValid ? selection.baseOffset : text.length;
-      final before = text.substring(0, offset);
-      final after = text.substring(offset);
-      final mention = '@$username ';
-      textController.text = '$before$mention$after';
-      textController.selection =
-          TextSelection.collapsed(offset: offset + mention.length);
-    }
-
-    showModalBottomSheet(
-      // Defaults to false: a scroll-controlled sheet otherwise draws its
-      // top edge behind the notch or Dynamic Island.
-      useSafeArea: true,
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: SizedBox(
-            height: MediaQuery.of(context).size.height * 0.5,
-            child: StatefulBuilder(
-              builder: (context, setSheetState) {
-                return Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            l10n(context).addUpdate,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          IconButton(
-                            tooltip: l10n(context).close,
-                            icon: const Icon(Icons.close),
-                            onPressed: () => Navigator.of(context).pop(),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Expanded(
-                        child: TextField(
-                          controller: textController,
-                          maxLines: null,
-                          expands: true,
-                          textCapitalization: TextCapitalization.sentences,
-                          textAlignVertical: TextAlignVertical.top,
-                          decoration: InputDecoration(
-                            hintText: l10n(context).writeYourUpdateHere,
-                            hintStyle: const TextStyle(
-                                color: Color.fromARGB(255, 189, 189, 189)),
-                            filled: true,
-                            fillColor:
-                                const Color.fromARGB(255, 251, 250, 250),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            contentPadding: const EdgeInsets.all(16),
-                          ),
-                        ),
-                      ),
-                      // @ mention button row (only if collaborators exist)
-                      if (collaborators.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          height: 32,
-                          child: ListView(
-                            scrollDirection: Axis.horizontal,
-                            children: [
-                              Icon(Icons.alternate_email,
-                                  size: 18, color: context.mutedText),
-                              const SizedBox(width: 8),
-                              ...collaborators.map((c) => Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: ActionChip(
-                                      label: Text(
-                                        '@${c.collaboratorUsername}',
-                                        style: const TextStyle(fontSize: 13),
-                                      ),
-                                      onPressed: () => insertMention(
-                                          c.collaboratorUsername,
-                                          setSheetState),
-                                      visualDensity: VisualDensity.compact,
-                                      backgroundColor: AppTheme.brandPurple
-                                          .withValues(alpha: 0.08),
-                                      side: BorderSide.none,
-                                    ),
-                                  )),
-                            ],
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () => Navigator.of(context).pop(),
-                              icon: const Icon(Icons.close),
-                              label: Text(l10n(context).actionCancel),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.mutedGrey,
-                                side: const BorderSide(
-                                    color: AppTheme.mutedGrey),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                final updateText =
-                                    textController.text.trim();
-                                if (updateText.isNotEmpty) {
-                                  _addUpdate(updateText);
-                                  Navigator.of(context).pop();
-                                }
-                              },
-                              icon: const Icon(Icons.add),
-                              label: Text(l10n(context).add),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor:
-                                    Theme.of(context).primaryColor,
-                                side: BorderSide(
-                                    color: Theme.of(context).primaryColor),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        );
-      },
+  ) async {
+    final prayer = ref.read(prayerByIdProvider(widget.prayerId)).valueOrNull;
+    final text = await showAddUpdateSheet(
+      context,
+      prayerTitle: prayer?.title ?? '',
+      collaborators: collaborators,
     );
+    if (text != null) await _addUpdate(text);
   }
 }
 

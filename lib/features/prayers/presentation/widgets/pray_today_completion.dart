@@ -8,14 +8,14 @@ import '../../../../l10n/l10n.dart';
 class PrayTodayCompletion extends StatelessWidget {
   final int totalPrayers;
   final VoidCallback onReviewLogs;
-  final VoidCallback onAddReflection;
+  final VoidCallback onViewHabits;
   final VoidCallback onExit;
 
   const PrayTodayCompletion({
     super.key,
     required this.totalPrayers,
     required this.onReviewLogs,
-    required this.onAddReflection,
+    required this.onViewHabits,
     required this.onExit,
   });
 
@@ -59,15 +59,24 @@ class PrayTodayCompletion extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
+            const SizedBox(height: 4),
+            Text(
+              l10n(context).progressUpdatedInHabits,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
             const SizedBox(height: 32),
 
             // Action buttons
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: onAddReflection,
-                icon: const Icon(Icons.edit_note, size: 20),
-                label: Text(l10n(context).addAReflection),
+                onPressed: onViewHabits,
+                icon: const Icon(Icons.insights_rounded, size: 20),
+                label: Text(l10n(context).viewProgressInHabits),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.brandBlue,
                   foregroundColor: AppTheme.onAccent(AppTheme.brandBlue),
