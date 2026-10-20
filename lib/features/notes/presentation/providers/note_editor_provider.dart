@@ -922,6 +922,33 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
       isDirty: true,
     );
     _scheduleSave();
+    _placeCursorAfterFrame(previousBlock.id, mergeOffset);
+  }
+
+  /// Puts the caret in [blockId] at [offset] once the frame has rebuilt.
+  ///
+  /// For Backspace only: at the start of a block it removes the block and moves
+  /// into the one above. Not for every delete — removing a Bible verse from its
+  /// menu goes through the same deletion, and focusing a line there brought the
+  /// keyboard up unasked.
+  ///
+  /// Setting `focusedBlockId` alone left the move to whatever took focus
+  /// next, and that field brought back its own last caret — wherever the person
+  /// had last clicked in it — instead of the join point or the end of its text.
+  /// So the target field is focused and given its caret here, the way
+  /// [splitBlock] does for the block it creates.
+  void _placeCursorAfterFrame(String blockId, int offset) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final focusNode = _blockFocusNodes[blockId];
+      final controller = _blockControllers[blockId];
+      if (controller != null) {
+        controller.selection = TextSelection.collapsed(
+            offset: offset.clamp(0, controller.text.length));
+      }
+      if (focusNode != null && focusNode.canRequestFocus) {
+        focusNode.requestFocus();
+      }
+    });
   }
 
   /// Delete a block by ID regardless of its content (e.g. Bible reference blocks).
@@ -942,7 +969,9 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     // collapse the two reference cards back onto the same line.
     if (_isReferenceSeparator(blockId)) return;
 
-    _deleteBlockInternal(blockId);
+    // Backspace on an empty line: the caret goes on into the line above.
+    final target = _deleteBlockInternal(blockId);
+    if (target != null) _placeCursorAfterFrame(target.blockId, target.offset);
   }
 
   bool _isReferenceSeparator(String blockId) {
@@ -960,7 +989,11 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
         next.type == BlockType.bibleReference;
   }
 
-  void _deleteBlockInternal(String blockId) {
+  /// Removes [blockId] and returns where the cursor now belongs — the end of
+  /// the block before it, or else the start of the one after — or null if the
+  /// document has no other block. Records that in state; moving the caret
+  /// there is left to the caller.
+  EditorCursor? _deleteBlockInternal(String blockId) {
     final previousBlock = state.document.getPreviousBlock(blockId);
     final nextBlock = state.document.getNextBlock(blockId);
 
@@ -977,7 +1010,7 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
 
     // Move cursor to previous or next block
     final targetBlock = previousBlock ?? nextBlock;
-    if (targetBlock == null) return;
+    if (targetBlock == null) return null;
 
     final newCursor = previousBlock != null
         ? EditorCursor.atEnd(previousBlock.id, previousBlock.content.length)
@@ -991,6 +1024,7 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
       isDirty: true,
     );
     _scheduleSave();
+    return newCursor;
   }
 
   // ==================== Block Type Operations ====================

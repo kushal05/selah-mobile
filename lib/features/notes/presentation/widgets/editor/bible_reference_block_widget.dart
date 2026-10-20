@@ -10,6 +10,7 @@ import '../../../../../core/theme/theme_colors.dart';
 import '../../../../../core/sync/providers/sync_providers.dart';
 import '../../../../../l10n/l10n.dart';
 import '../../../../../shared/widgets/selectable_chip.dart';
+import '../../../../../shared/widgets/tap_target.dart';
 
 /// Renders a Bible verse block in the note editor as a collapsible card.
 ///
@@ -100,6 +101,10 @@ class _BibleReferenceBlockWidgetState
   /// Right-aligned under the verse text: it belongs to the whole reference
   /// rather than to any one line of it, and putting it at the end keeps the
   /// verse itself the first thing read.
+  /// The reference's tags, under the verse and aligned with it, and the field
+  /// for a new one while it is being added. Adding one starts from the ⋮ menu
+  /// with the card's other actions; the control used to sit alone at the
+  /// bottom-right, apart from everything else it belonged with.
   Widget _buildTagRow() {
     if (widget.onTagsChanged == null) return const SizedBox.shrink();
 
@@ -108,72 +113,69 @@ class _BibleReferenceBlockWidgetState
       for (final t in ref.watch(tagsStreamProvider).valueOrNull ?? const [])
         t.id: t.name,
     };
+    // A tag whose name has not arrived yet is skipped rather than shown as a
+    // raw id.
+    final shown = [for (final id in tagIds) if (names[id] != null) id];
+    if (shown.isEmpty && !_addingTag) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.only(top: 10),
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: Wrap(
-          alignment: WrapAlignment.end,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (final id in tagIds)
-              // A tag whose name has not arrived yet is skipped rather than
-              // shown as a raw id.
-              if (names[id] != null)
-                SelectableChip(
-                  label: names[id]!,
-                  isSelected: true,
-                  showDelete: true,
-                  accent: AppTheme.brandPurple,
-                  onTap: () => _removeTag(id),
-                ),
-            if (_addingTag)
-              SizedBox(
-                width: 140,
-                child: TextField(
-                  controller: _tagController,
-                  focusNode: _tagFocusNode,
-                  autofocus: true,
-                  textInputAction: TextInputAction.done,
-                  style: AppTheme.caption.copyWith(color: context.primaryText),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    hintText: l10n(context).enterTagName,
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 8),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  onSubmitted: (_) => _submitTag(),
-                  onTapOutside: (_) => _submitTag(),
-                ),
-              )
-            else
-              Semantics(
-                button: true,
-                label: l10n(context).addTag,
-                child: InkWell(
-                  onTap: () => setState(() => _addingTag = true),
-                  borderRadius: BorderRadius.circular(16),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
-                    child: Icon(
-                      Icons.local_offer_outlined,
-                      size: 18,
-                      color: context.accentInk(AppTheme.brandPurple),
-                    ),
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (final id in shown)
+            SelectableChip(
+              label: names[id]!,
+              isSelected: true,
+              showDelete: true,
+              accent: AppTheme.brandPurple,
+              onTap: () => _removeTag(id),
+            ),
+          if (_addingTag)
+            SizedBox(
+              width: 140,
+              child: TextField(
+                controller: _tagController,
+                focusNode: _tagFocusNode,
+                autofocus: true,
+                textInputAction: TextInputAction.done,
+                style: AppTheme.caption.copyWith(color: context.primaryText),
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: l10n(context).enterTagName,
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 8),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
                 ),
+                onSubmitted: (_) => _submitTag(),
+                onTapOutside: (_) => _submitTag(),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
+  }
+
+  /// Opens the field for a new tag — opening the card first if it is closed,
+  /// since the field sits under the verse — and puts the cursor in it.
+  ///
+  /// The focus has to be asked for: the field's autofocus only takes it when
+  /// nothing on the page has it, and in the editor a line of the note almost
+  /// always does — the sheet closing hands focus back to it, so the tag typed
+  /// went into the note instead.
+  void _startAddingTag() {
+    setState(() {
+      _expanded = true;
+      _addingTag = true;
+    });
+    _iconController.forward();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _addingTag) _tagFocusNode.requestFocus();
+    });
   }
 
   void _toggle() {
@@ -202,7 +204,11 @@ class _BibleReferenceBlockWidgetState
         alignment: Alignment.topCenter,
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 6),
-          padding: const EdgeInsets.all(14),
+          // Less at the top and right than elsewhere: the action icons' 44pt
+          // touch areas carry their own margin there, and the full 14 on top
+          // of it pushed the icons in from the corner and made the card tall.
+          // The verse below takes the difference back on its right.
+          padding: const EdgeInsets.fromLTRB(14, 6, 6, 14),
           decoration: BoxDecoration(
             color: AppTheme.brandPurple.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(10),
@@ -210,32 +216,34 @@ class _BibleReferenceBlockWidgetState
               color: AppTheme.brandPurple.withValues(alpha: 0.15),
             ),
           ),
-          child: Row(
-            crossAxisAlignment:
-                _expanded ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+          // The verse runs the card's full width below the reference row. It
+          // used to sit in the row's middle column, between the book icon and
+          // the action icons, which left it a narrow strip down the centre of
+          // the card — the more so on a phone, with the edit and remove icons
+          // both showing.
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Bookmark icon
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: AppTheme.brandPurple.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.menu_book,
-                  size: 18,
-                  color: context.accentInk(AppTheme.brandPurple),
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Reference content
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Reference line (e.g., "John 3:16-18")
-                    Text(
+              Row(
+                children: [
+                  // Bookmark icon
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: AppTheme.brandPurple.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.menu_book,
+                      size: 18,
+                      color: context.accentInk(AppTheme.brandPurple),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Reference line (e.g., "John 3:16-18")
+                  Expanded(
+                    child: Text(
                       ref.displayReference,
                       style: TextStyle(
                         fontSize: 16,
@@ -244,14 +252,68 @@ class _BibleReferenceBlockWidgetState
                         letterSpacing: 0.2,
                       ),
                     ),
-                    // Verse text — only visible when expanded
-                    if (_expanded) ...[
-                      const SizedBox(height: 6),
+                  ),
+                  // Action icons + chevron
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Edit, the action used most, stays in the row; the
+                      // rest — tag, change version, remove, copy — are in the
+                      // menu. With a full 44pt touch area each, tag, edit and
+                      // remove side by side left the reference about 130pt,
+                      // and even "John 3:16-17 (KJV)" wrapped. The menu is the
+                      // sheet a long-press opened, which nothing on screen
+                      // ever pointed to.
+                      if (widget.onEdit != null)
+                        _ActionIcon(
+                          icon: Icons.edit_outlined,
+                          tooltip: l10n(context).editReference,
+                          onTap: widget.onEdit!,
+                        ),
+                      _ActionIcon(
+                        icon: Icons.more_vert_rounded,
+                        tooltip: l10n(context)
+                            .moreActionsFor(ref.displayReference),
+                        onTap: () => _showOptions(context),
+                      ),
+                      if (hasText)
+                        RotationTransition(
+                          turns: Tween(begin: 0.0, end: 0.5).animate(
+                            CurvedAnimation(
+                              parent: _iconController,
+                              curve: Curves.easeInOut,
+                            ),
+                          ),
+                          // Not a button (tapping anywhere on the card opens and
+                          // closes it), so a plain box, sized to sit in line
+                          // with the touch areas beside it.
+                          child: SizedBox(
+                            width: 32,
+                            height: AppTheme.minTapTarget,
+                            child: Icon(
+                              Icons.expand_more,
+                              size: 20,
+                              color: context.accentInk(AppTheme.brandPurple),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+              // Verse text — only visible when expanded
+              if (_expanded)
+                Padding(
+                  // Back to the card's 14 on the right; see the padding above.
+                  padding: const EdgeInsets.only(top: 6, right: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       if (ref.pending || ref.text.isEmpty)
                         Text(
                           l10n(context).verseTextPendingDownload,
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: _verseFontSize,
                             fontStyle: FontStyle.italic,
                             color: context.mutedText,
                             height: 1.5,
@@ -261,42 +323,8 @@ class _BibleReferenceBlockWidgetState
                         _buildVerseText(theme),
                       _buildTagRow(),
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              // Action icons + chevron
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (widget.onEdit != null)
-                    _ActionIcon(
-                      icon: Icons.edit_outlined,
-                      tooltip: l10n(context).editReference,
-                      onTap: widget.onEdit!,
-                    ),
-                  if (widget.onRemove != null)
-                    _ActionIcon(
-                      icon: Icons.close,
-                      tooltip: l10n(context).removeReference,
-                      onTap: widget.onRemove!,
-                      color: context.dangerText,
-                    ),
-                  if (hasText)
-                    RotationTransition(
-                      turns: Tween(begin: 0.0, end: 0.5).animate(
-                        CurvedAnimation(
-                          parent: _iconController,
-                          curve: Curves.easeInOut,
-                        ),
-                      ),
-                      child: Icon(
-                        Icons.expand_more,
-                        size: 20,
-                        color: context.accentInk(AppTheme.brandPurple),
-                      ),
-                    ),
-                ],
-              ),
             ],
           ),
         ),
@@ -304,6 +332,11 @@ class _BibleReferenceBlockWidgetState
     ),
     );
   }
+
+  /// The verse is quoted material inside a note, so it is set a step below the
+  /// note's own 16pt body text, which kept it from reading as the note itself.
+  static const double _verseFontSize = 14;
+  static const double _verseNumberFontSize = 11;
 
   /// Build verse text with optional superscript verse numbers
   Widget _buildVerseText(ThemeData theme) {
@@ -317,7 +350,7 @@ class _BibleReferenceBlockWidgetState
       return Text(
         ref.fullText,
         style: TextStyle(
-          fontSize: 16,
+          fontSize: _verseFontSize,
           fontStyle: FontStyle.italic,
           color: baseColor,
           height: 1.5,
@@ -328,7 +361,7 @@ class _BibleReferenceBlockWidgetState
     return Text.rich(
       TextSpan(
         style: TextStyle(
-          fontSize: 16,
+          fontSize: _verseFontSize,
           fontStyle: FontStyle.italic,
           color: baseColor,
           height: 1.5,
@@ -339,7 +372,7 @@ class _BibleReferenceBlockWidgetState
               TextSpan(
                 text: '${vt.verse} ',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: _verseNumberFontSize,
                   fontWeight: FontWeight.w700,
                   fontStyle: FontStyle.normal,
                   color: context.accentInk(AppTheme.brandPurple),
@@ -362,8 +395,11 @@ class _BibleReferenceBlockWidgetState
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
+      // Scrolls when it does not fit. A sheet like this is held to 9/16 of the
+      // screen, and with six actions — tag and version now among them — that
+      // ran out on a small phone or at a large text size.
       builder: (context) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -417,7 +453,19 @@ class _BibleReferenceBlockWidgetState
                     widget.onEdit?.call();
                   },
                 ),
-              if (widget.onChangeVersion != null)
+              if (widget.onTagsChanged != null)
+                ListTile(
+                  leading: const Icon(Icons.local_offer_outlined),
+                  title: Text(l10n(context).addTag),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _startAddingTag();
+                  },
+                ),
+              // Only with another version to change to; the picker shows nothing
+              // with one.
+              if (widget.onChangeVersion != null &&
+                  widget.availableTranslations.length > 1)
                 ListTile(
                   leading: const Icon(Icons.translate),
                   title: Text(l10n(context).changeVersion),
@@ -486,38 +534,47 @@ class _BibleReferenceBlockWidgetState
   }
 }
 
+/// An action in the reference row — edit, or the ⋮ menu.
+///
+/// Drawn as a 16pt glyph, as before, but answering a touch anywhere in a 44pt
+/// square: the glyph plus 4pt of padding was a 24pt target, and on a phone the
+/// pencil and the × that sat beside it were easy to miss or to hit the wrong
+/// one.
 class _ActionIcon extends StatelessWidget {
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
-  final Color? color;
 
   const _ActionIcon({
     required this.icon,
     required this.tooltip,
     required this.onTap,
-    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      child: GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Tooltip(
-        message: tooltip,
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: Icon(
-            icon,
-            size: 16,
-            color: color ?? context.accentInk(AppTheme.brandPurple),
+    return Tooltip(
+      message: tooltip,
+      // The Semantics below already names the button; the tooltip's copy of
+      // the same words made a screen reader say them twice.
+      excludeFromSemantics: true,
+      child: TapTarget(
+        onTap: onTap,
+        child: Semantics(
+          button: true,
+          label: tooltip,
+          onTap: onTap,
+          excludeSemantics: true,
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: Icon(
+              icon,
+              size: 16,
+              color: context.accentInk(AppTheme.brandPurple),
+            ),
           ),
         ),
       ),
-    ),
     );
   }
 }

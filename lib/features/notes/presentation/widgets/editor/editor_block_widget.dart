@@ -425,6 +425,20 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
         ref.read(noteEditorProvider(widget.noteId).notifier)
             .deleteBlock(widget.block.id);
       },
+      // The same verses in another translation. The widget had the menu item
+      // and its picker, and was handed the translations, but nothing ever
+      // passed this, so the item never appeared.
+      onChangeVersion: (version) {
+        final ref_ = reference.reference;
+        ref.read(noteEditorProvider(widget.noteId).notifier)
+            .updateBibleReferenceBlock(
+          blockId: widget.block.id,
+          book: ref_.book,
+          chapter: ref_.chapter,
+          verses: ref_.verses,
+          version: version,
+        );
+      },
     );
   }
 
