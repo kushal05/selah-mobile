@@ -24,6 +24,9 @@ import 'base_sync_repository.dart';
 /// Per spec section 7:
 /// - Never auto-merge rich text blocks
 class NoteBlockRepository extends BaseSyncRepository<NoteBlockModel> {
+  @override
+  bool get trashedAtIsInstruction => true;
+
   final SyncDatabase _db;
   final String _deviceId;
   final NoteBlockFtsService _ftsService;

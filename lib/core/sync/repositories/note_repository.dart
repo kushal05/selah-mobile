@@ -25,6 +25,9 @@ import '../../testing/test_clock.dart';
 /// 2. Update updatedAt + version
 /// 3. Create an oplog entry
 class NoteRepository extends BaseSyncRepository<NoteModel> {
+  @override
+  bool get trashedAtIsInstruction => true;
+
   final SyncDatabase _db;
   final String _deviceId;
   final NoteBlockFtsService _ftsService;
@@ -496,7 +499,7 @@ class NoteRepository extends BaseSyncRepository<NoteModel> {
     if (existing == null) throw NoteNotFoundException(id);
 
     final trashed = existing.moveToTrash();
-    final oplogEntry = createUpdateOp(trashed);
+    final oplogEntry = createTrashOp(trashed);
 
     await _db.transaction(() async {
       await (_db.update(_db.syncNotes)..where((n) => n.id.equals(id)))
@@ -516,7 +519,7 @@ class NoteRepository extends BaseSyncRepository<NoteModel> {
     if (existing == null) throw NoteNotFoundException(id);
 
     final restored = existing.restoreFromTrash();
-    final oplogEntry = createUpdateOp(restored);
+    final oplogEntry = createTrashOp(restored);
 
     await _db.transaction(() async {
       await (_db.update(_db.syncNotes)..where((n) => n.id.equals(id)))
@@ -607,14 +610,14 @@ class NoteRepository extends BaseSyncRepository<NoteModel> {
     });
   }
 
-  /// Create an UPDATE oplog entry for a note block
+  /// Create the UPDATE for a block in the trash/restore cascade, stating trashedAt.
   OplogEntry createBlockUpdateOp(NoteBlockModel block) {
     return OplogEntry(
       opId: generateId(),
       entityType: OplogEntityType.noteBlock,
       entityId: block.id,
       operation: OplogOperation.update,
-      payload: block.toJson(),
+      payload: {...block.toJson(), 'trashedAt': block.trashedAt},
       timestamp: block.updatedAt,
       deviceId: deviceId,
       entityVersion: block.version,

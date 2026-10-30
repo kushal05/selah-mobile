@@ -1007,6 +1007,7 @@ class SyncEngine {
                 version: Value(remoteOp.payload['version'] as int),
                 deleted: Value(_asIntFlag(remoteOp.payload['deleted'])),
                 createdAt: Value(remoteOp.payload['createdAt'] as int),
+                trashedAt: Value(remoteOp.payload['trashedAt'] as int?),
               ),
               mode: InsertMode.insertOrReplace,
             );
@@ -1027,12 +1028,16 @@ class SyncEngine {
       remoteDeviceId: remoteOp.deviceId,
     );
 
+    // Applied whichever side wins the rest of the folder.
+    final trashedAt = await _statedTrashedAt(remoteOp);
+
     if (resolution.useRemote) {
       // Apply remote version
       await (_db.update(
         _db.folders,
       )..where((f) => f.id.equals(remoteOp.entityId))).write(
         FoldersCompanion(
+          trashedAt: trashedAt ?? const Value.absent(),
           parentId: Value(remoteOp.payload['parentId'] as String?),
           name: Value(remoteOp.payload['name'] as String),
           type: Value(remoteOp.payload['type'] as String? ?? 'note'),
@@ -1045,9 +1050,49 @@ class SyncEngine {
           deleted: Value(_asIntFlag(remoteOp.payload['deleted'])),
         ),
       );
+    } else if (trashedAt != null) {
+      await (_db.update(
+        _db.folders,
+      )..where((f) => f.id.equals(remoteOp.entityId))).write(
+        FoldersCompanion(trashedAt: trashedAt),
+      );
     }
 
     return resolution.hadConflict;
+  }
+
+  /// The trashedAt a remote op states (null = silence), per the web's apply.ts `statedFor` rule.
+  Future<Value<int?>?> _statedTrashedAt(OplogEntry remoteOp) async {
+    if (!remoteOp.payload.containsKey('trashedAt')) return null;
+    final speaks = switch (remoteOp.operation) {
+      OplogOperation.update => true,
+      OplogOperation.insert => !await _hasPendingOp(remoteOp),
+      OplogOperation.delete => false,
+    };
+    return speaks ? Value(remoteOp.payload['trashedAt'] as int?) : null;
+  }
+
+  /// Oplog types whose trashedAt is an instruction (BaseSyncRepository.trashedAtIsInstruction).
+  static final _trashedAtIsInstruction = {
+    OplogEntityType.note.toDbValue(),
+    OplogEntityType.folder.toDbValue(),
+    OplogEntityType.noteBlock.toDbValue(),
+  };
+
+  /// Whether this device still has an unpushed op for [remoteOp]'s entity.
+  Future<bool> _hasPendingOp(OplogEntry remoteOp) async {
+    final pending = await (_db.select(_db.oplog)
+          ..where(
+            (o) =>
+                o.entityType.equals(remoteOp.entityType.toDbValue()) &
+                o.entityId.equals(remoteOp.entityId) &
+                o.synced.equals(0) &
+                // Quarantined ops never push, as in getUnsyncedOps.
+                o.failedAt.isNull(),
+          )
+          ..limit(1))
+        .getSingleOrNull();
+    return pending != null;
   }
 
   /// Apply a note operation from remote using field-level merge.
@@ -1161,6 +1206,8 @@ class SyncEngine {
         updatedAt: Value(mergeResult.mergedUpdatedAt),
         version: Value(mergeResult.mergedVersion),
         fieldUpdatedAt: Value(jsonEncode(mergeResult.mergedFieldTimestamps)),
+        // Not merged: see _statedTrashedAt.
+        trashedAt: await _statedTrashedAt(remoteOp) ?? const Value.absent(),
       ),
     );
 
@@ -1201,6 +1248,7 @@ class SyncEngine {
                 section: Value(
                   remoteOp.payload['section'] as String? ?? 'main',
                 ),
+                trashedAt: Value(remoteOp.payload['trashedAt'] as int?),
               ),
               mode: InsertMode.insertOrReplace,
             );
@@ -1251,6 +1299,8 @@ class SyncEngine {
           version: Value(remoteOp.payload['version'] as int),
           deleted: Value(_asIntFlag(remoteOp.payload['deleted'])),
           section: Value(remoteOp.payload['section'] as String? ?? 'main'),
+          // Only when the remote block wins, matching the web's note_block apply.
+          trashedAt: await _statedTrashedAt(remoteOp) ?? const Value.absent(),
         ),
       );
 
@@ -3025,6 +3075,15 @@ class SyncEngine {
       try {
         final local = jsonDecode(row.payloadJson) as Map<String, dynamic>;
         final merged = _mergePayloads(local: local, server: server);
+
+        // The rebased op states trashedAt exactly when the user's op did.
+        if (_trashedAtIsInstruction.contains(row.entityType)) {
+          if (local.containsKey('trashedAt')) {
+            merged['trashedAt'] = local['trashedAt'];
+          } else {
+            merged.remove('trashedAt');
+          }
+        }
 
         // Did anything of the user's survive the merge?
         //

@@ -22,6 +22,9 @@ import '../../testing/test_clock.dart';
 /// 2. Update updatedAt + version
 /// 3. Create an oplog entry
 class FolderRepository extends BaseSyncRepository<FolderModel> {
+  @override
+  bool get trashedAtIsInstruction => true;
+
   final SyncDatabase _db;
   final String _deviceId;
 
@@ -407,14 +410,14 @@ class FolderRepository extends BaseSyncRepository<FolderModel> {
 
     await _db.transaction(() async {
       final trashed = existing.moveToTrash();
-      final oplogEntry = createUpdateOp(trashed);
+      final oplogEntry = createTrashOp(trashed);
       await (_db.update(_db.folders)..where((f) => f.id.equals(id)))
           .write(_toCompanion(trashed));
       await _db.into(_db.oplog).insert(_oplogToCompanion(oplogEntry));
 
       for (final descendant in descendants) {
         final trashedDesc = descendant.moveToTrash();
-        final descOplog = createUpdateOp(trashedDesc);
+        final descOplog = createTrashOp(trashedDesc);
         await (_db.update(_db.folders)..where((f) => f.id.equals(descendant.id)))
             .write(_toCompanion(trashedDesc));
         await _db.into(_db.oplog).insert(_oplogToCompanion(descOplog));
@@ -428,7 +431,7 @@ class FolderRepository extends BaseSyncRepository<FolderModel> {
     if (existing == null) throw FolderNotFoundException(id);
 
     final restored = existing.restoreFromTrash();
-    final oplogEntry = createUpdateOp(restored);
+    final oplogEntry = createTrashOp(restored);
 
     await _db.transaction(() async {
       await (_db.update(_db.folders)..where((f) => f.id.equals(id)))

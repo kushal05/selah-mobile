@@ -42,13 +42,30 @@ abstract class BaseSyncRepository<T extends SyncEntity> {
     );
   }
 
+  /// If true, only [createTrashOp] sends trashedAt; ordinary updates omit it.
+  bool get trashedAtIsInstruction => false;
+
   /// Create an UPDATE oplog entry
   OplogEntry createUpdateOp(T entity) {
+    final payload = entity.toJson();
+    if (trashedAtIsInstruction) payload.remove('trashedAt');
     return OplogEntry.update(
       opId: generateOpId(),
       entityType: entityType,
       entityId: entity.id,
-      payload: entity.toJson(),
+      payload: payload,
+      deviceId: deviceId,
+      entityVersion: entity.version,
+    );
+  }
+
+  /// Create the UPDATE for a trash or restore, stating trashedAt (null = restored).
+  OplogEntry createTrashOp(T entity) {
+    return OplogEntry.update(
+      opId: generateOpId(),
+      entityType: entityType,
+      entityId: entity.id,
+      payload: {...entity.toJson(), 'trashedAt': entity.trashedAt},
       deviceId: deviceId,
       entityVersion: entity.version,
     );

@@ -952,6 +952,393 @@ void main() {
               'version-2 tombstone everywhere else');
     });
   });
+
+  // A trash or restore must reach every device, whichever one made it.
+  group('trash and restore across devices', () {
+    Future<void> syncBoth() async {
+      expect((await engineA.syncNow()).success, isTrue);
+      expect((await engineB.syncNow()).success, isTrue);
+    }
+
+    test('a note trashed on another device leaves the notes list, and a '
+        'restore brings it back', () async {
+      final note = await noteRepoA.createNote(
+        folderId: 'root',
+        userId: _userId,
+        title: 'Moving to trash',
+      );
+      await syncBoth();
+      expect((await noteRepoB.getAllNotes(_userId)).map((n) => n.id), [note.id]);
+
+      await noteRepoA.trashNote(note.id);
+      await syncBoth();
+      expect(await noteRepoB.getAllNotes(_userId), isEmpty);
+      expect((await noteRepoB.getNoteById(note.id))!.trashedAt, isNotNull);
+
+      // The restore must state trashedAt: null explicitly.
+      await noteRepoA.restoreNote(note.id);
+      await syncBoth();
+      expect((await noteRepoB.getAllNotes(_userId)).map((n) => n.id), [note.id]);
+      expect((await noteRepoB.getNoteById(note.id))!.trashedAt, isNull);
+    });
+
+    test('a trash from the web, an update stating trashedAt, is applied',
+        () async {
+      final note = await noteRepoB.createNote(
+        folderId: 'root',
+        userId: _userId,
+        title: 'Trashed in the browser',
+      );
+      final local = (await noteRepoB.getNoteById(note.id))!;
+      final trashedAt = local.updatedAt + 1;
+      api.addRemoteOperation(
+        OplogEntry(
+          opId: 'web-trash-1',
+          entityType: OplogEntityType.note,
+          entityId: note.id,
+          operation: OplogOperation.update,
+          payload: {
+            ...local.toJson(),
+            'version': local.version + 1,
+            'updatedAt': trashedAt,
+            'trashedAt': trashedAt,
+          },
+          timestamp: trashedAt,
+          deviceId: 'web-browser',
+          entityVersion: local.version + 1,
+        ),
+        serverTimestamp: 5000,
+      );
+
+      expect((await engineB.syncNow()).success, isTrue);
+      expect(await noteRepoB.getAllNotes(_userId), isEmpty);
+      expect((await noteRepoB.getNoteById(note.id))!.trashedAt, trashedAt);
+    });
+
+    test('an update that does not mention the trash leaves a trashed note '
+        'trashed', () async {
+      // An absent trashedAt key means "unchanged", not "restored".
+      final note = await noteRepoB.createNote(
+        folderId: 'root',
+        userId: _userId,
+        title: 'Trashed here',
+      );
+      await noteRepoB.trashNote(note.id);
+      final trashed = (await noteRepoB.getNoteById(note.id))!;
+      final payload = {
+        ...trashed.toJson(),
+        'version': trashed.version + 1,
+        'updatedAt': trashed.updatedAt + 1,
+      }..remove('trashedAt');
+      api.addRemoteOperation(
+        OplogEntry(
+          opId: 'web-edit-1',
+          entityType: OplogEntityType.note,
+          entityId: note.id,
+          operation: OplogOperation.update,
+          payload: payload,
+          timestamp: trashed.updatedAt + 1,
+          deviceId: 'web-browser',
+          entityVersion: trashed.version + 1,
+        ),
+        serverTimestamp: 5001,
+      );
+
+      expect((await engineB.syncNow()).success, isTrue);
+      expect((await noteRepoB.getNoteById(note.id))!.trashedAt, trashed.trashedAt);
+    });
+
+    test('an ordinary edit of a trashed note or folder says nothing about '
+        'the trash', () async {
+      // Receivers obey a present trashedAt, so ordinary edits must omit it.
+      final note = await noteRepoA.createNote(
+        folderId: 'root',
+        userId: _userId,
+        title: 'Edited in the trash',
+      );
+      final trashedNote = await noteRepoA.trashNote(note.id);
+      expect(
+        noteRepoA.createUpdateOp(trashedNote).payload.containsKey('trashedAt'),
+        isFalse,
+      );
+      expect(
+        noteRepoA.createTrashOp(trashedNote).payload['trashedAt'],
+        trashedNote.trashedAt,
+      );
+
+      final folder = await folderRepoA.createFolder(
+        name: 'Edited folder',
+        userId: _userId,
+        type: 'note',
+      );
+      await folderRepoA.trashFolder(folder.id);
+      final trashedFolder = (await folderRepoA.getFolderById(folder.id))!;
+      expect(trashedFolder.trashedAt, isNotNull);
+      expect(
+        folderRepoA
+            .createUpdateOp(trashedFolder)
+            .payload
+            .containsKey('trashedAt'),
+        isFalse,
+      );
+
+      final block = await noteBlockRepoA.createBlock(
+        noteId: note.id,
+        blockType: BlockType.paragraph,
+        content: {'text': 'Edited block'},
+        orderIndex: 0,
+      );
+      expect(
+        noteBlockRepoA
+            .createUpdateOp(block.moveToTrash())
+            .payload
+            .containsKey('trashedAt'),
+        isFalse,
+      );
+    });
+
+    test('a note\'s blocks follow it into the trash and back on another '
+        'device', () async {
+      // Otherwise a restored note comes back elsewhere with an empty body.
+      final note = await noteRepoA.createNote(
+        folderId: 'root',
+        userId: _userId,
+        title: 'Restored with its body',
+      );
+      final block = await noteBlockRepoA.createBlock(
+        noteId: note.id,
+        blockType: BlockType.paragraph,
+        content: {'text': 'Still here'},
+        orderIndex: 0,
+      );
+      await syncBoth();
+
+      Future<int?> blockTrashedAtOnB() async => (await (dbB.select(
+        dbB.noteBlocks,
+      )..where((b) => b.id.equals(block.id))).getSingle()).trashedAt;
+
+      await noteRepoA.trashNote(note.id);
+      await syncBoth();
+      expect(await blockTrashedAtOnB(), isNotNull);
+
+      await noteRepoA.restoreNote(note.id);
+      await syncBoth();
+      final restoreOp = api._ops
+          .map((o) => o.op)
+          .lastWhere((op) => op.entityId == block.id);
+      expect(restoreOp.payload.containsKey('trashedAt'), isTrue);
+      expect(restoreOp.payload['trashedAt'], isNull);
+      expect(await blockTrashedAtOnB(), isNull);
+      expect(
+        (await noteBlockRepoB.getBlocksForNote(note.id)).map((b) => b.id),
+        [block.id],
+      );
+    });
+
+    test('a snapshot row does not undo a trash still waiting to push',
+        () async {
+      final note = await noteRepoB.createNote(
+        folderId: 'root',
+        userId: _userId,
+        title: 'Trashed, not yet sent',
+      );
+      expect((await engineB.syncNow()).success, isTrue);
+
+      final trashed = await noteRepoB.trashNote(note.id);
+      // A retryable rejection keeps the trash queued while the pull runs.
+      final queued = (await dbB.getUnsyncedOps()).firstWhere(
+        (o) => o.entityId == note.id,
+      );
+      api.rejectOpIds[queued.opId] = 'INTERNAL_ERROR';
+
+      api.addRemoteOperation(
+        OplogEntry(
+          opId: 'snapshot-row-pending',
+          entityType: OplogEntityType.note,
+          entityId: note.id,
+          operation: OplogOperation.insert,
+          payload: {
+            ...trashed.toJson(),
+            'version': trashed.version + 1,
+            'updatedAt': trashed.updatedAt + 1,
+            'trashedAt': null,
+          },
+          timestamp: trashed.updatedAt + 1,
+          deviceId: 'server',
+          entityVersion: trashed.version + 1,
+        ),
+        serverTimestamp: 6500,
+      );
+
+      await engineB.syncNow();
+      expect(
+        (await dbB.getUnsyncedOps()).any((o) => o.opId == queued.opId),
+        isTrue,
+        reason: 'the trash must still be waiting to push for this to test '
+            'anything',
+      );
+      expect((await noteRepoB.getNoteById(note.id))!.trashedAt, trashed.trashedAt);
+    });
+
+    test('a snapshot row restores a note trashed here when nothing is waiting '
+        'to push', () async {
+      // The server only snapshots untrashed rows, so this means "restored".
+      final note = await noteRepoB.createNote(
+        folderId: 'root',
+        userId: _userId,
+        title: 'Restored elsewhere',
+      );
+      final trashed = await noteRepoB.trashNote(note.id);
+      expect((await engineB.syncNow()).success, isTrue);
+
+      api.addRemoteOperation(
+        OplogEntry(
+          opId: 'snapshot-row-1',
+          entityType: OplogEntityType.note,
+          entityId: note.id,
+          operation: OplogOperation.insert,
+          payload: {
+            ...trashed.toJson(),
+            'version': trashed.version + 1,
+            'updatedAt': trashed.updatedAt + 1,
+            'trashedAt': null,
+          },
+          timestamp: trashed.updatedAt + 1,
+          deviceId: 'server',
+          entityVersion: trashed.version + 1,
+        ),
+        serverTimestamp: 6000,
+      );
+
+      expect((await engineB.syncNow()).success, isTrue);
+      expect((await noteRepoB.getNoteById(note.id))!.trashedAt, isNull);
+    });
+
+    test('a trash that conflicts with a newer edit keeps its trash when '
+        'rebased', () async {
+      final note = await noteRepoB.createNote(
+        folderId: 'root',
+        userId: _userId,
+        title: 'Trashed while edited elsewhere',
+      );
+      expect((await engineB.syncNow()).success, isTrue);
+      final synced = (await noteRepoB.getNoteById(note.id))!;
+
+      final trashed = await noteRepoB.trashNote(note.id);
+      final queued = (await dbB.getUnsyncedOps()).firstWhere(
+        (o) => o.entityId == note.id,
+      );
+      api.rejectOpIds[queued.opId] = 'VERSION_CONFLICT';
+
+      // The web renamed it, later, and says nothing about the trash.
+      final later = trashed.updatedAt + 1000;
+      final webPayload = {
+        ...synced.toJson(),
+        'title': 'Renamed on the web',
+        'version': synced.version + 5,
+        'updatedAt': later,
+        'fieldUpdatedAt': {
+          ...(synced.toJson()['fieldUpdatedAt'] as Map<String, dynamic>),
+          'title': later,
+        },
+      }..remove('trashedAt');
+      api.addRemoteOperation(
+        OplogEntry(
+          opId: 'web-rename-1',
+          entityType: OplogEntityType.note,
+          entityId: note.id,
+          operation: OplogOperation.update,
+          payload: webPayload,
+          timestamp: later,
+          deviceId: 'web-browser',
+          entityVersion: synced.version + 5,
+        ),
+        serverTimestamp: 9100,
+      );
+
+      // Cycle one: the push conflicts and the rebase runs. Cycle two pushes it.
+      await engineB.syncNow();
+      api.rejectOpIds.remove(queued.opId);
+      await engineB.syncNow();
+
+      final pushed = api._ops
+          .map((o) => o.op)
+          .lastWhere((op) => op.entityId == note.id && op.deviceId == _deviceB);
+      // The rebase rewrites the queued op in place, onto the server version.
+      expect(pushed.opId, queued.opId);
+      expect(pushed.entityVersion, synced.version + 6, reason: 'it was rebased');
+      expect(pushed.payload['trashedAt'], trashed.trashedAt);
+      expect((await noteRepoB.getNoteById(note.id))!.trashedAt, trashed.trashedAt);
+    });
+
+    test('an edit rebased onto a snapshot row does not pick up its trashedAt',
+        () async {
+      // The snapshot's trashedAt: null would otherwise be pushed as a restore.
+      final note = await noteRepoB.createNote(
+        folderId: 'root',
+        userId: _userId,
+        title: 'Edited here',
+      );
+      expect((await engineB.syncNow()).success, isTrue);
+      final synced = (await noteRepoB.getNoteById(note.id))!;
+
+      await noteRepoB.updateNote(id: note.id, title: 'Edited again');
+      final queued = (await dbB.getUnsyncedOps()).firstWhere(
+        (o) => o.entityId == note.id,
+      );
+      api.rejectOpIds[queued.opId] = 'VERSION_CONFLICT';
+
+      api.addRemoteOperation(
+        OplogEntry(
+          opId: 'snapshot-row-rebase',
+          entityType: OplogEntityType.note,
+          entityId: note.id,
+          operation: OplogOperation.insert,
+          payload: {
+            ...synced.toJson(),
+            'version': synced.version + 5,
+            'updatedAt': synced.updatedAt + 1,
+            'trashedAt': null,
+          },
+          timestamp: synced.updatedAt + 1,
+          deviceId: 'server',
+          entityVersion: synced.version + 5,
+        ),
+        serverTimestamp: 9200,
+      );
+
+      await engineB.syncNow();
+      api.rejectOpIds.remove(queued.opId);
+      await engineB.syncNow();
+
+      final pushed = api._ops
+          .map((o) => o.op)
+          .lastWhere((op) => op.entityId == note.id && op.deviceId == _deviceB);
+      // The rebase rewrites the queued op in place, onto the server version.
+      expect(pushed.opId, queued.opId);
+      expect(pushed.entityVersion, synced.version + 6, reason: 'it was rebased');
+      expect(pushed.payload.containsKey('trashedAt'), isFalse);
+    });
+
+    test('a folder trashed on another device is trashed here, and a restore '
+        'brings it back', () async {
+      final folder = await folderRepoA.createFolder(
+        name: 'Old series',
+        userId: _userId,
+        type: 'note',
+      );
+      await syncBoth();
+      expect((await folderRepoB.getFolderById(folder.id))!.trashedAt, isNull);
+
+      await folderRepoA.trashFolder(folder.id);
+      await syncBoth();
+      expect((await folderRepoB.getFolderById(folder.id))!.trashedAt, isNotNull);
+
+      await folderRepoA.restoreFromTrash(folder.id);
+      await syncBoth();
+      expect((await folderRepoB.getFolderById(folder.id))!.trashedAt, isNull);
+    });
+  });
 }
 
 Future<Map<String, int>> _activeCounts(SyncDatabase db) async {
