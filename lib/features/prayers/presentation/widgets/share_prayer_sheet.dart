@@ -261,7 +261,7 @@ class _SharePrayerSheetState extends ConsumerState<SharePrayerSheet> {
                   tooltip: l10n(context).shareLink,
                   onPressed: () {
                     final link =
-                        Routes.prayerDeepLink(widget.prayerId);
+                        Routes.shareCodeDeepLink(shared.shareCode);
                     Share.share(
                       'Join me in prayer for "${widget.prayerTitle}"'
                       '\n\nCode: ${shared.shareCode}'
