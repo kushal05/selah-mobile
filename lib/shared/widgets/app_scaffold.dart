@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/navigation/nav_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/tutorial/tutorial_providers.dart';
+import '../../features/bible/presentation/widgets/bible_download_indicator.dart';
 import 'connectivity_banner.dart';
 import 'first_sync_banner.dart';
 import 'sync_degraded_banner.dart';
@@ -66,6 +67,7 @@ class AppScaffold extends ConsumerWidget {
             // Only ever visible before the first pull lands; see the class doc.
             const FirstSyncBanner(),
             const SyncDegradedBanner(),
+            const BibleDownloadIndicator(),
             Expanded(child: shell),
           ],
         ),

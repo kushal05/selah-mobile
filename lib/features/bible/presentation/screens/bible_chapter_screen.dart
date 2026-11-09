@@ -6,6 +6,7 @@ import '../../../../core/navigation/routes.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/dialogs/reading_text_size_sheet.dart';
+import '../../domain/models/bible_books.dart';
 import '../../domain/models/bible_highlight_entity.dart';
 import '../../domain/models/bible_verse_entity.dart';
 import '../../../../core/theme/theme_colors.dart';
@@ -15,6 +16,7 @@ import '../providers/bible_providers.dart';
 import '../widgets/chapter_verse_list.dart';
 import '../widgets/highlight_bottom_sheet.dart';
 import '../widgets/translation_selector.dart';
+import '../../../notes/presentation/widgets/editor/bible_reference_picker.dart';
 import '../../../../l10n/l10n.dart';
 
 /// Full chapter reading screen with highlight support and parallel view.
@@ -155,6 +157,23 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     }
     // Log navigated chapter to reading history
     _logBibleReference();
+  }
+
+  /// Opens the reference picker from the title; on a result, jumps there.
+  /// The picker also returns a verse and version, which this screen has no
+  /// way to apply (it scrolls to a verse only via its constructor argument).
+  Future<void> _openReferencePicker(String bookName) async {
+    final selection = await BibleReferencePicker.show(
+      context,
+      defaultVersion: _primaryTranslation,
+      initialBook: BibleBooks.findBook(bookName),
+      initialChapter: _chapter,
+    );
+    if (selection == null || !mounted) return;
+    // The picker's books are the canonical 66, in the database's id order.
+    final bookId = BibleBooks.books.indexOf(selection.book) + 1;
+    if (bookId < 1) return;
+    _navigateToChapter(bookId, selection.chapter);
   }
 
   void _goToPreviousChapter() {
@@ -391,31 +410,44 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
         appBar: AppBar(
           backgroundColor: parentTheme.scaffoldBackgroundColor,
           elevation: 0,
-          title: Text(
-            '$bookName $_chapter',
-            style: AppTheme.headingMedium,
+          titleSpacing: 0,
+          // One line, book name shrinking before the chapter number does, so
+          // the chapter is never the part that gets cut off.
+          title: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => _openReferencePicker(bookName),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppTheme.spacing8),
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      bookName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      style: AppTheme.headingMedium,
+                    ),
+                  ),
+                  Text(' $_chapter',
+                      maxLines: 1, style: AppTheme.headingMedium),
+                  const Icon(Icons.arrow_drop_down, size: 20),
+                ],
+              ),
+            ),
           ),
           actions: [
-            // Reader text size — the app's core reading surface, so this sits
-            // in the app bar rather than being buried in Settings.
-            IconButton(
-              icon: const Icon(Icons.text_fields_rounded),
-              tooltip: l10n(context).textSize,
-              onPressed: () => showReadingTextSizeSheet(context),
-            ),
-            // Translation selector (primary)
+            // Version pill: tap opens the downloader, long-press switches.
             if (!_isParallel)
-              Padding(
-                padding: const EdgeInsets.only(right: AppTheme.spacing4),
-                child: TranslationSelector(
-                  currentTranslation: _primaryTranslation,
-                  availableTranslations: translations,
-                  onChanged: (t) =>
-                      setState(() => _primaryTranslation = t),
-                ),
+              TranslationSelector(
+                currentTranslation: _primaryTranslation,
+                availableTranslations: translations,
+                onChanged: (t) => setState(() => _primaryTranslation = t),
+                onManage: () => context.push(Routes.bibleVersions),
               ),
             // Bookmark toggle — inert until we know which way it goes.
             IconButton(
+              visualDensity: VisualDensity.compact,
               icon: Icon(
                 isBookmarked == true ? Icons.bookmark : Icons.bookmark_border,
                 color: isBookmarked == true ? _bibleGreen : null,
@@ -429,15 +461,36 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
                   ? null
                   : () => _toggleBookmark(bookName),
             ),
-            // Parallel toggle
-            IconButton(
-              icon: Icon(
-                _isParallel ? Icons.view_agenda : Icons.view_column,
-              ),
-              tooltip: _isParallel ? 'Single view' : 'Parallel view',
-              onPressed: canParallel
-                  ? () => setState(() => _isParallel = !_isParallel)
-                  : null,
+            // Text size, parallel toggle and version management share one
+            // menu, to leave the title the width it needs at 360dp.
+            PopupMenuButton<String>(
+              tooltip: l10n(context).moreOptions,
+              onSelected: (v) {
+                switch (v) {
+                  case 'textSize':
+                    showReadingTextSizeSheet(context);
+                  case 'parallel':
+                    setState(() => _isParallel = !_isParallel);
+                  case 'versions':
+                    context.push(Routes.bibleVersions);
+                }
+              },
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: 'textSize',
+                  child: Text(l10n(context).textSize),
+                ),
+                PopupMenuItem(
+                  value: 'parallel',
+                  enabled: canParallel,
+                  child:
+                      Text(_isParallel ? 'Single view' : 'Parallel view'),
+                ),
+                PopupMenuItem(
+                  value: 'versions',
+                  child: Text(l10n(context).bibleVersions),
+                ),
+              ],
             ),
           ],
         ),

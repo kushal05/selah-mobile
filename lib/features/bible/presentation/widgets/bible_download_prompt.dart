@@ -6,7 +6,7 @@ import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../shared/widgets/error_state.dart';
 import '../../domain/models/bible_version_info.dart';
-import '../bible_download_action.dart';
+import '../providers/bible_download_manager.dart';
 import '../providers/bible_providers.dart';
 
 /// Offers the Bible downloads inline, wherever a Bible is needed but none is
@@ -33,10 +33,6 @@ class BibleDownloadPrompt extends ConsumerStatefulWidget {
 }
 
 class _BibleDownloadPromptState extends ConsumerState<BibleDownloadPrompt> {
-  /// code → progress 0..1, absent when that version is not downloading.
-  final Map<String, double> _progress = {};
-  String? _failed;
-
   @override
   void initState() {
     super.initState();
@@ -59,29 +55,10 @@ class _BibleDownloadPromptState extends ConsumerState<BibleDownloadPrompt> {
     }
   }
 
-  Future<void> _download(BibleVersionInfo info) async {
-    if (_progress.containsKey(info.code)) return;
-    setState(() {
-      _progress[info.code] = 0.0;
-      _failed = null;
-    });
-    try {
-      await downloadBibleVersion(ref, info, onProgress: (p) {
-        if (mounted) setState(() => _progress[info.code] = p);
-      });
-    } catch (_) {
-      // Reported in place rather than as a snackbar: a snackbar from inside a
-      // dialog is easy to miss behind it, and this is the one thing standing
-      // between the user and the task they came here for.
-      if (mounted) setState(() => _failed = info.code);
-    } finally {
-      if (mounted) setState(() => _progress.remove(info.code));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final versionsAsync = ref.watch(bibleVersionStatesProvider);
+    final downloads = ref.watch(bibleDownloadManagerProvider);
 
     return versionsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -117,16 +94,16 @@ class _BibleDownloadPromptState extends ConsumerState<BibleDownloadPrompt> {
               style: AppTheme.bodyBase.copyWith(color: context.primaryText),
             ),
             const SizedBox(height: AppTheme.spacing16),
-            for (final v in versions) _versionTile(v),
+            for (final v in versions) _versionTile(v, downloads[v.code]),
           ],
         );
       },
     );
   }
 
-  Widget _versionTile(BibleVersionInfo info) {
-    final progress = _progress[info.code];
-    final downloading = progress != null;
+  Widget _versionTile(BibleVersionInfo info, BibleDownloadState? download) {
+    final downloading = download?.isActive ?? false;
+    final progress = download?.progress ?? 0.0;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: AppTheme.spacing8),
@@ -160,7 +137,7 @@ class _BibleDownloadPromptState extends ConsumerState<BibleDownloadPrompt> {
                   // In this row rather than under the list: with six versions
                   // offered, one "Download failed" at the bottom does not say
                   // which one, and the retry is the button beside this text.
-                  if (_failed == info.code) ...[
+                  if (download?.status == BibleDownloadStatus.failed) ...[
                     const SizedBox(height: AppTheme.spacing4),
                     Text(
                       l10n(context).bibleDownloadFailed,
@@ -179,7 +156,8 @@ class _BibleDownloadPromptState extends ConsumerState<BibleDownloadPrompt> {
                   style: AppTheme.caption.copyWith(color: context.mutedText))
             else
               FilledButton(
-                onPressed: () => _download(info),
+                onPressed: () =>
+                    ref.read(bibleDownloadManagerProvider.notifier).start(info),
                 child: Text(l10n(context).download),
               ),
           ],

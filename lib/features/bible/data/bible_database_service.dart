@@ -1,13 +1,46 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
 
-import 'package:flutter/foundation.dart' show ChangeNotifier, debugPrint;
+import 'package:flutter/foundation.dart'
+    show ChangeNotifier, debugPrint, visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 import 'bible_schema_ddl.dart';
+
+/// Thrown from a download that was stopped by [BibleDatabaseService.cancelDownload].
+class BibleDownloadCancelled implements Exception {
+  const BibleDownloadCancelled();
+  @override
+  String toString() => 'BibleDownloadCancelled';
+}
+
+/// Merges the verses of the per-version db at [srcPath] into the db at
+/// [dbPath] using its own connection. Runs on a background isolate.
+///
+/// The FTS5 triggers are part of the main db's schema, so they fire here too.
+/// The busy timeout covers a lock held briefly by the app's own connections.
+@visibleForTesting
+void mergeVersionFile(String dbPath, String srcPath, String alias) {
+  final db = sqlite3.open(dbPath);
+  try {
+    db.execute('PRAGMA busy_timeout = ${BibleDatabaseService._busyTimeoutMs}');
+    db.execute('ATTACH DATABASE ? AS $alias', [srcPath]);
+    try {
+      db.execute(
+        'INSERT OR IGNORE INTO bible_verses(translation, book_id, chapter, verse, text) '
+        'SELECT translation, book_id, chapter, verse, text FROM $alias.bible_verses',
+      );
+    } finally {
+      db.execute('DETACH DATABASE $alias');
+    }
+  } finally {
+    db.dispose();
+  }
+}
 
 /// Manages the lifecycle of the read-only Bible SQLite database.
 ///
@@ -34,6 +67,13 @@ import 'bible_schema_ddl.dart';
 ///   idx_books_testament    — index (testament, sort_order)
 ///   3 triggers             — keep FTS in sync with bible_verses
 class BibleDatabaseService extends ChangeNotifier {
+  BibleDatabaseService({
+    @visibleForTesting Future<String> Function()? dbPathResolver,
+  }) : _dbPathResolver = dbPathResolver;
+
+  /// Test seam: where bible.db lives. Defaults to the app documents directory.
+  final Future<String> Function()? _dbPathResolver;
+
   Database? _db;
 
   static const _dbFileName = 'bible.db';
@@ -50,6 +90,23 @@ class BibleDatabaseService extends ChangeNotifier {
   /// Monotonically increasing counter used to build unique ATTACH aliases
   /// (e.g. `src_3`). Guards against leftover attachments from a prior failure.
   int _attachSeq = 0;
+
+  /// Idle time allowed on the connection, or between chunks, before a download
+  /// is abandoned as stalled.
+  static const _downloadTimeout = Duration(seconds: 30);
+
+  /// How long a connection waits on a lock held by another connection.
+  static const _busyTimeoutMs = 30000;
+
+  /// Downloads queued or running, by cancel key (the version code, or the URL
+  /// when no code is given).
+  final Set<String> _pending = {};
+
+  /// Keys whose download has been asked to stop.
+  final Set<String> _cancelled = {};
+
+  /// The open HTTP client of each running download, closed by [cancelDownload].
+  final Map<String, http.Client> _activeClients = {};
 
   /// Current schema version — delegated to [bibleSchemaVersion] in
   /// `bible_schema_ddl.dart` (the single source of truth).
@@ -86,6 +143,9 @@ class BibleDatabaseService extends ChangeNotifier {
       // never exposes write operations), but SQLite requires write access
       // for FTS queries that use the content-sync mechanism internally.
       _db = sqlite3.open(dbPath);
+      // A version merge writes to this file from a background isolate. Wait
+      // for its commit instead of failing with SQLITE_BUSY.
+      _db!.execute('PRAGMA busy_timeout = $_busyTimeoutMs');
       _verifySchema();
 
       // If the file predates the current schema (e.g. before the FTS5
@@ -129,26 +189,57 @@ class BibleDatabaseService extends ChangeNotifier {
     }
   }
 
-  /// Download the Bible database from [url] and open it.
+  /// Installs the version [code] from [url], choosing the path when the job
+  /// actually runs: the first version creates bible.db ([download]); every later
+  /// one is merged into the open database ([downloadVersion]).
   ///
-  /// [onProgress] is called with a value in [0.0, 1.0] as bytes are received.
-  /// Throws on network error or non-200 response.
-  Future<void> download(
+  /// The choice must not be made at request time. With nothing installed, two
+  /// queued requests would both see a closed database and both take the
+  /// first-install path; the second would rename its temp file over the
+  /// bible.db the first one just opened.
+  Future<void> install(
+    String code,
     String url, {
     void Function(double progress)? onProgress,
   }) {
-    return _enqueue(() => _downloadImpl(url, onProgress: onProgress));
+    return _enqueueCancellable(
+      code,
+      () => _db == null
+          ? _downloadImpl(url, code, onProgress: onProgress)
+          : _downloadVersionImpl(code, url, onProgress: onProgress),
+    );
+  }
+
+  /// Download the Bible database from [url] and open it.
+  ///
+  /// Prefer [install] unless the caller knows nothing else is queued.
+  ///
+  /// [onProgress] is called with a value in [0.0, 1.0] as bytes are received.
+  /// Throws on network error or non-200 response.
+  ///
+  /// Pass [code] to make the download cancellable via [cancelDownload].
+  Future<void> download(
+    String url, {
+    String? code,
+    void Function(double progress)? onProgress,
+  }) {
+    final key = code ?? url;
+    return _enqueueCancellable(
+      key,
+      () => _downloadImpl(url, key, onProgress: onProgress),
+    );
   }
 
   Future<void> _downloadImpl(
-    String url, {
+    String url,
+    String key, {
     void Function(double progress)? onProgress,
   }) async {
     assert(url.isNotEmpty, 'download URL must not be empty — provide a URL from the Bible versions API');
 
     final dbPath = await _localDbPath();
     final tempPath = '$dbPath.tmp';
-    await _downloadToFile(url, tempPath, onProgress: onProgress);
+    await _downloadToFile(url, tempPath, key, onProgress: onProgress);
 
     // Atomically replace any existing file only after a successful download.
     await File(tempPath).rename(dbPath);
@@ -170,7 +261,8 @@ class BibleDatabaseService extends ChangeNotifier {
     String url, {
     void Function(double progress)? onProgress,
   }) {
-    return _enqueue(
+    return _enqueueCancellable(
+      code,
       () => _downloadVersionImpl(code, url, onProgress: onProgress),
     );
   }
@@ -184,7 +276,7 @@ class BibleDatabaseService extends ChangeNotifier {
 
     final dbPath = await _localDbPath();
     final tempPath = '$dbPath.$code.tmp';
-    await _downloadToFile(url, tempPath, onProgress: onProgress);
+    await _downloadToFile(url, tempPath, code, onProgress: onProgress);
 
     // Merge verses from the downloaded per-version db into the main db.
     // ATTACH + INSERT OR IGNORE handles duplicates gracefully (e.g., existing
@@ -195,12 +287,9 @@ class BibleDatabaseService extends ChangeNotifier {
     // otherwise leave `src` bound and break every later merge until restart.
     final alias = 'src_${_attachSeq++}';
     try {
-      _db!.execute('ATTACH DATABASE ? AS $alias', [tempPath]);
-      _db!.execute(
-        'INSERT OR IGNORE INTO bible_verses(translation, book_id, chapter, verse, text) '
-        'SELECT translation, book_id, chapter, verse, text FROM $alias.bible_verses',
-      );
-      _db!.execute('DETACH DATABASE $alias');
+      // ~31k rows plus FTS5 maintenance: run on a background isolate with its
+      // own connection so the UI isolate keeps painting.
+      await Isolate.run(() => mergeVersionFile(dbPath, tempPath, alias));
     } finally {
       try {
         File(tempPath).deleteSync();
@@ -224,16 +313,51 @@ class BibleDatabaseService extends ChangeNotifier {
     return next;
   }
 
+  /// Queues [task] under cancel [key]. A cancel that lands while the task is
+  /// still waiting in the queue makes it fail with [BibleDownloadCancelled]
+  /// when its turn comes, without touching the network.
+  Future<void> _enqueueCancellable(
+    String key,
+    Future<void> Function() task,
+  ) {
+    _cancelled.remove(key);
+    _pending.add(key);
+    return _enqueue(() async {
+      try {
+        if (_cancelled.contains(key)) throw const BibleDownloadCancelled();
+        await task();
+      } finally {
+        _pending.remove(key);
+        _cancelled.remove(key);
+      }
+    });
+  }
+
+  /// Stops the queued or running download registered under [key]. Its future
+  /// completes with [BibleDownloadCancelled]. No-op when nothing is pending.
+  void cancelDownload(String key) {
+    if (!_pending.contains(key)) return;
+    _cancelled.add(key);
+    _activeClients[key]?.close();
+  }
+
   /// Streams [url] into [destPath], reporting progress via [onProgress].
-  /// Throws [StateError] on a non-200 response.
+  /// Throws [StateError] on a non-200 response, [TimeoutException] when the
+  /// connection stalls, and [BibleDownloadCancelled] when cancelled under [key].
+  /// The partial file is deleted on any failure.
   Future<void> _downloadToFile(
     String url,
-    String destPath, {
+    String destPath,
+    String key, {
     void Function(double progress)? onProgress,
   }) async {
     final client = http.Client();
+    _activeClients[key] = client;
+    var completed = false;
     try {
-      final response = await client.send(http.Request('GET', Uri.parse(url)));
+      final response = await client
+          .send(http.Request('GET', Uri.parse(url)))
+          .timeout(_downloadTimeout);
       if (response.statusCode != 200) {
         throw StateError('Download failed with HTTP ${response.statusCode}');
       }
@@ -242,7 +366,7 @@ class BibleDatabaseService extends ChangeNotifier {
       var bytesReceived = 0;
       final sink = File(destPath).openWrite();
       try {
-        await for (final chunk in response.stream) {
+        await for (final chunk in response.stream.timeout(_downloadTimeout)) {
           sink.add(chunk);
           bytesReceived += chunk.length;
           if (contentLength != null && contentLength > 0) {
@@ -252,8 +376,23 @@ class BibleDatabaseService extends ChangeNotifier {
       } finally {
         await sink.close();
       }
+      completed = true;
+    } catch (_) {
+      // Closing the client surfaces as an arbitrary ClientException; report
+      // what actually happened.
+      if (_cancelled.contains(key)) throw const BibleDownloadCancelled();
+      rethrow;
     } finally {
+      _activeClients.remove(key);
       client.close();
+      if (!completed) {
+        try {
+          final f = File(destPath);
+          if (f.existsSync()) f.deleteSync();
+        } catch (e) {
+          debugPrint('Could not delete partial Bible download $destPath: $e');
+        }
+      }
     }
   }
 
@@ -292,6 +431,8 @@ class BibleDatabaseService extends ChangeNotifier {
 
   /// Absolute path to the local bible.db in the app documents directory.
   Future<String> _localDbPath() async {
+    final resolver = _dbPathResolver;
+    if (resolver != null) return resolver();
     final docsDir = await getApplicationDocumentsDirectory();
     return p.join(docsDir.path, _dbFileName);
   }

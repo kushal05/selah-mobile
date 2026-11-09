@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/models/bible_version_info.dart';
-import '../bible_download_action.dart';
+import '../providers/bible_download_manager.dart';
 import '../providers/bible_providers.dart';
 import '../../../../core/services/user_facing_error.dart';
 import '../../../../core/theme/theme_colors.dart';
@@ -25,9 +25,6 @@ class BibleVersionsScreen extends ConsumerStatefulWidget {
 }
 
 class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
-  // code → download progress (0.0–1.0), null when not downloading
-  final Map<String, double?> _downloadProgress = {};
-
   @override
   void initState() {
     super.initState();
@@ -49,6 +46,7 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
   @override
   Widget build(BuildContext context) {
     final versionsAsync = ref.watch(bibleVersionStatesProvider);
+    final downloads = ref.watch(bibleDownloadManagerProvider);
 
     return Scaffold(
       backgroundColor: context.pageGround,
@@ -63,12 +61,16 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
         error: (e, _) => Center(child: Text(UserFacingError.forLoad(e))),
         data: (versions) => versions.isEmpty
             ? Center(child: Text(l10n(context).noVersionsAvailable))
-            : _buildList(context, versions),
+            : _buildList(context, versions, downloads),
       ),
     );
   }
 
-  Widget _buildList(BuildContext context, List<BibleVersionInfo> versions) {
+  Widget _buildList(
+    BuildContext context,
+    List<BibleVersionInfo> versions,
+    Map<String, BibleDownloadState> downloads,
+  ) {
     return ListView(
       padding: const EdgeInsets.all(AppTheme.spacing16),
       children: [
@@ -101,8 +103,13 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
                 for (int i = 0; i < versions.length; i++) ...[
                   _VersionTile(
                     info: versions[i],
-                    downloadProgress: _downloadProgress[versions[i].code],
-                    onDownload: () => _startDownload(versions[i]),
+                    download: downloads[versions[i].code],
+                    onDownload: () => ref
+                        .read(bibleDownloadManagerProvider.notifier)
+                        .start(versions[i]),
+                    onCancel: () => ref
+                        .read(bibleDownloadManagerProvider.notifier)
+                        .cancel(versions[i].code),
                     onDelete: () => _confirmDelete(context, versions[i]),
                     onSetDefault: () => _setDefault(versions[i].code),
                   ),
@@ -130,26 +137,6 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
         ),
       ],
     );
-  }
-
-  Future<void> _startDownload(BibleVersionInfo info) async {
-    if (_downloadProgress.containsKey(info.code)) return;
-    setState(() => _downloadProgress[info.code] = 0.0);
-    try {
-      await downloadBibleVersion(ref, info, onProgress: (p) {
-        if (mounted) setState(() => _downloadProgress[info.code] = p);
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-              'Download failed: ${info.name}. Check your connection.'),
-          behavior: SnackBarBehavior.floating,
-        ));
-      }
-    } finally {
-      if (mounted) setState(() => _downloadProgress.remove(info.code));
-    }
   }
 
   Future<void> _setDefault(String code) async {
@@ -225,15 +212,17 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
 
 class _VersionTile extends StatelessWidget {
   final BibleVersionInfo info;
-  final double? downloadProgress;
+  final BibleDownloadState? download;
   final VoidCallback onDownload;
+  final VoidCallback onCancel;
   final VoidCallback onDelete;
   final VoidCallback onSetDefault;
 
   const _VersionTile({
     required this.info,
-    required this.downloadProgress,
+    required this.download,
     required this.onDownload,
+    required this.onCancel,
     required this.onDelete,
     required this.onSetDefault,
   });
@@ -243,7 +232,9 @@ class _VersionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDownloading = downloadProgress != null;
+    final isDownloading = download?.isActive ?? false;
+    final isFailed = download?.status == BibleDownloadStatus.failed;
+    final downloadProgress = download?.progress ?? 0.0;
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -298,20 +289,25 @@ class _VersionTile extends StatelessWidget {
                 if (isDownloading) ...[
                   const SizedBox(height: AppTheme.spacing4),
                   LinearProgressIndicator(
-                    value: downloadProgress! > 0 ? downloadProgress : null,
+                    value: downloadProgress > 0 ? downloadProgress : null,
                     backgroundColor: _green.withValues(alpha: 0.12),
                     color: _green,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   const SizedBox(height: AppTheme.spacing2),
                   Text(
-                    downloadProgress! > 0
-                        ? '${(downloadProgress! * 100).toStringAsFixed(0)}%'
+                    downloadProgress > 0
+                        ? '${(downloadProgress * 100).toStringAsFixed(0)}%'
                         : 'Starting…',
                     style: AppTheme.caption
                         .copyWith(color: context.mutedText),
                   ),
-                ] else
+                ] else if (isFailed && !info.isDownloaded)
+                  Text(
+                    l10n(context).bibleDownloadFailed,
+                    style: AppTheme.caption.copyWith(color: context.dangerText),
+                  )
+                else
                   Text(
                     '~${info.approximateSizeMb} MB',
                     style: AppTheme.caption
@@ -321,7 +317,15 @@ class _VersionTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppTheme.spacing8),
-          if (!info.isDownloaded && !isDownloading)
+          if (isDownloading)
+            IconButton(
+              tooltip: l10n(context).actionCancel,
+              onPressed: onCancel,
+              icon: const Icon(Icons.close),
+              iconSize: 20,
+              color: context.mutedText,
+            )
+          else if (!info.isDownloaded)
             OutlinedButton(
               onPressed: onDownload,
               style: OutlinedButton.styleFrom(
@@ -337,7 +341,7 @@ class _VersionTile extends StatelessWidget {
               ),
               child: Text(l10n(context).download),
             )
-          else if (info.isDownloaded && !isDownloading)
+          else
             MenuAnchor(
               menuChildren: [
                 if (!info.isDefault)
