@@ -20,7 +20,10 @@ import '../../../../shared/widgets/selectable_chip.dart';
 class AddPromiseScreen extends ConsumerStatefulWidget {
   final String? promiseId;
 
-  const AddPromiseScreen({super.key, this.promiseId});
+  /// When creating, link the new promise to this prayer on save.
+  final String? linkToPrayerId;
+
+  const AddPromiseScreen({super.key, this.promiseId, this.linkToPrayerId});
 
   bool get isEditing => promiseId != null;
 
@@ -863,12 +866,21 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
             notes: _notesController.text.trim(),
           );
         } else {
-          final created = await repository.createPromise(
-            userId: userId,
-            reference: _verseController.text.trim(),
-            content: _promiseTextController.text.trim(),
-            notes: _notesController.text.trim(),
-          );
+          final prayerId = widget.linkToPrayerId;
+          final created = prayerId == null
+              ? await repository.createPromise(
+                  userId: userId,
+                  reference: _verseController.text.trim(),
+                  content: _promiseTextController.text.trim(),
+                  notes: _notesController.text.trim(),
+                )
+              : await repository.createPromiseLinkedToPrayer(
+                  userId: userId,
+                  prayerId: prayerId,
+                  reference: _verseController.text.trim(),
+                  content: _promiseTextController.text.trim(),
+                  notes: _notesController.text.trim(),
+                );
           promiseId = created.id;
         }
 

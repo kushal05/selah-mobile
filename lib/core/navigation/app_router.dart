@@ -642,7 +642,9 @@ StatefulShellBranch _promisesBranch() {
         routes: [
           GoRoute(
             path: 'new',
-            builder: (_, _) => const AddPromiseScreen(),
+            builder: (_, state) => AddPromiseScreen(
+              linkToPrayerId: state.uri.queryParameters['linkToPrayerId'],
+            ),
           ),
           GoRoute(
             path: ':promiseId',

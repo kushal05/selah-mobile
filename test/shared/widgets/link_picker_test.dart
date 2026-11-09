@@ -144,4 +144,51 @@ void main() {
 
     expect(captured, ['a']);
   });
+
+  testWidgets('create-new row is absent unless onCreateNew is given',
+      (tester) async {
+    await _openPicker(tester);
+    expect(find.text('Create new promise'), findsNothing);
+  });
+
+  testWidgets('create-new row closes the sheet and calls onCreateNew',
+      (tester) async {
+    var created = 0;
+    List<String>? result = const ['sentinel'];
+    await tester.pumpWidget(MaterialApp(
+      theme: AppTheme.light(),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: Center(
+            child: ElevatedButton(
+              onPressed: () async {
+                result = await LinkPicker.show<_Item>(
+                  context,
+                  title: 'Link promises',
+                  items: const [_Item('a', 'Isaiah 41:10')],
+                  alreadyLinkedIds: const {},
+                  getId: (i) => i.id,
+                  getLabel: (i) => i.label,
+                  onCreateNew: () => created++,
+                );
+              },
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Create new promise'), findsOneWidget);
+    await tester.tap(find.text('Create new promise'));
+    await tester.pumpAndSettle();
+
+    expect(created, 1);
+    expect(result, isNull);
+    expect(find.byKey(const ValueKey('linkPickerSheet')), findsNothing);
+  });
 }

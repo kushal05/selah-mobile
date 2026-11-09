@@ -1095,6 +1095,7 @@
   "someoneYouPrayForExplainer": "Someone you pray for — they do not need the app",
   "friendsExplainer": "People on Selah you can share prayers with",
   "newPromise": "New promise",
+  "createNewPromise": "Create new promise",
   "seeMore": "See more",
   "seeLess": "See less",
   "@seeLess": { "description": "Collapses text that was expanded with \"See more\" — on a Pray Today card, the prayer's description." },

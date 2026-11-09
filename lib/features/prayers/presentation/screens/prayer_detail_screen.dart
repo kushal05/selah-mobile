@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/domain/enums/prayer_enums.dart';
+import '../../../../core/navigation/routes.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/sync/models/group_model.dart';
 import '../../../../core/sync/models/prayer_collaborator_model.dart';
@@ -817,6 +818,8 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
       getSubtitle: (p) => p.content.length > 120
           ? '${p.content.substring(0, 120)}…'
           : p.content,
+      onCreateNew: () =>
+          context.push(Routes.promiseNewForPrayer(widget.prayerId)),
     );
 
     if (selected != null && selected.isNotEmpty) {

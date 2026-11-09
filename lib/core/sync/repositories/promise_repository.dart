@@ -172,6 +172,44 @@ class PromiseRepository extends BaseSyncRepository<PromiseModel> {
     return promise;
   }
 
+  /// Create a promise and link it to [prayerId] atomically.
+  ///
+  /// The promise insert, the link insert and both oplog entries commit in one
+  /// transaction (the link repository's own transaction nests inside it), so
+  /// a failure never leaves a promise that was meant to be linked but isn't.
+  Future<PromiseModel> createPromiseLinkedToPrayer({
+    required String userId,
+    required String prayerId,
+    required String reference,
+    required String content,
+    String? preview,
+    String notes = '',
+    String? category,
+    bool isFavorite = false,
+  }) {
+    final linkRepo = _linkRepository;
+    if (linkRepo == null) {
+      throw StateError('linkRepository must be set before linking promises');
+    }
+    return _db.transaction(() async {
+      final promise = await createPromise(
+        userId: userId,
+        reference: reference,
+        content: content,
+        preview: preview,
+        notes: notes,
+        category: category,
+        isFavorite: isFavorite,
+      );
+      await linkRepo.linkPromiseToPrayer(
+        promiseId: promise.id,
+        prayerId: prayerId,
+        userId: userId,
+      );
+      return promise;
+    });
+  }
+
   /// Update a promise
   Future<PromiseModel> updatePromise({
     required String id,

@@ -52,6 +52,10 @@ abstract class Routes {
   /* ───────────── Promises ───────────── */
   static const promises = '/promises';
   static const promiseNew = '/promises/new';
+
+  /// New promise that is linked to [prayerId] once saved.
+  static String promiseNewForPrayer(String prayerId) =>
+      '/promises/new?linkToPrayerId=${Uri.encodeQueryComponent(prayerId)}';
   static const promiseDetail = '/promises/:promiseId';
   static const promiseEdit = '/promises/:promiseId/edit';
 

@@ -33,6 +33,8 @@ abstract final class LinkPicker {
     required String Function(T) getLabel,
     String? Function(T)? getSubtitle,
     IconData icon = Icons.bookmark_outline_rounded,
+    VoidCallback? onCreateNew,
+    String? createLabel,
   }) {
     return showModalBottomSheet<List<String>>(
       context: context,
@@ -49,6 +51,8 @@ abstract final class LinkPicker {
         getLabel: getLabel,
         getSubtitle: getSubtitle,
         icon: icon,
+        onCreateNew: onCreateNew,
+        createLabel: createLabel,
       ),
     );
   }
@@ -66,6 +70,11 @@ class _LinkPickerSheet<T> extends StatefulWidget {
   /// promises this is used for.
   final IconData icon;
 
+  /// When set, a pinned "create new" row is shown above the list. Tapping it
+  /// closes the sheet (returning null) and then calls this.
+  final VoidCallback? onCreateNew;
+  final String? createLabel;
+
   const _LinkPickerSheet({
     super.key,
     required this.title,
@@ -75,6 +84,8 @@ class _LinkPickerSheet<T> extends StatefulWidget {
     required this.getLabel,
     this.getSubtitle,
     this.icon = Icons.bookmark_outline_rounded,
+    this.onCreateNew,
+    this.createLabel,
   });
 
   @override
@@ -162,6 +173,26 @@ class _LinkPickerSheetState<T> extends State<_LinkPickerSheet<T>> {
                 onChanged: (v) => setState(() => _query = v.trim()),
               ),
             ),
+            if (widget.onCreateNew != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                child: ListTile(
+                  key: const ValueKey('linkPickerCreateNew'),
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.add_circle_outline_rounded,
+                      color: accent),
+                  title: Text(
+                    widget.createLabel ?? strings.createNewPromise,
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600, color: accent),
+                  ),
+                  onTap: () {
+                    final create = widget.onCreateNew!;
+                    Navigator.pop(context);
+                    create();
+                  },
+                ),
+              ),
             const SizedBox(height: 4),
             // Flexible, not Expanded: the list takes only the height it needs
             // up to the ceiling above, so the sheet ends just below the last
