@@ -326,13 +326,8 @@ class NoteDetailScreen extends ConsumerWidget {
         );
 
       case BlockType.bibleReference:
-        BibleReference reference;
-        try {
-          final contentMap = jsonDecode(block.content) as Map<String, dynamic>;
-          reference = BibleReference.fromJson(contentMap);
-        } catch (_) {
-          reference = BibleReference.empty();
-        }
+        final reference = BibleReference.tryParseContent(block.content) ??
+            BibleReference.empty();
         final needsLookup = reference.text.isEmpty && !reference.pending;
         final resolved = needsLookup
             ? reference.copyWith(

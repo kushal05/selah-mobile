@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 
@@ -172,6 +174,62 @@ class BibleReference extends Equatable {
       text: [],
       pending: true,
     );
+  }
+
+  /// Splits a card's stored content into the reference JSON and any text that
+  /// follows it, or null when the content does not begin with a JSON object.
+  ///
+  /// An earlier backspace bug appended the text of the line below a card to the
+  /// card's content, which left the reference intact but unparseable.
+  static ({String json, String trailing})? splitContent(String content) {
+    final start = content.indexOf('{');
+    if (start < 0 || content.substring(0, start).trim().isNotEmpty) return null;
+    var depth = 0;
+    var inString = false;
+    var escaped = false;
+    for (var i = start; i < content.length; i++) {
+      final c = content[i];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (c == r'\') {
+          escaped = true;
+        } else if (c == '"') {
+          inString = false;
+        }
+      } else if (c == '"') {
+        inString = true;
+      } else if (c == '{') {
+        depth++;
+      } else if (c == '}') {
+        depth--;
+        if (depth == 0) {
+          return (
+            json: content.substring(start, i + 1),
+            trailing: content.substring(i + 1),
+          );
+        }
+      }
+    }
+    return null;
+  }
+
+  /// Parses a card's stored content, recovering the reference when stray text
+  /// was appended after it. Null when nothing can be recovered.
+  static BibleReference? tryParseContent(String content) {
+    try {
+      return BibleReference.fromJson(
+          jsonDecode(content) as Map<String, dynamic>);
+    } catch (_) {
+      final parts = splitContent(content);
+      if (parts == null) return null;
+      try {
+        return BibleReference.fromJson(
+            jsonDecode(parts.json) as Map<String, dynamic>);
+      } catch (_) {
+        return null;
+      }
+    }
   }
 
   /// Display reference string (e.g., "John 3:16-18 (KJV)")

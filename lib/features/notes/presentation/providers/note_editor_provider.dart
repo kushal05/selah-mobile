@@ -362,6 +362,7 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
             tagIds: stored.where((id) => !derived.contains(id)).toList(),
           );
         }
+        _repairCorruptedReferenceBlocks();
         _initializeBlockControllers();
       } else {
         state = state.copyWith(
@@ -374,6 +375,34 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
         isLoading: false,
         error: 'Failed to load note: $e',
       );
+    }
+  }
+
+  /// Repairs Bible cards whose content had the text of the line below appended
+  /// to it by an earlier backspace bug. The reference JSON is intact in front
+  /// of the stray text, so the card gets it back and the stray text becomes
+  /// the line under the card again. Marks the note dirty so the repair saves.
+  void _repairCorruptedReferenceBlocks() {
+    var document = state.document;
+    var repaired = false;
+    for (final block in List<EditorBlock>.of(document.blocks)) {
+      if (block.type != BlockType.bibleReference) continue;
+      final parts = BibleReference.splitContent(block.content);
+      if (parts == null || parts.trailing.trim().isEmpty) continue;
+      if (BibleReference.tryParseContent(parts.json) == null) continue;
+
+      document = document.updateBlock(
+          block.id, block.copyWith(content: parts.json));
+      document = document.insertBlockAfter(
+        block.id,
+        EditorBlock.paragraph(section: block.section)
+            .copyWith(content: parts.trailing.trim()),
+      );
+      repaired = true;
+    }
+    if (repaired) {
+      state = state.copyWith(document: document, isDirty: true);
+      _scheduleSave();
     }
   }
 
@@ -875,6 +904,14 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     final previousBlock = state.document.getPreviousBlockInSection(blockId);
     if (previousBlock == null) return; // First block in section, can't merge
 
+    // A Bible card has no text to merge into. Backspace on an empty line drops
+    // the line and moves up to the nearest text line; on a line with text it
+    // does nothing, so the card is never corrupted.
+    if (previousBlock.type == BlockType.bibleReference) {
+      if (block.content.isEmpty) deleteEmptyBlock(blockId);
+      return;
+    }
+
     final mergeOffset = previousBlock.content.length;
 
     // Merge content
@@ -937,6 +974,14 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
   /// had last clicked in it — instead of the join point or the end of its text.
   /// So the target field is focused and given its caret here, the way
   /// [splitBlock] does for the block it creates.
+  /// Drops focus once the frame has rebuilt, for when a deleted block leaves no
+  /// text line to move into. Without it Flutter restores the old caret.
+  void _unfocusAfterFrame() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      FocusManager.instance.primaryFocus?.unfocus();
+    });
+  }
+
   void _placeCursorAfterFrame(String blockId, int offset) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final focusNode = _blockFocusNodes[blockId];
@@ -971,7 +1016,11 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
 
     // Backspace on an empty line: the caret goes on into the line above.
     final target = _deleteBlockInternal(blockId);
-    if (target != null) _placeCursorAfterFrame(target.blockId, target.offset);
+    if (target != null) {
+      _placeCursorAfterFrame(target.blockId, target.offset);
+    } else {
+      _unfocusAfterFrame();
+    }
   }
 
   bool _isReferenceSeparator(String blockId) {
@@ -990,12 +1039,30 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
   }
 
   /// Removes [blockId] and returns where the cursor now belongs — the end of
-  /// the block before it, or else the start of the one after — or null if the
-  /// document has no other block. Records that in state; moving the caret
+  /// the nearest text block before it, or else the start of the nearest one
+  /// after — or null if there is none. Bible cards are skipped: they have no
+  /// text field to hold a caret. Records that in state; moving the caret
   /// there is left to the caller.
   EditorCursor? _deleteBlockInternal(String blockId) {
-    final previousBlock = state.document.getPreviousBlock(blockId);
-    final nextBlock = state.document.getNextBlock(blockId);
+    // Find the target on the document as it was, before the block goes.
+    final blocks = state.document.blocks;
+    final index = state.document.getBlockIndex(blockId) ?? -1;
+    EditorBlock? previousText;
+    for (var i = index - 1; i >= 0; i--) {
+      if (blocks[i].type != BlockType.bibleReference) {
+        previousText = blocks[i];
+        break;
+      }
+    }
+    EditorBlock? nextText;
+    if (previousText == null) {
+      for (var i = index + 1; i < blocks.length; i++) {
+        if (blocks[i].type != BlockType.bibleReference) {
+          nextText = blocks[i];
+          break;
+        }
+      }
+    }
 
     // Delete block
     final updatedDocument = state.document.deleteBlock(blockId);
@@ -1008,13 +1075,16 @@ class NoteEditorNotifier extends StateNotifier<NoteEditorState> {
     _committedContent.remove(blockId);
     _committedCursorOffset.remove(blockId);
 
-    // Move cursor to previous or next block
-    final targetBlock = previousBlock ?? nextBlock;
-    if (targetBlock == null) return null;
+    final targetBlock = previousText ?? nextText;
+    if (targetBlock == null) {
+      state = state.copyWith(document: updatedDocument, isDirty: true);
+      _scheduleSave();
+      return null;
+    }
 
-    final newCursor = previousBlock != null
-        ? EditorCursor.atEnd(previousBlock.id, previousBlock.content.length)
-        : EditorCursor.atStart(nextBlock!.id);
+    final newCursor = previousText != null
+        ? EditorCursor.atEnd(previousText.id, previousText.content.length)
+        : EditorCursor.atStart(nextText!.id);
 
     state = state.copyWith(
       document: updatedDocument,

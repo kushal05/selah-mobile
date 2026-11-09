@@ -101,6 +101,27 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
       ref.read(noteEditorProvider(widget.noteId).notifier)
           .setScrollOffset(_scrollController.offset);
     }
+
+    // Android hides the keyboard when the app is backgrounded but a focused
+    // field keeps its IME connection, so on return the window can come back
+    // with a stale keyboard inset. Drop focus and the connection on the way
+    // out, and re-read the inset once the first frame after resume is in.
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+    } else if (state == AppLifecycleState.resumed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final visible = View.of(context).viewInsets.bottom > 0;
+        if (_isKeyboardVisible != visible) {
+          setState(() => _isKeyboardVisible = visible);
+          ref
+              .read(noteEditorProvider(widget.noteId).notifier)
+              .setKeyboardVisible(visible);
+        }
+      });
+    }
   }
 
   @override

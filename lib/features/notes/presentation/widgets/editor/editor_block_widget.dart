@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -366,13 +365,8 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
 
   Widget _buildBibleReference() {
     // Parse the BibleReference from the block's content JSON
-    BibleReference reference;
-    try {
-      final contentMap = jsonDecode(widget.block.content) as Map<String, dynamic>;
-      reference = BibleReference.fromJson(contentMap);
-    } catch (_) {
-      reference = BibleReference.empty();
-    }
+    final reference = BibleReference.tryParseContent(widget.block.content) ??
+        BibleReference.empty();
 
     // Dynamic verse resolution from the local Bible SQLite database.
     // Legacy blocks with inline text render as-is. New blocks (empty text

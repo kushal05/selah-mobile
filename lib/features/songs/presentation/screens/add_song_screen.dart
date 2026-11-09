@@ -115,6 +115,26 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
     }
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // See NoteEditorScreen: drop the IME connection when backgrounded and
+    // re-read the keyboard inset after the first frame on resume.
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+    } else if (state == AppLifecycleState.resumed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final visible = View.of(context).viewInsets.bottom > 0;
+        if (_isKeyboardVisible != visible) {
+          setState(() => _isKeyboardVisible = visible);
+        }
+      });
+    }
+  }
+
   Future<void> _loadSong() async {
     setState(() => _isLoading = true);
     try {

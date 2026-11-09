@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -347,14 +346,10 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
     String? preview;
     for (final block in note.document.getBlocksForSection(NoteSection.main)) {
       if (block.type == BlockType.bibleReference) {
-        try {
-          final json = jsonDecode(block.content) as Map<String, dynamic>;
-          final ref = BibleReference.fromJson(json);
-          preview = ref.displayReference;
-          break;
-        } catch (_) {
-          continue;
-        }
+        final ref = BibleReference.tryParseContent(block.content);
+        if (ref == null) continue;
+        preview = ref.displayReference;
+        break;
       }
       if (block.content.trim().isNotEmpty) {
         preview = block.content;
