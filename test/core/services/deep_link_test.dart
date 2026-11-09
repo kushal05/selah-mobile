@@ -90,4 +90,17 @@ void main() {
       expect(params.containsKey('admin'), isFalse);
     });
   });
+
+  group('the selah:// scheme used by the web "Open in Selah app" button', () {
+    test('maps a share link to the in-app share route', () {
+      expect(path('selah://selahapp.in/social/share/ABCDEF123456'),
+          '/social/share/ABCDEF123456');
+    });
+
+    test('still ignores other schemes and other https hosts', () {
+      expect(path('http://selahapp.in/social/share/X'), isNull);
+      expect(path('https://evil.example/social/share/X'), isNull);
+      expect(path('otherscheme://selahapp.in/social/share/X'), isNull);
+    });
+  });
 }

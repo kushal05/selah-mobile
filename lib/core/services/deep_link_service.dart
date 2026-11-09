@@ -18,6 +18,9 @@ class DeepLinkService {
   /// The deep link host that the app handles.
   static const String deepLinkHost = 'selahapp.in';
 
+  /// Custom scheme: `selah://selahapp.in/social/share/<code>`.
+  static const String customScheme = 'selah';
+
   /// Initialize the service: check for an initial link and listen for
   /// subsequent links while the app is in the foreground.
   ///
@@ -69,8 +72,13 @@ class DeepLinkService {
   /// (`/bible/chapter?bookId=1&chapter=3&translation=KJV&verse=16`).
   @visibleForTesting
   static String? uriToAppPath(Uri uri) {
-    // Only handle HTTPS links for our domain.
-    if (uri.scheme != 'https' || uri.host != deepLinkHost) return null;
+    // HTTPS links for our domain (App Links), or the custom `selah://` scheme
+    // the web page's "Open in Selah app" button uses. The custom scheme needs
+    // no domain verification, so it works before assetlinks.json is set up.
+    final isAppLink = uri.scheme == 'https' && uri.host == deepLinkHost;
+    final isCustomScheme =
+        uri.scheme == customScheme && uri.host == deepLinkHost;
+    if (!isAppLink && !isCustomScheme) return null;
 
     final segments = uri.pathSegments;
     if (segments.isEmpty) return null;

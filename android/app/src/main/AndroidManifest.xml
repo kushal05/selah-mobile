@@ -41,6 +41,15 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="https" android:host="selahapp.in"/>
             </intent-filter>
+
+            <!-- Custom scheme used by the web page's "Open in Selah app" button.
+                 Works without assetlinks.json domain verification. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="selah" android:host="selahapp.in"/>
+            </intent-filter>
         </activity>
         <!-- Notification receivers for scheduled notifications -->
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
