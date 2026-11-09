@@ -336,7 +336,7 @@ class _FocusCarouselState extends State<_FocusCarousel> {
         // six seconds for the life of the app to start an animation that
         // could not run. Measured: the position does not move while inactive,
         // so this is wasted work rather than a visible fault.
-        final visible = TickerMode.valuesOf(context).enabled &&
+        final visible = TickerMode.of(context) &&
             !MediaQuery.of(context).disableAnimations;
         if (!visible) {
           // Going out of view ends the visit, so the reader's takeover ends
