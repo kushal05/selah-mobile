@@ -44,6 +44,7 @@ import 'tables/pending_group_members_table.dart';
 import 'tables/note_revisions_table.dart';
 import 'tables/promise_prayer_links_table.dart';
 import 'tables/bible_highlights_table.dart';
+import 'tables/bible_verse_notes_table.dart';
 import 'tables/entity_access_table.dart';
 import 'tables/document_operations_table.dart';
 import 'tables/share_codes_table.dart';
@@ -117,6 +118,7 @@ part 'sync_database.g.dart';
     PromisePrayerLinks,
     // v19 tables (local-only, not synced)
     BibleHighlights,
+    BibleVerseNotes,
     // v21 tables — ACL + CRDT foundation
     EntityAccess,
     DocumentOperations,
@@ -150,7 +152,8 @@ class SyncDatabase extends _$SyncDatabase {
   // the index to devices that already have the app.
   // v38 adds sync_song_folders (a song in several songbooks).
   // v39 adds sync_song_tags.weight, for ranked song search.
-  int get schemaVersion => 39;
+  // v40 adds bible_verse_notes (the notes written on a verse's sheet).
+  int get schemaVersion => 40;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -813,6 +816,20 @@ class SyncDatabase extends _$SyncDatabase {
             // column applied those updates and had nowhere to keep the weight,
             // and its cursor has moved past them. Pull from the start once so
             // every link arrives with its weight (snapshots carry the column).
+            await (update(syncState)..where((s) => s.id.equals(1))).write(
+              const SyncStateCompanion(lastRemoteCursor: Value(null)),
+            );
+          }
+
+          if (from < 40) {
+            // v40: notes written on a Bible verse. Flutter-only entity type
+            // (bibleVerseNote) pending Worker support, same as highlights.
+            await m.createTable(bibleVerseNotes);
+            // Builds before v40 dropped every bible_highlight operation they
+            // pulled (the case only said `break`) and still advanced the cursor
+            // past them, so highlights made on another device are behind this
+            // device's cursor. Pull from the start once to fetch them; applying
+            // the rest is idempotent (version-guarded).
             await (update(syncState)..where((s) => s.id.equals(1))).write(
               const SyncStateCompanion(lastRemoteCursor: Value(null)),
             );
@@ -1987,6 +2004,7 @@ class SyncDatabase extends _$SyncDatabase {
     await delete(noteRevisions).go();
     await delete(promisePrayerLinks).go();
     await delete(bibleHighlights).go();
+    await delete(bibleVerseNotes).go();
     // v21 tables
     await delete(entityAccess).go();
     await delete(documentOperations).go();

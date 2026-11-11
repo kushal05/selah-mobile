@@ -48,13 +48,13 @@ class MemorizationScreen extends ConsumerWidget {
                     label: Text(
                       'Review $dueCount due',
                       style: theme.textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
+                        color: theme.colorScheme.onPrimary,
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size.fromHeight(48),
                       backgroundColor: theme.colorScheme.primary,
-                      foregroundColor: Colors.white,
+                      foregroundColor: theme.colorScheme.onPrimary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),

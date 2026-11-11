@@ -130,6 +130,7 @@ class BibleHighlightRepository
     final deleted = entity.copyWith(
       version: entity.version + 1,
       updatedAt: DateTime.now().millisecondsSinceEpoch,
+      deleted: true,
     );
     final oplogEntry = createDeleteOp(deleted);
 

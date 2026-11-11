@@ -10,12 +10,18 @@ import '../../../../core/services/user_facing_error.dart';
 import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
 
+/// [versions] ordered by display name, ignoring case.
+@visibleForTesting
+List<BibleVersionInfo> sortedByName(Iterable<BibleVersionInfo> versions) =>
+    versions.toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
 /// Screen for managing downloadable Bible translations.
 ///
-/// Lists all available versions from the local registry (synced from server),
-/// shows download/installed state, lets users download, remove, and set a
-/// default translation.  The default is used in the Bible reader, notes, and
-/// search.
+/// Lists the versions from the local registry (synced from server) in two
+/// sections, Downloaded and Available, each by name. Tapping a downloaded
+/// version makes it the default, which the Bible reader, notes and search use.
+/// The row's menu only removes a version.
 class BibleVersionsScreen extends ConsumerStatefulWidget {
   const BibleVersionsScreen({super.key});
 
@@ -71,6 +77,11 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
     List<BibleVersionInfo> versions,
     Map<String, BibleDownloadState> downloads,
   ) {
+    // Two sections, each by name. A version still downloading is not
+    // downloaded yet, so it stays under Available until it lands.
+    final downloaded = sortedByName(versions.where((v) => v.isDownloaded));
+    final available = sortedByName(versions.where((v) => !v.isDownloaded));
+
     return ListView(
       padding: const EdgeInsets.all(AppTheme.spacing16),
       children: [
@@ -81,6 +92,48 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
             l10n(context).bibleVersionsIntro,
             style:
                 AppTheme.caption.copyWith(color: context.mutedText),
+          ),
+        ),
+        if (downloaded.isNotEmpty)
+          _buildSection(
+              context, l10n(context).bibleVersionsDownloaded, downloaded, downloads),
+        if (downloaded.isNotEmpty && available.isNotEmpty)
+          const SizedBox(height: AppTheme.spacing16),
+        if (available.isNotEmpty)
+          _buildSection(
+              context, l10n(context).bibleVersionsAvailable, available, downloads),
+        const SizedBox(height: AppTheme.spacing16),
+        Padding(
+          padding:
+              const EdgeInsets.symmetric(horizontal: AppTheme.spacing4),
+          child: Text(
+            l10n(context).bibleVersionRemovalNote,
+            style:
+                AppTheme.caption.copyWith(color: context.mutedText),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSection(
+    BuildContext context,
+    String title,
+    List<BibleVersionInfo> items,
+    Map<String, BibleDownloadState> downloads,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(
+              bottom: AppTheme.spacing8, left: AppTheme.spacing4),
+          child: Text(
+            title,
+            style: AppTheme.caption.copyWith(
+              color: context.mutedText,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
         Container(
@@ -100,20 +153,20 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
             borderRadius: AppTheme.borderRadius3XL,
             child: Column(
               children: [
-                for (int i = 0; i < versions.length; i++) ...[
+                for (int i = 0; i < items.length; i++) ...[
                   _VersionTile(
-                    info: versions[i],
-                    download: downloads[versions[i].code],
+                    info: items[i],
+                    download: downloads[items[i].code],
                     onDownload: () => ref
                         .read(bibleDownloadManagerProvider.notifier)
-                        .start(versions[i]),
+                        .start(items[i]),
                     onCancel: () => ref
                         .read(bibleDownloadManagerProvider.notifier)
-                        .cancel(versions[i].code),
-                    onDelete: () => _confirmDelete(context, versions[i]),
-                    onSetDefault: () => _setDefault(versions[i].code),
+                        .cancel(items[i].code),
+                    onDelete: () => _confirmDelete(context, items[i]),
+                    onSetDefault: () => _setDefault(items[i].code),
                   ),
-                  if (i < versions.length - 1)
+                  if (i < items.length - 1)
                     Divider(
                       height: 1,
                       thickness: 0.5,
@@ -123,16 +176,6 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
                 ],
               ],
             ),
-          ),
-        ),
-        const SizedBox(height: AppTheme.spacing16),
-        Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: AppTheme.spacing4),
-          child: Text(
-            l10n(context).bibleVersionRemovalNote,
-            style:
-                AppTheme.caption.copyWith(color: context.mutedText),
           ),
         ),
       ],
@@ -236,7 +279,7 @@ class _VersionTile extends StatelessWidget {
     final isFailed = download?.status == BibleDownloadStatus.failed;
     final downloadProgress = download?.progress ?? 0.0;
 
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppTheme.spacing16,
         vertical: AppTheme.spacing12,
@@ -344,14 +387,6 @@ class _VersionTile extends StatelessWidget {
           else
             MenuAnchor(
               menuChildren: [
-                if (!info.isDefault)
-                  MenuItemButton(
-                    onPressed: onSetDefault,
-                    leadingIcon: Icon(Icons.star_outline,
-                        size: 18, color: _green),
-                    child: Text(l10n(context).setAsDefault,
-                        style: TextStyle(color: _green)),
-                  ),
                 MenuItemButton(
                   onPressed: onDelete,
                   leadingIcon: Icon(Icons.delete_outline,
@@ -373,5 +408,9 @@ class _VersionTile extends StatelessWidget {
         ],
       ),
     );
+
+    // Tapping a downloaded version selects it as the default.
+    if (!info.isDownloaded) return row;
+    return InkWell(onTap: info.isDefault ? null : onSetDefault, child: row);
   }
 }

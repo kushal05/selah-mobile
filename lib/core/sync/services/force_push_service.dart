@@ -82,6 +82,8 @@ class ForcePushService {
       ('Feedback messages', _processFeedbackMessages),
       ('Feedback attachments', _processFeedbackAttachments),
       ('Bible reference history', _processBibleReferenceHistory),
+      ('Bible highlights', _processBibleHighlights),
+      ('Bible verse notes', _processBibleVerseNotes),
     ];
 
     for (final (label, processor) in steps) {
@@ -1134,6 +1136,67 @@ class ForcePushService {
       }
     });
     SyncLogger.debug('Force push: ${rows.length} bible reference history');
+    return rows.length;
+  }
+
+  Future<int> _processBibleHighlights(int timestamp) async {
+    final rows = await _db.select(_db.bibleHighlights).get();
+    if (rows.isEmpty) return 0;
+    await _db.batch((batch) {
+      for (final r in rows) {
+        batch.insert(_db.oplog, _makeOplog(
+          entityType: 'bible_highlight',
+          entityId: r.id,
+          entityVersion: r.version,
+          timestamp: timestamp,
+          payload: {
+            'id': r.id,
+            'userId': r.userId,
+            'bookId': r.bookId,
+            'chapter': r.chapter,
+            'verseStart': r.verseStart,
+            'verseEnd': r.verseEnd,
+            'color': r.color,
+            'note': r.note,
+            'version': r.version,
+            'deleted': r.deleted,
+            'createdAt': r.createdAt,
+            'updatedAt': r.updatedAt,
+          },
+        ));
+      }
+    });
+    SyncLogger.debug('Force push: ${rows.length} bible highlights');
+    return rows.length;
+  }
+
+  Future<int> _processBibleVerseNotes(int timestamp) async {
+    final rows = await _db.select(_db.bibleVerseNotes).get();
+    if (rows.isEmpty) return 0;
+    await _db.batch((batch) {
+      for (final r in rows) {
+        batch.insert(_db.oplog, _makeOplog(
+          entityType: 'bible_verse_note',
+          entityId: r.id,
+          entityVersion: r.version,
+          timestamp: timestamp,
+          payload: {
+            'id': r.id,
+            'userId': r.userId,
+            'bookId': r.bookId,
+            'chapter': r.chapter,
+            'verseStart': r.verseStart,
+            'verseEnd': r.verseEnd,
+            'content': r.content,
+            'version': r.version,
+            'deleted': r.deleted,
+            'createdAt': r.createdAt,
+            'updatedAt': r.updatedAt,
+          },
+        ));
+      }
+    });
+    SyncLogger.debug('Force push: ${rows.length} bible verse notes');
     return rows.length;
   }
 

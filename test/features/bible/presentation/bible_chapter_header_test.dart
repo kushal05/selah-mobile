@@ -60,7 +60,6 @@ Future<void> _pump(WidgetTester tester) async {
       bibleChaptersProvider.overrideWith((ref, p) => [1, 2, 3, 4, 5]),
       bibleBooksProvider.overrideWithValue([]),
       chapterHighlightsProvider.overrideWith((ref, p) => Stream.value([])),
-      isChapterBookmarkedProvider.overrideWith((ref, p) => Stream.value(false)),
       chapterVerseTagsProvider.overrideWith((ref, p) => <int, Set<String>>{}),
     ],
     child: MaterialApp.router(

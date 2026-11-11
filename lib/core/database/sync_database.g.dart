@@ -23886,6 +23886,675 @@ class BibleHighlightsCompanion extends UpdateCompanion<BibleHighlight> {
   }
 }
 
+class $BibleVerseNotesTable extends BibleVerseNotes
+    with TableInfo<$BibleVerseNotesTable, BibleVerseNote> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BibleVerseNotesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _bookIdMeta = const VerificationMeta('bookId');
+  @override
+  late final GeneratedColumn<int> bookId = GeneratedColumn<int>(
+    'book_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _chapterMeta = const VerificationMeta(
+    'chapter',
+  );
+  @override
+  late final GeneratedColumn<int> chapter = GeneratedColumn<int>(
+    'chapter',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _verseStartMeta = const VerificationMeta(
+    'verseStart',
+  );
+  @override
+  late final GeneratedColumn<int> verseStart = GeneratedColumn<int>(
+    'verse_start',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _verseEndMeta = const VerificationMeta(
+    'verseEnd',
+  );
+  @override
+  late final GeneratedColumn<int> verseEnd = GeneratedColumn<int>(
+    'verse_end',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentMeta = const VerificationMeta(
+    'content',
+  );
+  @override
+  late final GeneratedColumn<String> content = GeneratedColumn<String>(
+    'content',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _versionMeta = const VerificationMeta(
+    'version',
+  );
+  @override
+  late final GeneratedColumn<int> version = GeneratedColumn<int>(
+    'version',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _deletedMeta = const VerificationMeta(
+    'deleted',
+  );
+  @override
+  late final GeneratedColumn<int> deleted = GeneratedColumn<int>(
+    'deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAt = GeneratedColumn<int>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    bookId,
+    chapter,
+    verseStart,
+    verseEnd,
+    content,
+    version,
+    deleted,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'bible_verse_notes';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BibleVerseNote> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('book_id')) {
+      context.handle(
+        _bookIdMeta,
+        bookId.isAcceptableOrUnknown(data['book_id']!, _bookIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bookIdMeta);
+    }
+    if (data.containsKey('chapter')) {
+      context.handle(
+        _chapterMeta,
+        chapter.isAcceptableOrUnknown(data['chapter']!, _chapterMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_chapterMeta);
+    }
+    if (data.containsKey('verse_start')) {
+      context.handle(
+        _verseStartMeta,
+        verseStart.isAcceptableOrUnknown(data['verse_start']!, _verseStartMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_verseStartMeta);
+    }
+    if (data.containsKey('verse_end')) {
+      context.handle(
+        _verseEndMeta,
+        verseEnd.isAcceptableOrUnknown(data['verse_end']!, _verseEndMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_verseEndMeta);
+    }
+    if (data.containsKey('content')) {
+      context.handle(
+        _contentMeta,
+        content.isAcceptableOrUnknown(data['content']!, _contentMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentMeta);
+    }
+    if (data.containsKey('version')) {
+      context.handle(
+        _versionMeta,
+        version.isAcceptableOrUnknown(data['version']!, _versionMeta),
+      );
+    }
+    if (data.containsKey('deleted')) {
+      context.handle(
+        _deletedMeta,
+        deleted.isAcceptableOrUnknown(data['deleted']!, _deletedMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  BibleVerseNote map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BibleVerseNote(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      bookId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}book_id'],
+      )!,
+      chapter: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}chapter'],
+      )!,
+      verseStart: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}verse_start'],
+      )!,
+      verseEnd: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}verse_end'],
+      )!,
+      content: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content'],
+      )!,
+      version: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}version'],
+      )!,
+      deleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}deleted'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $BibleVerseNotesTable createAlias(String alias) {
+    return $BibleVerseNotesTable(attachedDatabase, alias);
+  }
+}
+
+class BibleVerseNote extends DataClass implements Insertable<BibleVerseNote> {
+  /// Unique ID (UUID)
+  final String id;
+
+  /// Owner user ID
+  final String userId;
+
+  /// Book ID (1..66, matches bible_books.id in bible.db)
+  final int bookId;
+
+  /// Chapter number
+  final int chapter;
+
+  /// Start verse number (inclusive)
+  final int verseStart;
+
+  /// End verse number (inclusive, same as verseStart for a single verse)
+  final int verseEnd;
+
+  /// The note text
+  final String content;
+
+  /// Version for optimistic concurrency (starts at 1, increments on each update)
+  final int version;
+
+  /// Soft delete flag (0 = active, 1 = deleted)
+  final int deleted;
+
+  /// When this note was created (Unix ms)
+  final int createdAt;
+
+  /// When this note was last modified (Unix ms)
+  final int updatedAt;
+  const BibleVerseNote({
+    required this.id,
+    required this.userId,
+    required this.bookId,
+    required this.chapter,
+    required this.verseStart,
+    required this.verseEnd,
+    required this.content,
+    required this.version,
+    required this.deleted,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['user_id'] = Variable<String>(userId);
+    map['book_id'] = Variable<int>(bookId);
+    map['chapter'] = Variable<int>(chapter);
+    map['verse_start'] = Variable<int>(verseStart);
+    map['verse_end'] = Variable<int>(verseEnd);
+    map['content'] = Variable<String>(content);
+    map['version'] = Variable<int>(version);
+    map['deleted'] = Variable<int>(deleted);
+    map['created_at'] = Variable<int>(createdAt);
+    map['updated_at'] = Variable<int>(updatedAt);
+    return map;
+  }
+
+  BibleVerseNotesCompanion toCompanion(bool nullToAbsent) {
+    return BibleVerseNotesCompanion(
+      id: Value(id),
+      userId: Value(userId),
+      bookId: Value(bookId),
+      chapter: Value(chapter),
+      verseStart: Value(verseStart),
+      verseEnd: Value(verseEnd),
+      content: Value(content),
+      version: Value(version),
+      deleted: Value(deleted),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory BibleVerseNote.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BibleVerseNote(
+      id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String>(json['userId']),
+      bookId: serializer.fromJson<int>(json['bookId']),
+      chapter: serializer.fromJson<int>(json['chapter']),
+      verseStart: serializer.fromJson<int>(json['verseStart']),
+      verseEnd: serializer.fromJson<int>(json['verseEnd']),
+      content: serializer.fromJson<String>(json['content']),
+      version: serializer.fromJson<int>(json['version']),
+      deleted: serializer.fromJson<int>(json['deleted']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      updatedAt: serializer.fromJson<int>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String>(userId),
+      'bookId': serializer.toJson<int>(bookId),
+      'chapter': serializer.toJson<int>(chapter),
+      'verseStart': serializer.toJson<int>(verseStart),
+      'verseEnd': serializer.toJson<int>(verseEnd),
+      'content': serializer.toJson<String>(content),
+      'version': serializer.toJson<int>(version),
+      'deleted': serializer.toJson<int>(deleted),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'updatedAt': serializer.toJson<int>(updatedAt),
+    };
+  }
+
+  BibleVerseNote copyWith({
+    String? id,
+    String? userId,
+    int? bookId,
+    int? chapter,
+    int? verseStart,
+    int? verseEnd,
+    String? content,
+    int? version,
+    int? deleted,
+    int? createdAt,
+    int? updatedAt,
+  }) => BibleVerseNote(
+    id: id ?? this.id,
+    userId: userId ?? this.userId,
+    bookId: bookId ?? this.bookId,
+    chapter: chapter ?? this.chapter,
+    verseStart: verseStart ?? this.verseStart,
+    verseEnd: verseEnd ?? this.verseEnd,
+    content: content ?? this.content,
+    version: version ?? this.version,
+    deleted: deleted ?? this.deleted,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  BibleVerseNote copyWithCompanion(BibleVerseNotesCompanion data) {
+    return BibleVerseNote(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      bookId: data.bookId.present ? data.bookId.value : this.bookId,
+      chapter: data.chapter.present ? data.chapter.value : this.chapter,
+      verseStart: data.verseStart.present
+          ? data.verseStart.value
+          : this.verseStart,
+      verseEnd: data.verseEnd.present ? data.verseEnd.value : this.verseEnd,
+      content: data.content.present ? data.content.value : this.content,
+      version: data.version.present ? data.version.value : this.version,
+      deleted: data.deleted.present ? data.deleted.value : this.deleted,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BibleVerseNote(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('bookId: $bookId, ')
+          ..write('chapter: $chapter, ')
+          ..write('verseStart: $verseStart, ')
+          ..write('verseEnd: $verseEnd, ')
+          ..write('content: $content, ')
+          ..write('version: $version, ')
+          ..write('deleted: $deleted, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    userId,
+    bookId,
+    chapter,
+    verseStart,
+    verseEnd,
+    content,
+    version,
+    deleted,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BibleVerseNote &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.bookId == this.bookId &&
+          other.chapter == this.chapter &&
+          other.verseStart == this.verseStart &&
+          other.verseEnd == this.verseEnd &&
+          other.content == this.content &&
+          other.version == this.version &&
+          other.deleted == this.deleted &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class BibleVerseNotesCompanion extends UpdateCompanion<BibleVerseNote> {
+  final Value<String> id;
+  final Value<String> userId;
+  final Value<int> bookId;
+  final Value<int> chapter;
+  final Value<int> verseStart;
+  final Value<int> verseEnd;
+  final Value<String> content;
+  final Value<int> version;
+  final Value<int> deleted;
+  final Value<int> createdAt;
+  final Value<int> updatedAt;
+  final Value<int> rowid;
+  const BibleVerseNotesCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.bookId = const Value.absent(),
+    this.chapter = const Value.absent(),
+    this.verseStart = const Value.absent(),
+    this.verseEnd = const Value.absent(),
+    this.content = const Value.absent(),
+    this.version = const Value.absent(),
+    this.deleted = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BibleVerseNotesCompanion.insert({
+    required String id,
+    this.userId = const Value.absent(),
+    required int bookId,
+    required int chapter,
+    required int verseStart,
+    required int verseEnd,
+    required String content,
+    this.version = const Value.absent(),
+    this.deleted = const Value.absent(),
+    required int createdAt,
+    required int updatedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       bookId = Value(bookId),
+       chapter = Value(chapter),
+       verseStart = Value(verseStart),
+       verseEnd = Value(verseEnd),
+       content = Value(content),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<BibleVerseNote> custom({
+    Expression<String>? id,
+    Expression<String>? userId,
+    Expression<int>? bookId,
+    Expression<int>? chapter,
+    Expression<int>? verseStart,
+    Expression<int>? verseEnd,
+    Expression<String>? content,
+    Expression<int>? version,
+    Expression<int>? deleted,
+    Expression<int>? createdAt,
+    Expression<int>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (bookId != null) 'book_id': bookId,
+      if (chapter != null) 'chapter': chapter,
+      if (verseStart != null) 'verse_start': verseStart,
+      if (verseEnd != null) 'verse_end': verseEnd,
+      if (content != null) 'content': content,
+      if (version != null) 'version': version,
+      if (deleted != null) 'deleted': deleted,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BibleVerseNotesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? userId,
+    Value<int>? bookId,
+    Value<int>? chapter,
+    Value<int>? verseStart,
+    Value<int>? verseEnd,
+    Value<String>? content,
+    Value<int>? version,
+    Value<int>? deleted,
+    Value<int>? createdAt,
+    Value<int>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return BibleVerseNotesCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      bookId: bookId ?? this.bookId,
+      chapter: chapter ?? this.chapter,
+      verseStart: verseStart ?? this.verseStart,
+      verseEnd: verseEnd ?? this.verseEnd,
+      content: content ?? this.content,
+      version: version ?? this.version,
+      deleted: deleted ?? this.deleted,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (bookId.present) {
+      map['book_id'] = Variable<int>(bookId.value);
+    }
+    if (chapter.present) {
+      map['chapter'] = Variable<int>(chapter.value);
+    }
+    if (verseStart.present) {
+      map['verse_start'] = Variable<int>(verseStart.value);
+    }
+    if (verseEnd.present) {
+      map['verse_end'] = Variable<int>(verseEnd.value);
+    }
+    if (content.present) {
+      map['content'] = Variable<String>(content.value);
+    }
+    if (version.present) {
+      map['version'] = Variable<int>(version.value);
+    }
+    if (deleted.present) {
+      map['deleted'] = Variable<int>(deleted.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<int>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BibleVerseNotesCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('bookId: $bookId, ')
+          ..write('chapter: $chapter, ')
+          ..write('verseStart: $verseStart, ')
+          ..write('verseEnd: $verseEnd, ')
+          ..write('content: $content, ')
+          ..write('version: $version, ')
+          ..write('deleted: $deleted, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $EntityAccessTable extends EntityAccess
     with TableInfo<$EntityAccessTable, EntityAccessData> {
   @override
@@ -30851,6 +31520,9 @@ abstract class _$SyncDatabase extends GeneratedDatabase {
   late final $BibleHighlightsTable bibleHighlights = $BibleHighlightsTable(
     this,
   );
+  late final $BibleVerseNotesTable bibleVerseNotes = $BibleVerseNotesTable(
+    this,
+  );
   late final $EntityAccessTable entityAccess = $EntityAccessTable(this);
   late final $DocumentOperationsTable documentOperations =
       $DocumentOperationsTable(this);
@@ -30913,6 +31585,7 @@ abstract class _$SyncDatabase extends GeneratedDatabase {
     noteRevisions,
     promisePrayerLinks,
     bibleHighlights,
+    bibleVerseNotes,
     entityAccess,
     documentOperations,
     shareCodes,
@@ -42322,6 +42995,328 @@ typedef $$BibleHighlightsTableProcessedTableManager =
       BibleHighlight,
       PrefetchHooks Function()
     >;
+typedef $$BibleVerseNotesTableCreateCompanionBuilder =
+    BibleVerseNotesCompanion Function({
+      required String id,
+      Value<String> userId,
+      required int bookId,
+      required int chapter,
+      required int verseStart,
+      required int verseEnd,
+      required String content,
+      Value<int> version,
+      Value<int> deleted,
+      required int createdAt,
+      required int updatedAt,
+      Value<int> rowid,
+    });
+typedef $$BibleVerseNotesTableUpdateCompanionBuilder =
+    BibleVerseNotesCompanion Function({
+      Value<String> id,
+      Value<String> userId,
+      Value<int> bookId,
+      Value<int> chapter,
+      Value<int> verseStart,
+      Value<int> verseEnd,
+      Value<String> content,
+      Value<int> version,
+      Value<int> deleted,
+      Value<int> createdAt,
+      Value<int> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$BibleVerseNotesTableFilterComposer
+    extends Composer<_$SyncDatabase, $BibleVerseNotesTable> {
+  $$BibleVerseNotesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get bookId => $composableBuilder(
+    column: $table.bookId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get chapter => $composableBuilder(
+    column: $table.chapter,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get verseStart => $composableBuilder(
+    column: $table.verseStart,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get verseEnd => $composableBuilder(
+    column: $table.verseEnd,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get version => $composableBuilder(
+    column: $table.version,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deleted => $composableBuilder(
+    column: $table.deleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$BibleVerseNotesTableOrderingComposer
+    extends Composer<_$SyncDatabase, $BibleVerseNotesTable> {
+  $$BibleVerseNotesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get bookId => $composableBuilder(
+    column: $table.bookId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get chapter => $composableBuilder(
+    column: $table.chapter,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get verseStart => $composableBuilder(
+    column: $table.verseStart,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get verseEnd => $composableBuilder(
+    column: $table.verseEnd,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get version => $composableBuilder(
+    column: $table.version,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deleted => $composableBuilder(
+    column: $table.deleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$BibleVerseNotesTableAnnotationComposer
+    extends Composer<_$SyncDatabase, $BibleVerseNotesTable> {
+  $$BibleVerseNotesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<int> get bookId =>
+      $composableBuilder(column: $table.bookId, builder: (column) => column);
+
+  GeneratedColumn<int> get chapter =>
+      $composableBuilder(column: $table.chapter, builder: (column) => column);
+
+  GeneratedColumn<int> get verseStart => $composableBuilder(
+    column: $table.verseStart,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get verseEnd =>
+      $composableBuilder(column: $table.verseEnd, builder: (column) => column);
+
+  GeneratedColumn<String> get content =>
+      $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<int> get version =>
+      $composableBuilder(column: $table.version, builder: (column) => column);
+
+  GeneratedColumn<int> get deleted =>
+      $composableBuilder(column: $table.deleted, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$BibleVerseNotesTableTableManager
+    extends
+        RootTableManager<
+          _$SyncDatabase,
+          $BibleVerseNotesTable,
+          BibleVerseNote,
+          $$BibleVerseNotesTableFilterComposer,
+          $$BibleVerseNotesTableOrderingComposer,
+          $$BibleVerseNotesTableAnnotationComposer,
+          $$BibleVerseNotesTableCreateCompanionBuilder,
+          $$BibleVerseNotesTableUpdateCompanionBuilder,
+          (
+            BibleVerseNote,
+            BaseReferences<
+              _$SyncDatabase,
+              $BibleVerseNotesTable,
+              BibleVerseNote
+            >,
+          ),
+          BibleVerseNote,
+          PrefetchHooks Function()
+        > {
+  $$BibleVerseNotesTableTableManager(
+    _$SyncDatabase db,
+    $BibleVerseNotesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BibleVerseNotesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BibleVerseNotesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BibleVerseNotesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<int> bookId = const Value.absent(),
+                Value<int> chapter = const Value.absent(),
+                Value<int> verseStart = const Value.absent(),
+                Value<int> verseEnd = const Value.absent(),
+                Value<String> content = const Value.absent(),
+                Value<int> version = const Value.absent(),
+                Value<int> deleted = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BibleVerseNotesCompanion(
+                id: id,
+                userId: userId,
+                bookId: bookId,
+                chapter: chapter,
+                verseStart: verseStart,
+                verseEnd: verseEnd,
+                content: content,
+                version: version,
+                deleted: deleted,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String> userId = const Value.absent(),
+                required int bookId,
+                required int chapter,
+                required int verseStart,
+                required int verseEnd,
+                required String content,
+                Value<int> version = const Value.absent(),
+                Value<int> deleted = const Value.absent(),
+                required int createdAt,
+                required int updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => BibleVerseNotesCompanion.insert(
+                id: id,
+                userId: userId,
+                bookId: bookId,
+                chapter: chapter,
+                verseStart: verseStart,
+                verseEnd: verseEnd,
+                content: content,
+                version: version,
+                deleted: deleted,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$BibleVerseNotesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$SyncDatabase,
+      $BibleVerseNotesTable,
+      BibleVerseNote,
+      $$BibleVerseNotesTableFilterComposer,
+      $$BibleVerseNotesTableOrderingComposer,
+      $$BibleVerseNotesTableAnnotationComposer,
+      $$BibleVerseNotesTableCreateCompanionBuilder,
+      $$BibleVerseNotesTableUpdateCompanionBuilder,
+      (
+        BibleVerseNote,
+        BaseReferences<_$SyncDatabase, $BibleVerseNotesTable, BibleVerseNote>,
+      ),
+      BibleVerseNote,
+      PrefetchHooks Function()
+    >;
 typedef $$EntityAccessTableCreateCompanionBuilder =
     EntityAccessCompanion Function({
       required String id,
@@ -45767,6 +46762,8 @@ class $SyncDatabaseManager {
       $$PromisePrayerLinksTableTableManager(_db, _db.promisePrayerLinks);
   $$BibleHighlightsTableTableManager get bibleHighlights =>
       $$BibleHighlightsTableTableManager(_db, _db.bibleHighlights);
+  $$BibleVerseNotesTableTableManager get bibleVerseNotes =>
+      $$BibleVerseNotesTableTableManager(_db, _db.bibleVerseNotes);
   $$EntityAccessTableTableManager get entityAccess =>
       $$EntityAccessTableTableManager(_db, _db.entityAccess);
   $$DocumentOperationsTableTableManager get documentOperations =>

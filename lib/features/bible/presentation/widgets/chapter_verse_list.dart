@@ -6,6 +6,7 @@ import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/providers/reading_preferences.dart';
 import '../../domain/models/bible_highlight_entity.dart';
 import '../../domain/models/bible_verse_entity.dart';
+import '../providers/bible_chapter_providers.dart';
 import '../../../../core/providers/motion_preferences.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/l10n.dart';
@@ -243,6 +244,12 @@ class _VerseRow extends ConsumerWidget {
     final theme = Theme.of(context);
     final bodySize = ref.watch(readingFontSizeProvider);
     final numberSize = ref.watch(verseNumberFontSizeProvider);
+    final hasVerseNote = ref
+            .watch(chapterNotedVersesProvider(
+                (bookId: verse.bookId, chapter: verse.chapter)))
+            .valueOrNull
+            ?.contains(verse.verse) ??
+        false;
 
     Color? bgColor;
     if (isFlashing) {
@@ -314,8 +321,9 @@ class _VerseRow extends ConsumerWidget {
                 ],
               ),
             ),
-            // Highlight note indicator
-            if (highlight != null && highlight!.hasNote)
+            // Note indicator: a note on the highlight, or any note written on
+            // this verse from its sheet.
+            if ((highlight != null && highlight!.hasNote) || hasVerseNote)
               Padding(
                 padding: const EdgeInsets.only(left: 4, top: 4),
                 child: Icon(

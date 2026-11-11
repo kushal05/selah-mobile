@@ -400,7 +400,7 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
     final theme = parentTheme.copyWith(
       colorScheme: parentTheme.colorScheme.copyWith(
         primary: _bibleGreen,
-        onPrimary: Colors.white,
+        onPrimary: AppTheme.onAccent(_bibleGreen),
         secondaryContainer: AppTheme.bibleSurfaceFor(parentTheme.brightness),
         onSecondaryContainer: AppTheme.bibleInkFor(parentTheme.brightness),
       ),

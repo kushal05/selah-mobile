@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/navigation/routes.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
@@ -13,9 +14,15 @@ import '../../../../core/theme/theme_colors.dart';
 import '../providers/bible_chapter_providers.dart';
 import '../providers/verse_tag_providers.dart';
 import '../providers/bible_providers.dart';
+import '../widgets/add_verse_to_note_sheet.dart';
 import '../widgets/chapter_verse_list.dart';
 import '../widgets/highlight_bottom_sheet.dart';
 import '../widgets/translation_selector.dart';
+import '../../../notes/domain/models/editor_block.dart';
+import '../../../notes/domain/models/editor_document.dart';
+import '../../../notes/domain/models/note.dart';
+import '../../../notes/domain/services/bible_verse_block.dart';
+import '../../../notes/presentation/providers/database_provider.dart';
 import '../../../notes/presentation/widgets/editor/bible_reference_picker.dart';
 import '../../../../l10n/l10n.dart';
 
@@ -222,6 +229,34 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     }
   }
 
+  // ── Versions ─────────────────────────────────────────────────────────
+
+  /// Opens the versions screen. If the user picks a different default there,
+  /// the reader switches to it on the way back. Only a change made on that
+  /// screen counts, so a chapter opened in another version (from a note's
+  /// verse, say) is not switched just because the default finished loading.
+  Future<void> _openVersions() async {
+    final before = ref.read(defaultBibleVersionProvider);
+    await context.push(Routes.bibleVersions);
+    if (!mounted) return;
+    final chosen = ref.read(defaultBibleVersionProvider);
+    if (chosen == before) return;
+    final translations = ref.read(bibleTranslationsProvider);
+    final match = translations
+        .where((t) => t.toLowerCase() == chosen.toLowerCase())
+        .firstOrNull;
+    if (match == null) return; // chosen but not downloaded
+    setState(() {
+      _primaryTranslation = match;
+      if (_secondaryTranslation == match) {
+        _secondaryTranslation = translations.firstWhere(
+          (t) => t != match,
+          orElse: () => match,
+        );
+      }
+    });
+  }
+
   // ── Highlights ───────────────────────────────────────────────────────
 
   void _showHighlightSheet(
@@ -245,22 +280,20 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
       context,
       reference: reference,
       verseText: verse.text,
+      bookId: _bookId,
+      chapter: verse.chapter,
+      verse: verse.verse,
       existingHighlight: existing,
-      // These three were fire-and-forget. The sheet closed, the write was
-      // never awaited, and a failure had nowhere to go — the highlight simply
-      // did not appear, or would not delete, with nothing said. The note
-      // attached to a highlight is the user's own writing, so losing it
-      // quietly is the worst of the options.
-      onSave: (color, note) async {
+      // These were fire-and-forget. The sheet closed, the write was never
+      // awaited, and a failure had nowhere to go — the highlight simply did
+      // not appear, or would not delete, with nothing said.
+      onSave: (color) async {
         final messenger = ScaffoldMessenger.of(context);
         final failed = l10n(context).couldNotSaveHighlight;
         final repo = ref.read(bibleHighlightRepositoryProvider);
         try {
           if (existing != null) {
-            await repo.updateHighlight(existing.copyWithUpdate(
-              color: color,
-              note: note,
-            ));
+            await repo.updateHighlight(existing.copyWithUpdate(color: color));
           } else {
             await repo.createHighlight(
               bookId: _bookId,
@@ -268,7 +301,6 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
               verseStart: verse.verse,
               verseEnd: verse.verse,
               color: color,
-              note: note,
             );
           }
         } catch (_) {
@@ -295,7 +327,7 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
             }
           : null,
       onSaveToPromises: (ref_, text) => _saveAsPromise(ref_, text),
-      onSaveToNotes: (ref_, text) => _openInNotes(ref_),
+      onSaveToNotes: (ref_, text) => _addVerseToNote(bookName, verse),
     );
   }
 
@@ -327,36 +359,59 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     }
   }
 
-  void _openInNotes(String reference) {
-    final encoded = Uri.encodeComponent(reference);
-    context.push('${Routes.notesHome}/new?initialTitle=$encoded');
+  /// "Add to notes": asks where, then puts the verse in the body of a new note
+  /// or at the end of an existing one. Not in the title.
+  Future<void> _addVerseToNote(String bookName, BibleVerseEntity verse) async {
+    final target = await AddVerseToNoteSheet.show(context);
+    if (target == null || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+    final t = l10n(context);
+    final repo = ref.read(notesRepositoryProvider);
+    final block = buildBibleVerseBlock(
+      book: bookName,
+      chapter: verse.chapter,
+      verse: verse.verse,
+      version: _primaryTranslation,
+    );
+
+    try {
+      final chosen = target.note;
+      if (chosen == null) {
+        final note = Note.create(
+          id: const Uuid().v4(),
+          document: EditorDocument(
+            blocks: [block, EditorBlock.paragraph()],
+          ),
+        );
+        await repo.createNote(note);
+        router.push(Routes.noteEditFor(note.id));
+      } else {
+        // Re-read: the list the user picked from may be a moment old.
+        final current = await repo.getNoteById(chosen.id);
+        if (current == null) throw StateError('note ${chosen.id} is gone');
+        await repo.updateNote(current.copyWith(
+          document: appendBlockAtEnd(current.document, block),
+        ));
+        messenger.showSnackBar(SnackBar(
+          content: Text(t.addedVerseToNote(current.displayTitle)),
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } catch (_) {
+      messenger.showSnackBar(SnackBar(
+        content: Text(t.couldNotAddVerseToNote),
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
   }
 
-  // ── Bookmarks ────────────────────────────────────────────────────────
+  // ── Tags ─────────────────────────────────────────────────────────────
 
   /// Opens the notes carrying [tagId].
   void _openNotesWithTag(String tagId) {
     context.push('${Routes.notesHome}?tagId=$tagId');
-  }
-
-  Future<void> _toggleBookmark(String bookName) async {
-    try {
-      await ref.read(bibleBookmarkRepositoryProvider).toggleBookmark(
-            bookId: _bookId,
-            bookName: bookName,
-            chapter: _chapter,
-            translation: _primaryTranslation,
-          );
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n(context).couldNotUpdateBookmark),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    }
   }
 
   // ── Build ────────────────────────────────────────────────────────────
@@ -377,16 +432,6 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     // like a failure — it looks like the highlights are gone. Say so instead.
     final highlightsFailed = highlightsAsync.hasError;
     final highlights = highlightsAsync.valueOrNull ?? [];
-    // Nullable: null means we have not read the bookmark yet, which is not
-    // the same as "not bookmarked". toggleBookmark re-queries the database
-    // rather than trusting this, so tapping while it reads as false finds the
-    // existing row and deletes it — a tap meant to bookmark a chapter removes
-    // the bookmark instead. The window is the first frames after the screen
-    // opens, no error required.
-    final isBookmarked = ref
-        .watch(isChapterBookmarkedProvider((bookId: _bookId, chapter: _chapter)))
-        .valueOrNull;
-
     final primaryVerses = ref.watch(bibleVersesProvider(
       (bookId: _bookId, chapter: _chapter, translation: _primaryTranslation),
     ));
@@ -394,7 +439,7 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     final theme = parentTheme.copyWith(
       colorScheme: parentTheme.colorScheme.copyWith(
         primary: _bibleGreen,
-        onPrimary: Colors.white,
+        onPrimary: AppTheme.onAccent(_bibleGreen),
         // Brightness-aware: the light pair was applied in both themes, so the
         // translation pill came out a light green chip on a near-black bar.
         secondaryContainer: AppTheme.bibleSurfaceFor(parentTheme.brightness),
@@ -443,24 +488,8 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
                 currentTranslation: _primaryTranslation,
                 availableTranslations: translations,
                 onChanged: (t) => setState(() => _primaryTranslation = t),
-                onManage: () => context.push(Routes.bibleVersions),
+                onManage: _openVersions,
               ),
-            // Bookmark toggle — inert until we know which way it goes.
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              icon: Icon(
-                isBookmarked == true ? Icons.bookmark : Icons.bookmark_border,
-                color: isBookmarked == true ? _bibleGreen : null,
-              ),
-              tooltip: isBookmarked == null
-                  ? 'Loading bookmark'
-                  : isBookmarked
-                      ? 'Remove bookmark'
-                      : 'Bookmark chapter',
-              onPressed: isBookmarked == null
-                  ? null
-                  : () => _toggleBookmark(bookName),
-            ),
             // Text size, parallel toggle and version management share one
             // menu, to leave the title the width it needs at 360dp.
             PopupMenuButton<String>(
@@ -472,7 +501,7 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
                   case 'parallel':
                     setState(() => _isParallel = !_isParallel);
                   case 'versions':
-                    context.push(Routes.bibleVersions);
+                    _openVersions();
                 }
               },
               itemBuilder: (_) => [

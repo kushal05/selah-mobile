@@ -72,6 +72,8 @@ enum OplogEntityType {
   bibleReferenceHistory,
   // Flutter-only pending Worker support (same pattern as feedbackThread).
   bibleHighlight,
+  // Flutter-only pending Worker support, like bibleHighlight.
+  bibleVerseNote,
   habitLog;
 
   String toDbValue() {
@@ -148,6 +150,8 @@ enum OplogEntityType {
         return 'bible_reference_history';
       case OplogEntityType.bibleHighlight:
         return 'bible_highlight';
+      case OplogEntityType.bibleVerseNote:
+        return 'bible_verse_note';
       case OplogEntityType.habitLog:
         return 'habit_log';
     }
@@ -227,6 +231,8 @@ enum OplogEntityType {
         return OplogEntityType.bibleReferenceHistory;
       case 'bible_highlight':
         return OplogEntityType.bibleHighlight;
+      case 'bible_verse_note':
+        return OplogEntityType.bibleVerseNote;
       case 'habit_log':
         return OplogEntityType.habitLog;
       default:

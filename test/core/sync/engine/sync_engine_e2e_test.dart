@@ -24,6 +24,9 @@ import 'package:notify/core/sync/repositories/song_tag_repository.dart';
 import 'package:notify/core/sync/repositories/tag_repository.dart';
 import 'package:notify/core/database/services/note_block_fts_service.dart';
 import 'package:notify/core/sync/services/sync_api_client.dart';
+import 'package:notify/features/bible/data/bible_highlight_repository.dart';
+import 'package:notify/features/bible/data/bible_verse_note_repository.dart';
+import 'package:notify/features/bible/domain/models/bible_highlight_entity.dart';
 
 const _userId = 'user-e2e-1';
 const _deviceA = 'device-a';
@@ -857,6 +860,184 @@ void main() {
           .getSingle();
       expect(row.trashedAt, now);
       expect(row.deleted, 0);
+    });
+  });
+
+  group('bible verse notes and highlights', () {
+    late BibleVerseNoteRepository notesA;
+    late BibleVerseNoteRepository notesB;
+    late BibleHighlightRepository highlightsA;
+    late BibleHighlightRepository highlightsB;
+
+    setUp(() {
+      notesA = BibleVerseNoteRepository(dbA, _deviceA, _userId);
+      notesB = BibleVerseNoteRepository(dbB, _deviceB, _userId);
+      highlightsA = BibleHighlightRepository(dbA, _deviceA, _userId);
+      highlightsB = BibleHighlightRepository(dbB, _deviceB, _userId);
+    });
+
+    Future<void> syncBoth() async {
+      expect((await engineA.syncNow()).success, isTrue);
+      expect((await engineB.syncNow()).success, isTrue);
+    }
+
+    Future<List<String>> noteTexts(
+        BibleVerseNoteRepository repo, int verse) async {
+      final list = await repo
+          .watchNotesForVerse(bookId: 43, chapter: 3, verse: verse)
+          .first;
+      return list.map((n) => n.content).toList();
+    }
+
+    test('a verse note written on one device arrives on the other', () async {
+      await notesA.addNote(
+          bookId: 43, chapter: 3, verse: 16, content: 'from device A');
+
+      await syncBoth();
+
+      expect(await noteTexts(notesB, 16), ['from device A']);
+      expect(await noteTexts(notesB, 17), isEmpty);
+    });
+
+    test('editing a verse note reaches the other device', () async {
+      final note = await notesA.addNote(
+          bookId: 43, chapter: 3, verse: 16, content: 'first draft');
+      await syncBoth();
+
+      await notesA.updateNote(note, 'second draft');
+      await syncBoth();
+
+      expect(await noteTexts(notesB, 16), ['second draft']);
+      final row = await (dbB.select(dbB.bibleVerseNotes)
+            ..where((r) => r.id.equals(note.id)))
+          .getSingle();
+      expect(row.version, 2);
+    });
+
+    test('deleting a verse note removes it on the other device', () async {
+      final note = await notesA.addNote(
+          bookId: 43, chapter: 3, verse: 16, content: 'to be removed');
+      await notesA.addNote(
+          bookId: 43, chapter: 3, verse: 16, content: 'stays');
+      await syncBoth();
+      expect(await noteTexts(notesB, 16), hasLength(2));
+
+      await notesA.deleteNote(note);
+      await syncBoth();
+
+      expect(await noteTexts(notesB, 16), ['stays']);
+      final row = await (dbB.select(dbB.bibleVerseNotes)
+            ..where((r) => r.id.equals(note.id)))
+          .getSingle();
+      expect(row.deleted, 1);
+    });
+
+    test('a verse note deleted on one device is deleted in the log payload',
+        () async {
+      final note = await notesA.addNote(
+          bookId: 43, chapter: 3, verse: 16, content: 'x');
+      await notesA.deleteNote(note);
+
+      final ops = await (dbA.select(dbA.oplog)
+            ..where((o) => o.operation.equals('DELETE')))
+          .get();
+      final payload = jsonDecode(ops.single.payloadJson) as Map<String, dynamic>;
+      expect(payload['deleted'], 1,
+          reason: 'another device must see a delete, not an update');
+    });
+
+    test('a highlight made on one device arrives on the other', () async {
+      await highlightsA.createHighlight(
+        bookId: 43,
+        chapter: 3,
+        verseStart: 16,
+        verseEnd: 16,
+        color: HighlightColor.green,
+        note: 'an old-style note',
+      );
+
+      await syncBoth();
+
+      final list = await highlightsB.getHighlightsForChapter(
+          bookId: 43, chapter: 3);
+      expect(list, hasLength(1));
+      expect(list.single.color, HighlightColor.green);
+      expect(list.single.note, 'an old-style note');
+    });
+
+    test('changing and removing a highlight reaches the other device',
+        () async {
+      final h = await highlightsA.createHighlight(
+        bookId: 43,
+        chapter: 3,
+        verseStart: 16,
+        verseEnd: 16,
+        color: HighlightColor.yellow,
+      );
+      await syncBoth();
+
+      await highlightsA
+          .updateHighlight(h.copyWithUpdate(color: HighlightColor.pink));
+      await syncBoth();
+      var list =
+          await highlightsB.getHighlightsForChapter(bookId: 43, chapter: 3);
+      expect(list.single.color, HighlightColor.pink);
+
+      await highlightsA.deleteHighlight(h.id);
+      await syncBoth();
+      list = await highlightsB.getHighlightsForChapter(bookId: 43, chapter: 3);
+      expect(list, isEmpty, reason: 'removed there, so removed here');
+    });
+
+    test('a highlight delete whose payload says deleted:0 still deletes',
+        () async {
+      // Builds before this one wrote `deleted: 0` into a highlight's DELETE
+      // operation, and those operations are still in the log.
+      final h = await highlightsA.createHighlight(
+        bookId: 43,
+        chapter: 3,
+        verseStart: 16,
+        verseEnd: 16,
+        color: HighlightColor.blue,
+      );
+      await syncBoth();
+      expect(
+          await highlightsB.getHighlightsForChapter(bookId: 43, chapter: 3),
+          hasLength(1));
+
+      final now = DateTime.now().millisecondsSinceEpoch + 10;
+      api.addRemoteOperation(
+        OplogEntry(
+          opId: 'old-delete-1',
+          entityType: OplogEntityType.bibleHighlight,
+          entityId: h.id,
+          operation: OplogOperation.delete,
+          payload: {
+            'id': h.id,
+            'userId': _userId,
+            'bookId': 43,
+            'chapter': 3,
+            'verseStart': 16,
+            'verseEnd': 16,
+            'color': 'blue',
+            'note': '',
+            'version': 2,
+            'deleted': 0, // what the old build wrote
+            'createdAt': h.createdAt,
+            'updatedAt': now,
+          },
+          timestamp: now,
+          deviceId: _deviceA,
+          entityVersion: 2,
+        ),
+        serverTimestamp: 9000,
+      );
+
+      expect((await engineB.syncNow()).success, isTrue);
+
+      expect(
+          await highlightsB.getHighlightsForChapter(bookId: 43, chapter: 3),
+          isEmpty);
     });
   });
 

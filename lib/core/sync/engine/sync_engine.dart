@@ -969,8 +969,11 @@ class SyncEngine {
         case OplogEntityType.bibleReferenceHistory:
           hadConflict = await _applyBibleReferenceHistoryOperation(remoteOp);
           break;
-        // Flutter-only pending Worker support — no remote sync handler yet
         case OplogEntityType.bibleHighlight:
+          hadConflict = await _applyBibleHighlightOperation(remoteOp);
+          break;
+        case OplogEntityType.bibleVerseNote:
+          hadConflict = await _applyBibleVerseNoteOperation(remoteOp);
           break;
         case OplogEntityType.habitLog:
           hadConflict = await _applyHabitLogOperation(remoteOp);
@@ -2765,6 +2768,111 @@ class SyncEngine {
             updatedAt: Value(remoteOp.payload['updatedAt'] as int),
             version: Value(remoteOp.payload['version'] as int),
             deleted: Value(_asIntFlag(remoteOp.payload['deleted'])),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Whether a remote operation leaves the row deleted.
+  ///
+  /// The operation type decides, not the payload's `deleted` flag: builds
+  /// before this one wrote `deleted: 0` into the payload of a highlight's DELETE
+  /// operation, and those operations are still in the log. Trusting the flag
+  /// would bring the highlight back on the device applying them.
+  int _remoteDeletedFlag(OplogEntry remoteOp) =>
+      remoteOp.operation == OplogOperation.delete
+          ? 1
+          : _asIntFlag(remoteOp.payload['deleted']);
+
+  Future<bool> _applyBibleHighlightOperation(OplogEntry remoteOp) async {
+    final local = await (_db.select(
+      _db.bibleHighlights,
+    )..where((h) => h.id.equals(remoteOp.entityId))).getSingleOrNull();
+    return _applyGeneric(
+      localVersion: local?.version,
+      localUpdatedAt: local?.updatedAt,
+      localIsDeleted: local != null && local.deleted == 1,
+      remoteOp: remoteOp,
+      onInsert: () async {
+        await _db
+            .into(_db.bibleHighlights)
+            .insert(
+              BibleHighlightsCompanion(
+                id: Value(remoteOp.payload['id'] as String),
+                userId: Value(remoteOp.payload['userId'] as String),
+                bookId: Value(remoteOp.payload['bookId'] as int),
+                chapter: Value(remoteOp.payload['chapter'] as int),
+                verseStart: Value(remoteOp.payload['verseStart'] as int),
+                verseEnd: Value(remoteOp.payload['verseEnd'] as int),
+                color: Value(remoteOp.payload['color'] as String),
+                note: Value(remoteOp.payload['note'] as String? ?? ''),
+                version: Value(remoteOp.payload['version'] as int),
+                deleted: Value(_remoteDeletedFlag(remoteOp)),
+                createdAt: Value(remoteOp.payload['createdAt'] as int),
+                updatedAt: Value(remoteOp.payload['updatedAt'] as int),
+              ),
+              mode: InsertMode.insertOrReplace,
+            );
+      },
+      onUpdate: () async {
+        await (_db.update(
+          _db.bibleHighlights,
+        )..where((h) => h.id.equals(remoteOp.entityId))).write(
+          BibleHighlightsCompanion(
+            color: Value(remoteOp.payload['color'] as String),
+            note: Value(remoteOp.payload['note'] as String? ?? ''),
+            verseStart: Value(remoteOp.payload['verseStart'] as int),
+            verseEnd: Value(remoteOp.payload['verseEnd'] as int),
+            version: Value(remoteOp.payload['version'] as int),
+            deleted: Value(_remoteDeletedFlag(remoteOp)),
+            updatedAt: Value(remoteOp.payload['updatedAt'] as int),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<bool> _applyBibleVerseNoteOperation(OplogEntry remoteOp) async {
+    final local = await (_db.select(
+      _db.bibleVerseNotes,
+    )..where((n) => n.id.equals(remoteOp.entityId))).getSingleOrNull();
+    return _applyGeneric(
+      localVersion: local?.version,
+      localUpdatedAt: local?.updatedAt,
+      localIsDeleted: local != null && local.deleted == 1,
+      remoteOp: remoteOp,
+      onInsert: () async {
+        await _db
+            .into(_db.bibleVerseNotes)
+            .insert(
+              BibleVerseNotesCompanion(
+                id: Value(remoteOp.payload['id'] as String),
+                userId: Value(remoteOp.payload['userId'] as String),
+                bookId: Value(remoteOp.payload['bookId'] as int),
+                chapter: Value(remoteOp.payload['chapter'] as int),
+                verseStart: Value(remoteOp.payload['verseStart'] as int),
+                verseEnd: Value(remoteOp.payload['verseEnd'] as int),
+                content: Value(remoteOp.payload['content'] as String),
+                version: Value(remoteOp.payload['version'] as int),
+                deleted: Value(_remoteDeletedFlag(remoteOp)),
+                createdAt: Value(remoteOp.payload['createdAt'] as int),
+                updatedAt: Value(remoteOp.payload['updatedAt'] as int),
+              ),
+              mode: InsertMode.insertOrReplace,
+            );
+      },
+      onUpdate: () async {
+        await (_db.update(
+          _db.bibleVerseNotes,
+        )..where((n) => n.id.equals(remoteOp.entityId))).write(
+          BibleVerseNotesCompanion(
+            content: Value(remoteOp.payload['content'] as String),
+            verseStart: Value(remoteOp.payload['verseStart'] as int),
+            verseEnd: Value(remoteOp.payload['verseEnd'] as int),
+            version: Value(remoteOp.payload['version'] as int),
+            deleted: Value(_remoteDeletedFlag(remoteOp)),
+            updatedAt: Value(remoteOp.payload['updatedAt'] as int),
           ),
         );
       },

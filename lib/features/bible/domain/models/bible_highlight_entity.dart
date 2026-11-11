@@ -48,6 +48,11 @@ class BibleHighlightEntity extends Equatable implements SyncEntity {
   @override
   final int updatedAt;
 
+  /// Set only on the copy a DELETE operation is built from, so its payload
+  /// says `deleted: 1` and another device removes the row instead of
+  /// treating the operation as an update.
+  final bool deleted;
+
   const BibleHighlightEntity({
     required this.id,
     this.userId = '',
@@ -60,12 +65,13 @@ class BibleHighlightEntity extends Equatable implements SyncEntity {
     this.version = 1,
     required this.createdAt,
     required this.updatedAt,
+    this.deleted = false,
   });
 
   // ── SyncEntity ────────────────────────────────────────────────────────────
 
   @override
-  bool get isDeleted => false;
+  bool get isDeleted => deleted;
 
   @override
   int? get trashedAt => null;
@@ -81,7 +87,7 @@ class BibleHighlightEntity extends Equatable implements SyncEntity {
         'color': color.name,
         'note': note,
         'version': version,
-        'deleted': 0,
+        'deleted': deleted ? 1 : 0,
         'createdAt': createdAt,
         'updatedAt': updatedAt,
       };
@@ -107,6 +113,7 @@ class BibleHighlightEntity extends Equatable implements SyncEntity {
     int? version,
     int? createdAt,
     int? updatedAt,
+    bool? deleted,
   }) {
     return BibleHighlightEntity(
       id: id ?? this.id,
@@ -120,6 +127,7 @@ class BibleHighlightEntity extends Equatable implements SyncEntity {
       version: version ?? this.version,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      deleted: deleted ?? this.deleted,
     );
   }
 
@@ -138,5 +146,5 @@ class BibleHighlightEntity extends Equatable implements SyncEntity {
 
   @override
   List<Object?> get props =>
-      [id, userId, bookId, chapter, verseStart, verseEnd, color, note, version];
+      [id, userId, bookId, chapter, verseStart, verseEnd, color, note, version, deleted];
 }

@@ -25,8 +25,8 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
   static const _bibleGreen = AppTheme.teal;
 
   static const _chipColors = [
-    Color(0xFF6366F1), Color(0xFF10B981), Color(0xFFF59E0B), Color(0xFFEF4444),
-    Color(0xFF8B5CF6), Color(0xFF06B6D4), Color(0xFFF97316), Color(0xFF84CC16),
+    AppTheme.brandBlue, AppTheme.emerald, AppTheme.amber, AppTheme.coral,
+    AppTheme.brandPurple, AppTheme.teal, AppTheme.orange, AppTheme.bibleGreen,
   ];
 
   static const _bookAbbreviations = {
@@ -71,7 +71,7 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
     final theme = parentTheme.copyWith(
       colorScheme: parentTheme.colorScheme.copyWith(
         primary: _bibleGreen,
-        onPrimary: Colors.white,
+        onPrimary: AppTheme.onAccent(_bibleGreen),
         secondaryContainer: AppTheme.bibleSurfaceFor(parentTheme.brightness),
         onSecondaryContainer: AppTheme.bibleInkFor(parentTheme.brightness),
       ),
@@ -327,7 +327,7 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
               labelStyle: TextStyle(
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? color.withValues(alpha: 0.9) : color.withValues(alpha: 0.7),
+                color: AppTheme.accentOnTintFor(color, Theme.of(context).brightness),
               ),
               backgroundColor: color.withValues(alpha: 0.08),
               selectedColor: color.withValues(alpha: 0.38),
