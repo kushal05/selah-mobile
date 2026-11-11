@@ -6,6 +6,8 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../shared/widgets/filter_pill.dart';
+import '../../../../shared/widgets/tags/tag_picker_dialog.dart';
+import '../../../../shared/widgets/tags/tag_picker_field.dart';
 
 /// What song search is narrowed by. Immutable, so the screen and the dialog
 /// can never be looking at two different versions of it.
@@ -315,14 +317,19 @@ class _SongFilterDialogState extends State<SongFilterDialog> {
           label: t.tags,
           empty: widget.tags.isEmpty ? t.noTagsAvailable : null,
           children: [
-            for (final tag in widget.tags)
-              _pill(
-                label: tag.name,
-                selected: _tagIds.contains(tag.id),
-                onTap: () => setState(() {
-                  if (!_tagIds.remove(tag.id)) _tagIds.add(tag.id);
-                }),
-              ),
+            // A few lines of tags, the rest behind "Show more tags". Only
+            // existing tags can be chosen here, so no "Add tag".
+            TagPickerField(
+              options: [for (final t in widget.tags) TagOption(t.id, t.name)],
+              selected: _tagIds,
+              accent: AppTheme.orange,
+              showDelete: false,
+              onChanged: (picked) => setState(() {
+                _tagIds
+                  ..clear()
+                  ..addAll(picked);
+              }),
+            ),
           ],
         ),
       // Singular, to match the button that opened it — as Key, Tags and

@@ -1,3 +1,5 @@
+import '../../../../../shared/widgets/tags/tag_picker_dialog.dart';
+import '../../../../../shared/widgets/tags/tag_picker_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../core/sync/providers/sync_providers.dart';
@@ -433,26 +435,23 @@ class _TagSelector extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Existing tags
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final tag in tags)
-                  SelectableChip(
-                    label: tag.name,
-                    isSelected: selectedTagIds.contains(tag.id),
-                    onTap: () {
-                      final newTagIds = List<String>.from(selectedTagIds);
-                      if (selectedTagIds.contains(tag.id)) {
-                        newTagIds.remove(tag.id);
-                      } else {
-                        newTagIds.add(tag.id);
-                      }
-                      ref.read(noteEditorProvider(noteId).notifier).setTags(newTagIds);
-                    },
-                  ),
-              ],
+            // Existing tags: a few lines, the rest behind "Show more tags".
+            TagPickerField(
+              options: [for (final t in tags) TagOption(t.id, t.name)],
+              selected: selectedTagIds.toSet(),
+              showDelete: false,
+              onCreate: (name) async {
+                final tag = await ref
+                    .read(tagRepositoryProvider)
+                    .getOrCreateTag(name, ref.read(currentUserIdProvider));
+                return TagOption(tag.id, tag.name);
+              },
+              onChanged: (picked) => ref
+                  .read(noteEditorProvider(noteId).notifier)
+                  .setTags([
+                ...selectedTagIds.where(picked.contains),
+                ...picked.where((id) => !selectedTagIds.contains(id)),
+              ]),
             ),
 
             const SizedBox(height: 12),

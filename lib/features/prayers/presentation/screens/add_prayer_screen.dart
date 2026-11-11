@@ -1,3 +1,5 @@
+import '../../../../shared/widgets/tags/tag_picker_dialog.dart';
+import '../../../../shared/widgets/tags/tag_picker_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -455,13 +457,13 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
                   setState(() => _recurrence = null);
                 }
               },
-              selectedColor: Colors.grey.shade200,
+              selectedColor: context.subtleFill,
               backgroundColor: Colors.transparent,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
                 side: BorderSide(
                   color: _recurrence == null
-                      ? Colors.grey.shade500.withValues(alpha: 0.25)
+                      ? context.hairline
                       : Theme.of(context).primaryColor.withValues(alpha: 0.15),
                   width: 1.0,
                 ),
@@ -593,20 +595,14 @@ class _AddPrayerScreenState extends ConsumerState<AddPrayerScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            ..._tags.map((tag) => SelectableChip(
-                  label: tag,
-                  isSelected: true,
-                  onTap: () {
-                    FocusScope.of(context).unfocus();
-                    setState(() => _tags.remove(tag));
-                  },
-                  showDelete: true,
-                )),
-          ],
+        TagPickerField(
+          options: [for (final tag in _tags) TagOption(tag, tag)],
+          selected: _tags.toSet(),
+          onCreate: (name) async => TagOption(name, name),
+          onChanged: (picked) => setState(() {
+            _tags.removeWhere((tag) => !picked.contains(tag));
+            _tags.addAll(picked.where((tag) => !_tags.contains(tag)));
+          }),
         ),
         const SizedBox(height: 12),
         if (_isAddingTag)

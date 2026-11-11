@@ -8,12 +8,13 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../bible/presentation/providers/bible_providers.dart';
 import '../../../bible/domain/models/bible_books.dart';
 import '../../../notes/presentation/widgets/editor/bible_reference_picker.dart';
+import '../../../../shared/widgets/tags/tag_picker_dialog.dart';
+import '../../../../shared/widgets/tags/tag_picker_field.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
 import '../../domain/models/promise_conditions_codec.dart';
 import '../../../../core/services/user_facing_error.dart';
 import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
-import '../../../../shared/widgets/selectable_chip.dart';
 
 /// Screen for adding or editing a promise
 /// Provides form fields for verse reference, promise text, notes, tags, and conditions
@@ -205,7 +206,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
                       fontWeight:
                           hasReference ? FontWeight.w500 : FontWeight.normal,
                       color: hasReference
-                          ? Colors.black87
+                          ? context.primaryText
                           : context.hintText,
                     ),
                   ),
@@ -413,30 +414,22 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
         allTagsAsync.when(
           loading: () => const SizedBox.shrink(),
           error: (_, _) => const SizedBox.shrink(),
-          data: (allTags) {
-            return Wrap(
-              spacing: AppTheme.spacing8,
-              runSpacing: AppTheme.spacing8,
-              children: allTags.map((tag) {
-                final isSelected = _tagIds.contains(tag.id);
-                return SelectableChip(
-                  label: tag.name,
-                  isSelected: isSelected,
-                  onTap: () {
-                    FocusScope.of(context).unfocus();
-                    setState(() {
-                      if (isSelected) {
-                        _tagIds.remove(tag.id);
-                      } else {
-                        _tagIds.add(tag.id);
-                      }
-                    });
-                  },
-                  showDelete: isSelected,
-                );
-              }).toList(),
-            );
-          },
+          data: (allTags) => TagPickerField(
+            options: [for (final t in allTags) TagOption(t.id, t.name)],
+            selected: _tagIds.toSet(),
+            onCreate: (name) async {
+              final tag =
+                  await ref.read(tagRepositoryProvider).getOrCreateTag(name, userId);
+              return TagOption(tag.id, tag.name);
+            },
+            onChanged: (picked) => setState(() {
+              // Keep the order the tags were picked in; new ones go on the end.
+              _tagIds = [
+                ..._tagIds.where(picked.contains),
+                ...picked.where((id) => !_tagIds.contains(id)),
+              ];
+            }),
+          ),
         ),
         const SizedBox(height: AppTheme.spacing12),
         if (_isAddingTag)
@@ -554,7 +547,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
 
     Color statusColor;
     if (isMet) {
-      statusColor = Colors.green;
+      statusColor = AppTheme.success;
     } else if (isActive) {
       statusColor = AppTheme.rosePink;
     } else {
@@ -576,7 +569,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
             children: [
               Icon(
                 isMet ? Icons.check_circle : Icons.radio_button_unchecked,
-                color: statusColor,
+                color: context.accentInk(statusColor),
                 size: AppTheme.iconBase,
               ),
               const SizedBox(width: AppTheme.spacing12),
@@ -598,7 +591,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: statusColor,
+                    color: context.accentInk(statusColor),
                   ),
                 ),
               ),
@@ -721,7 +714,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
                 labelStyle: TextStyle(
                   fontSize: 13,
                   color: isSelected
-                      ? _getConditionStatusColor(status)
+                      ? context.accentInk(_getConditionStatusColor(status))
                       : context.primaryText,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
@@ -759,7 +752,7 @@ class _AddPromiseScreenState extends ConsumerState<AddPromiseScreen> {
   Color _getConditionStatusColor(String status) {
     switch (status.toUpperCase()) {
       case 'MET':
-        return Colors.green;
+        return AppTheme.success;
       case 'ACTIVE':
         return AppTheme.rosePink;
       case 'NOT_MET':

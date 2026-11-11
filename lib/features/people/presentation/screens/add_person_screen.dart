@@ -1,3 +1,5 @@
+import '../../../../shared/widgets/tags/tag_picker_dialog.dart';
+import '../../../../shared/widgets/tags/tag_picker_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,7 +10,6 @@ import '../../../../core/services/user_facing_error.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_colors.dart';
 import '../../../../l10n/l10n.dart';
-import '../../../../shared/widgets/selectable_chip.dart';
 
 /// Screen for adding or editing a person
 /// Provides form fields for name, relation, church, notes, and tags
@@ -335,20 +336,14 @@ class _AddPersonScreenState extends ConsumerState<AddPersonScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            ..._tags.map((tag) => SelectableChip(
-                  label: tag,
-                  isSelected: true,
-                  onTap: () {
-                    FocusScope.of(context).unfocus();
-                    setState(() => _tags.remove(tag));
-                  },
-                  showDelete: true,
-                )),
-          ],
+        TagPickerField(
+          options: [for (final tag in _tags) TagOption(tag, tag)],
+          selected: _tags.toSet(),
+          onCreate: (name) async => TagOption(name, name),
+          onChanged: (picked) => setState(() {
+            _tags.removeWhere((tag) => !picked.contains(tag));
+            _tags.addAll(picked.where((tag) => !_tags.contains(tag)));
+          }),
         ),
         const SizedBox(height: 12),
         if (_isAddingTag)
