@@ -109,10 +109,7 @@ class EmptyState extends StatelessWidget {
                   label: Text(actionLabel!),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: color,
-                    foregroundColor:
-                        Theme.of(context).brightness == Brightness.dark
-                            ? AppTheme.darkScaffold
-                            : Colors.white,
+                    foregroundColor: AppTheme.onAccent(color),
                     textStyle: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,

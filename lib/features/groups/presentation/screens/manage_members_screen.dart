@@ -89,12 +89,12 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
                     ),
                   ),
                   child: _isAdding
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 16,
                           width: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: AppTheme.onAccent(AppTheme.teal),
                           ),
                         )
                       : Text(l10n(context).add),
@@ -162,11 +162,11 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
           children: [
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
               decoration: BoxDecoration(
-                color: Colors.orange.shade50,
+                color: AppTheme.orange.withValues(alpha: AppTheme.alphaLightMed),
                 border: Border(
-                  bottom: BorderSide(color: Colors.orange.shade200),
+                  bottom: BorderSide(color: context.warningText.withValues(alpha: AppTheme.alphaStrong)),
                 ),
               ),
               child: Row(
@@ -511,7 +511,7 @@ class _RoleBadge extends StatelessWidget {
       case GroupMemberRole.moderator:
         color = AppTheme.teal;
       case GroupMemberRole.member:
-        color = Colors.grey;
+        color = AppTheme.mutedGrey;
     }
 
     return Container(
@@ -525,7 +525,7 @@ class _RoleBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: color,
+          color: context.accentInk(color),
         ),
       ),
     );

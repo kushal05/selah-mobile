@@ -545,10 +545,10 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
         children: [
           Text(
             displayName,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: Colors.white,
+              color: AppTheme.onAccent(AppTheme.orange),
             ),
           ),
           const SizedBox(width: 4),
@@ -564,7 +564,7 @@ class _AddSongScreenState extends ConsumerState<AddSongScreen>
                 });
               },
               child: Icon(Icons.close,
-                  size: 16, color: Colors.white.withValues(alpha: 0.8)),
+                  size: 16, color: AppTheme.onAccent(AppTheme.orange)),
             ),
           ),
         ],

@@ -172,8 +172,8 @@ class FriendsListScreen extends ConsumerWidget {
               right: -4,
               child: Container(
                 padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: Colors.red,
+                decoration: BoxDecoration(
+                  color: AppTheme.errorSurface,
                   shape: BoxShape.circle,
                 ),
                 child: Text(

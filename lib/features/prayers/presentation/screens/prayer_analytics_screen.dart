@@ -197,12 +197,15 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lightBg = Color.lerp(color, Colors.white, 0.93)!;
+    // A faint wash of the hue over the card surface: pale in the light theme,
+    // dark in the dark one (it was white in both). The ink is tuned per theme.
+    final fill = Color.lerp(color, context.cardSurface, 0.9)!;
+    final ink = context.accentInk(color);
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: lightBg,
+        color: fill,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -218,7 +221,7 @@ class _StatCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 18, color: color.withValues(alpha: 0.7)),
+              Icon(icon, size: 18, color: ink),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -226,7 +229,7 @@ class _StatCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: color.withValues(alpha: 0.7),
+                    color: ink,
                   ),
                 ),
               ),
@@ -237,7 +240,7 @@ class _StatCard extends StatelessWidget {
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
-              color: color,
+              color: ink,
             ),
           ),
         ],

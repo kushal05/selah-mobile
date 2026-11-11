@@ -133,12 +133,12 @@ class _CreateFeedbackScreenState extends ConsumerState<CreateFeedbackScreen> {
               child: FilledButton(
                 onPressed: _submitting ? null : _handleSubmit,
                 child: _submitting
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.onPrimary,
                         ),
                       )
                     : Text(l10n(context).submitFeedback),

@@ -260,7 +260,7 @@ class SyncStatusScreen extends ConsumerWidget {
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -295,35 +295,47 @@ class SyncStatusScreen extends ConsumerWidget {
     final (icon, color, label) = switch (progress.state) {
       SyncEngineState.idle when progress.hasPendingOps => (
         Icons.pending_outlined,
-        Colors.orange,
+        context.warningText,
         'Pending',
       ),
-      SyncEngineState.idle => (Icons.cloud_done, Colors.green, 'Synced'),
+      SyncEngineState.idle => (
+        Icons.cloud_done,
+        context.successText,
+        'Synced',
+      ),
       SyncEngineState.pushing => (
         Icons.cloud_upload,
-        Colors.blue,
+        context.infoText,
         'Pushing changes...',
       ),
       SyncEngineState.pulling => (
         Icons.cloud_download,
-        Colors.blue,
+        context.infoText,
         'Pulling changes...',
       ),
       SyncEngineState.applying => (
         Icons.sync,
-        Colors.blue,
+        context.infoText,
         'Applying changes...',
       ),
-      SyncEngineState.error => (Icons.cloud_off, Colors.red, 'Sync error'),
-      SyncEngineState.offline => (Icons.cloud_off, Colors.grey, 'Offline'),
+      SyncEngineState.error => (
+        Icons.cloud_off,
+        context.dangerText,
+        'Sync error',
+      ),
+      SyncEngineState.offline => (
+        Icons.cloud_off,
+        context.mutedText,
+        'Offline',
+      ),
       SyncEngineState.paused => (
         Icons.pause_circle_outline,
-        Colors.orange,
+        context.warningText,
         'Paused',
       ),
       SyncEngineState.degraded => (
         Icons.warning_amber,
-        Colors.deepOrange,
+        context.warningText,
         'Sync degraded',
       ),
     };
@@ -636,22 +648,22 @@ class SyncStatusScreen extends ConsumerWidget {
       trailing = switch (progress.state) {
         SyncEngineState.error => _buildStatusBadge(
           Icons.error_outline,
-          Colors.red.shade400,
+          context.dangerText,
           'Error',
         ),
         SyncEngineState.degraded => _buildStatusBadge(
           Icons.warning_amber,
-          Colors.deepOrange.shade400,
+          context.warningText,
           'Degraded',
         ),
         SyncEngineState.paused => _buildStatusBadge(
           Icons.pause_circle_outline,
-          Colors.orange.shade600,
+          context.warningText,
           'Paused',
         ),
         _ => _buildStatusBadge(
           Icons.check_circle_outline,
-          Colors.green.shade600,
+          context.successText,
           'Synced',
         ),
       };
@@ -792,9 +804,9 @@ class _DegradedBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.deepOrange.withValues(alpha: 0.08),
+        color: context.warningText.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.deepOrange.withValues(alpha: 0.4)),
+        border: Border.all(color: context.warningText.withValues(alpha: 0.4)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

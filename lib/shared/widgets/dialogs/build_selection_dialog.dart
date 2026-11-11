@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/services/app_update_service.dart';
+import '../../../core/theme/theme_colors.dart';
 import '../../../l10n/l10n.dart';
 import '../../utils/date_format.dart';
 
@@ -52,7 +53,7 @@ class BuildSelectionDialog extends StatelessWidget {
               padding: EdgeInsets.symmetric(horizontal: 24),
               child: Text(
                 l10n(context).selectABuildToDownloadAndInstall,
-                style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
+                style: TextStyle(fontSize: 14, color: context.mutedText),
               ),
             ),
             const SizedBox(height: 8),
@@ -106,9 +107,9 @@ class _BuildTile extends StatelessWidget {
 
     return ListTile(
       onTap: onTap,
-      leading: const Icon(
+      leading: Icon(
         Icons.android_outlined,
-        color: Color(0xFF6B7280),
+        color: context.mutedText,
       ),
       title: Row(
         children: [
@@ -147,9 +148,9 @@ class _BuildTile extends StatelessWidget {
               subtitleParts.join(' · '),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+              style: TextStyle(fontSize: 13, color: context.mutedText),
             ),
-      trailing: const Icon(Icons.download, size: 18, color: Color(0xFF6B7280)),
+      trailing: Icon(Icons.download, size: 18, color: context.mutedText),
     );
   }
 

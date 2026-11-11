@@ -173,22 +173,22 @@ class _UpdateDialogState extends State<UpdateDialog> {
               result.isForced
                   ? 'This version is no longer supported. Please update to continue.'
                   : 'Version ${result.latestVersion} is available.',
-              style: const TextStyle(fontSize: 16, color: Color(0xFF6B7280)),
+              style: TextStyle(fontSize: 16, color: context.mutedText),
             ),
             if (result.releaseNotes.isNotEmpty) ...[
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 "What's new:",
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF111827),
+                  color: context.primaryText,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 result.releaseNotes,
-                style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
+                style: TextStyle(fontSize: 14, color: context.mutedText),
               ),
             ],
             if (_needsPermission) ...[
@@ -231,12 +231,12 @@ class _PermissionPrompt extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(Icons.info_outline, size: 16, color: Color(0xFFF59E0B)),
+        Icon(Icons.info_outline, size: 16, color: context.warningText),
         SizedBox(width: 8),
         Expanded(
           child: Text(
             l10n(context).enableInstallUnknownAppsForSelahOnTheSetting,
-            style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+            style: TextStyle(fontSize: 13, color: context.mutedText),
           ),
         ),
       ],
@@ -369,7 +369,7 @@ class _DownloadProgressBar extends StatelessWidget {
       children: [
         LinearProgressIndicator(value: pct),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+        Text(label, style: TextStyle(fontSize: 12, color: context.mutedText)),
       ],
     );
   }

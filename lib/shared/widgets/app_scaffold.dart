@@ -257,7 +257,7 @@ class _PremiumNavBar extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(
           top: BorderSide(
-            color: Colors.black.withValues(alpha: AppTheme.alphaSubtle),
+            color: baseTheme.colorScheme.outlineVariant,
             width: 0.5,
           ),
         ),

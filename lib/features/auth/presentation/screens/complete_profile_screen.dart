@@ -337,7 +337,7 @@ class _CompleteProfileScreenState
                                 style: TextStyle(
                                   fontSize: 13,
                                   color:
-                                      Colors.white.withValues(alpha: 0.45),
+                                      Colors.white.withValues(alpha: AppTheme.alphaText),
                                 ),
                               ),
                             ),

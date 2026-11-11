@@ -32,15 +32,18 @@ class SyncStatusIcon extends ConsumerWidget {
 
   Widget _buildIconFromState(BuildContext context, SyncEngineState state) {
     final (icon, color) = switch (state) {
-      SyncEngineState.idle => (Icons.cloud_done_outlined, Colors.green),
+      SyncEngineState.idle =>
+        (Icons.cloud_done_outlined, context.successText),
       SyncEngineState.pushing ||
       SyncEngineState.pulling ||
-      SyncEngineState.applying => (Icons.sync, Colors.blue),
-      SyncEngineState.error => (Icons.cloud_off, Colors.red),
-      SyncEngineState.offline => (Icons.cloud_off_outlined, Colors.grey),
-      SyncEngineState.paused => (Icons.pause_circle_outline, Colors.orange),
+      SyncEngineState.applying => (Icons.sync, context.infoText),
+      SyncEngineState.error => (Icons.cloud_off, context.dangerText),
+      SyncEngineState.offline =>
+        (Icons.cloud_off_outlined, context.mutedText),
+      SyncEngineState.paused =>
+        (Icons.pause_circle_outline, context.warningText),
       SyncEngineState.degraded =>
-        (Icons.warning_amber, Colors.deepOrange),
+        (Icons.warning_amber, context.warningText),
     };
 
     final isSyncing = state == SyncEngineState.pushing ||

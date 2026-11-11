@@ -396,7 +396,7 @@ class _RoleBadge extends StatelessWidget {
       case CollaboratorRole.collaborator:
         color = AppTheme.teal;
       case CollaboratorRole.viewer:
-        color = Colors.grey;
+        color = AppTheme.mutedGrey;
     }
 
     return Container(
@@ -410,7 +410,7 @@ class _RoleBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: color,
+          color: context.accentInk(color),
         ),
       ),
     );

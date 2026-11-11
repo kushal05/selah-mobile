@@ -327,9 +327,9 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
                   child: Container(
                     width: 5,
                     height: 5,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.black87,
+                      color: context.primaryText,
                     ),
                   ),
                 ),

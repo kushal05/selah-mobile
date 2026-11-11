@@ -1135,7 +1135,7 @@ class _SilentUpdateDialogState extends State<_SilentUpdateDialog> {
                 fontSize: 14,
                 color: _error != null
                     ? context.dangerText
-                    : const Color(0xFF6B7280),
+                    : context.mutedText,
               ),
             ),
           ],

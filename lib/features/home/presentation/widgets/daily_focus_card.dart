@@ -146,7 +146,10 @@ class DailyFocusCard extends ConsumerWidget {
           subtitle: l10n(context).aVerseYouSaved,
           actionLabel: l10n(context).openPromise,
           onPressed: () => context.push('/promises/${promise.id}'),
-          gradient: const [AppTheme.brandPurple, AppTheme.rosePink],
+          gradient: [
+            AppTheme.accentSurface(AppTheme.brandPurple),
+            AppTheme.accentSurface(AppTheme.rosePink),
+          ],
         ),
       );
     } else {
@@ -157,7 +160,10 @@ class DailyFocusCard extends ConsumerWidget {
           subtitle: l10n(context).saveAVerseThatStaysWithYou,
           actionLabel: l10n(context).addPromise,
           onPressed: () => context.push(Routes.promiseNew),
-          gradient: const [AppTheme.brandPurple, AppTheme.rosePink],
+          gradient: [
+            AppTheme.accentSurface(AppTheme.brandPurple),
+            AppTheme.accentSurface(AppTheme.rosePink),
+          ],
         ),
       );
     }
@@ -180,7 +186,10 @@ class DailyFocusCard extends ConsumerWidget {
               '&translation=${last.translation}',
             );
           },
-          gradient: const [AppTheme.emerald, AppTheme.teal],
+          gradient: [
+            AppTheme.accentSurface(AppTheme.emerald),
+            AppTheme.accentSurface(AppTheme.teal),
+          ],
         ),
       );
     } else {
@@ -191,7 +200,10 @@ class DailyFocusCard extends ConsumerWidget {
           subtitle: l10n(context).openTheBibleAndPickABook,
           actionLabel: l10n(context).openBible,
           onPressed: () => context.push(Routes.bible),
-          gradient: const [AppTheme.emerald, AppTheme.teal],
+          gradient: [
+            AppTheme.accentSurface(AppTheme.emerald),
+            AppTheme.accentSurface(AppTheme.teal),
+          ],
         ),
       );
     }
@@ -516,7 +528,7 @@ class _FocusCarouselState extends State<_FocusCarousel> {
                   // exist, and the same words are read normally elsewhere.
                   slide.eyebrow.toUpperCase(),
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
+                    color: Colors.white.withValues(alpha: AppTheme.alphaTextStrong),
                     fontSize: AppTheme.tiny.fontSize,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.5,
@@ -552,7 +564,7 @@ class _FocusCarouselState extends State<_FocusCarousel> {
                   Text(
                     slide.subtitle,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: AppTheme.alphaText),
+                      color: Colors.white.withValues(alpha: AppTheme.alphaTextStrong),
                       fontSize: AppTheme.bodySmallStyle.fontSize,
                     ),
                   ),

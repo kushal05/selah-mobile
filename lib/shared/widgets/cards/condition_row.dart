@@ -1,3 +1,4 @@
+import '../../../core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/theme_colors.dart';
 
@@ -19,11 +20,11 @@ class ConditionRow extends StatelessWidget {
 
     Color statusColor;
     if (isMet) {
-      statusColor = Colors.green;
+      statusColor = AppTheme.success;
     } else if (isActive) {
       statusColor = Theme.of(context).colorScheme.primary;
     } else {
-      statusColor = Colors.grey;
+      statusColor = AppTheme.mutedGrey;
     }
 
     return Container(
@@ -38,7 +39,7 @@ class ConditionRow extends StatelessWidget {
         children: [
           Icon(
             isMet ? Icons.check_circle : Icons.radio_button_unchecked,
-            color: statusColor,
+            color: context.accentInk(statusColor),
             size: 20,
           ),
           const SizedBox(width: 12),
@@ -61,7 +62,7 @@ class ConditionRow extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: statusColor,
+                color: context.accentInk(statusColor),
               ),
             ),
           ),

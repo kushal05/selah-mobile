@@ -163,7 +163,8 @@ class _MoveToFolderSheetState extends ConsumerState<MoveToFolderSheet> {
                       child: FilledButton(
                         onPressed: _hasSelection ? _confirmMove : null,
                         style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.brandPurple,
+                          backgroundColor: AppTheme.accentSurface(AppTheme.brandPurple),
+                          foregroundColor: AppTheme.onAccent(AppTheme.accentSurface(AppTheme.brandPurple)),
                         ),
                         child: Text(l10n(context).moveHere),
                       ),

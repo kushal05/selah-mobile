@@ -1,3 +1,4 @@
+import '../../../../core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -100,7 +101,7 @@ class _FeedbackThreadTile extends StatelessWidget {
             backgroundColor: _categoryColor(category).withValues(alpha: 0.15),
             child: Icon(
               _categoryIcon(category),
-              color: _categoryColor(category),
+              color: context.accentInk(_categoryColor(category)),
               size: 20,
             ),
           ),
@@ -159,19 +160,19 @@ class _FeedbackThreadTile extends StatelessWidget {
   Color _categoryColor(FeedbackCategory category) {
     switch (category) {
       case FeedbackCategory.bug:
-        return Colors.red;
+        return AppTheme.error;
       case FeedbackCategory.featureRequest:
-        return Colors.blue;
+        return AppTheme.brandBlue;
       case FeedbackCategory.uiIssue:
-        return Colors.orange;
+        return AppTheme.orange;
       case FeedbackCategory.performance:
-        return Colors.purple;
+        return AppTheme.brandPurple;
       case FeedbackCategory.account:
-        return Colors.teal;
+        return AppTheme.teal;
       case FeedbackCategory.content:
-        return Colors.green;
+        return AppTheme.emerald;
       case FeedbackCategory.other:
-        return Colors.grey;
+        return AppTheme.mutedGrey;
     }
   }
 
@@ -225,7 +226,7 @@ class _StatusBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: _statusColor,
+          color: context.accentInk(_statusColor),
         ),
       ),
     );
@@ -234,15 +235,15 @@ class _StatusBadge extends StatelessWidget {
   Color get _statusColor {
     switch (status) {
       case FeedbackStatus.open:
-        return Colors.blue;
+        return AppTheme.info;
       case FeedbackStatus.inProgress:
-        return Colors.orange;
+        return AppTheme.orange;
       case FeedbackStatus.waitingForUser:
-        return Colors.amber.shade800;
+        return AppTheme.amber;
       case FeedbackStatus.resolved:
-        return Colors.green;
+        return AppTheme.success;
       case FeedbackStatus.closed:
-        return Colors.grey;
+        return AppTheme.mutedGrey;
     }
   }
 }

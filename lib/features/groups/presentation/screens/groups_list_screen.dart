@@ -30,7 +30,7 @@ class GroupsListScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push(Routes.createGroup),
         backgroundColor: AppTheme.teal,
-        child: const Icon(Icons.add, color: Colors.white),
+        child: Icon(Icons.add, color: AppTheme.onAccent(AppTheme.teal)),
       ),
       body: groupsAsync.when(
         loading: () => const ListTileSkeletonList(count: 5),

@@ -421,7 +421,7 @@ class _FolderSelectionDialogState extends ConsumerState<FolderSelectionDialog> {
                 onPressed: _createFolder,
                 style: IconButton.styleFrom(
                   backgroundColor: _accentColor,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppTheme.onAccent(_accentColor),
                 ),
               ),
               IconButton(

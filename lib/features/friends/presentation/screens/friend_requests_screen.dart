@@ -28,7 +28,7 @@ class FriendRequestsScreen extends ConsumerWidget {
               Tab(text: 'Outgoing'),
             ],
             labelColor: context.accentInk(AppTheme.teal),
-            unselectedLabelColor: Colors.grey,
+            unselectedLabelColor: context.mutedText,
             indicatorColor: AppTheme.teal,
           ),
         ),

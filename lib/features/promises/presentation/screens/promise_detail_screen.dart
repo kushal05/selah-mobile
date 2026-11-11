@@ -203,7 +203,7 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
     final status = condition.status.toDbValue();
     final isMet = status == 'MET';
     final color = isMet
-        ? Colors.green
+        ? AppTheme.success
         : status == 'ACTIVE'
             ? Theme.of(context).colorScheme.primary
             : AppTheme.promiseInactive;
@@ -223,7 +223,7 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
             children: [
               Icon(
                 isMet ? Icons.check_circle : Icons.radio_button_unchecked,
-                color: color,
+                color: context.accentInk(color),
                 size: AppTheme.iconBase,
               ),
               const SizedBox(width: AppTheme.spacing8),
@@ -242,7 +242,7 @@ class _PromiseDetailScreenState extends ConsumerState<PromiseDetailScreen> {
                   style: TextStyle(
                     fontSize: AppTheme.iconXS,
                     fontWeight: FontWeight.w600,
-                    color: color,
+                    color: context.accentInk(color),
                   ),
                 ),
               ),

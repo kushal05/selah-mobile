@@ -496,9 +496,9 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
       onTap: () => _startEditing(field, focusNode),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isEditing ? Colors.white : Colors.grey.shade50,
+          color: isEditing ? context.cardSurface : context.subtleFill,
           borderRadius: BorderRadius.circular(12),
           border: isEditing
               ? Border.all(
@@ -613,9 +613,9 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
             onTap: isEditing ? null : () => _startEditing('notes', _notesFocus),
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isEditing ? Colors.white : Colors.grey.shade50,
+                color: isEditing ? context.cardSurface : context.subtleFill,
                 borderRadius: BorderRadius.circular(12),
                 border: isEditing
                     ? Border.all(

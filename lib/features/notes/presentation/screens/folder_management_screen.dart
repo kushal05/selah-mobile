@@ -52,8 +52,8 @@ class _FolderManagementScreenState
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showCreateFolderDialog(context, null),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: AppTheme.onAccent(AppTheme.brandPurple),
+        backgroundColor: AppTheme.accentSurface(AppTheme.brandPurple),
+        foregroundColor: AppTheme.onAccent(AppTheme.accentSurface(AppTheme.brandPurple)),
         child: const Icon(Icons.create_new_folder_rounded),
       ),
       body: foldersAsync.when(

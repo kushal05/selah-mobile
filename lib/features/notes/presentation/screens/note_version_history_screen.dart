@@ -332,7 +332,8 @@ class _RevisionTile extends ConsumerWidget {
                         icon: const Icon(Icons.restore, size: 18),
                         label: Text(l10n(context).restore),
                         style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.brandPurple,
+                          backgroundColor: AppTheme.accentSurface(AppTheme.brandPurple),
+                          foregroundColor: AppTheme.onAccent(AppTheme.accentSurface(AppTheme.brandPurple)),
                         ),
                       ),
                     ),
@@ -415,8 +416,10 @@ class _RevisionTile extends ConsumerWidget {
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            style:
-                FilledButton.styleFrom(backgroundColor: AppTheme.brandPurple),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.accentSurface(AppTheme.brandPurple),
+              foregroundColor: AppTheme.onAccent(AppTheme.accentSurface(AppTheme.brandPurple)),
+            ),
             child: Text(l10n(context).restore),
           ),
         ],

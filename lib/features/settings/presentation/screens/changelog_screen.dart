@@ -133,9 +133,9 @@ class _ChangeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (icon, color) = switch (item.type) {
-      'improvement' => (Icons.arrow_circle_up_outlined, const Color(0xFF0969DA)),
-      'fix'         => (Icons.bug_report_outlined,       const Color(0xFFCF222E)),
-      _             => (Icons.add_circle_outline_rounded, const Color(0xFF2DA44E)),
+      'improvement' => (Icons.arrow_circle_up_outlined, context.infoText),
+      'fix'         => (Icons.bug_report_outlined,       context.dangerText),
+      _             => (Icons.add_circle_outline_rounded, context.successText),
     };
 
     return Padding(

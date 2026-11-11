@@ -20,8 +20,8 @@ class DailyHabitsWidget extends ConsumerWidget {
   };
 
   static const _habitColors = {
-    HabitType.bible: Color(0xFF10B981),
-    HabitType.meditation: Color(0xFF8B5CF6),
+    HabitType.bible: AppTheme.emerald,
+    HabitType.meditation: AppTheme.brandPurple,
   };
 
   @override
@@ -213,7 +213,7 @@ class _HabitTile extends ConsumerWidget {
                 Icon(
                   icon,
                   size: 18,
-                  color: done ? color : context.mutedText,
+                  color: done ? context.accentInk(color) : context.mutedText,
                 ),
                 const Spacer(),
                 // Three states, not two: neither mark is shown until we know
@@ -222,7 +222,8 @@ class _HabitTile extends ConsumerWidget {
                   Icon(Icons.more_horiz_rounded,
                       size: 16, color: context.decorativeInk)
                 else if (done)
-                  Icon(Icons.check_circle_rounded, size: 16, color: color)
+                  Icon(Icons.check_circle_rounded,
+                      size: 16, color: context.accentInk(color))
                 else
                   Icon(Icons.radio_button_unchecked_rounded,
                       size: 16,
@@ -234,9 +235,7 @@ class _HabitTile extends ConsumerWidget {
               habit.label,
               style: theme.textTheme.labelSmall?.copyWith(
                 fontWeight: FontWeight.w600,
-                color: done
-                    ? color.withValues(alpha: 0.9)
-                    : context.mutedText,
+                color: done ? context.accentInk(color) : context.mutedText,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -247,7 +246,7 @@ class _HabitTile extends ConsumerWidget {
                 Icon(Icons.local_fire_department_rounded,
                     size: 11,
                     color: streak > 0
-                        ? const Color(0xFFEF4444)
+                        ? context.dangerText
                         : context.mutedText),
                 const SizedBox(width: 2),
                 Text(
@@ -255,7 +254,7 @@ class _HabitTile extends ConsumerWidget {
                   style: theme.textTheme.labelSmall?.copyWith(
                     fontSize: 12,
                     color: streak > 0
-                        ? const Color(0xFFEF4444)
+                        ? context.dangerText
                         : context.mutedText,
                   ),
                 ),

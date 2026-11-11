@@ -1,4 +1,5 @@
 
+import '../../../../shared/widgets/tags/tag_picker_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -407,8 +408,8 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
             : FloatingActionButton(
                 heroTag: null,
                 onPressed: () => _showFolderSelectionAndCreateNote(context),
-                backgroundColor: AppTheme.brandPurple,
-                foregroundColor: AppTheme.onAccent(AppTheme.brandPurple),
+                backgroundColor: AppTheme.accentSurface(AppTheme.brandPurple),
+                foregroundColor: AppTheme.onAccent(AppTheme.accentSurface(AppTheme.brandPurple)),
                 child: const Icon(Icons.add_rounded),
               ),
         body: _ui.showingTrash
@@ -838,7 +839,7 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                         padding:
                             const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                         decoration: BoxDecoration(
-                          color: AppTheme.brandPurple,
+                          color: AppTheme.accentSurface(AppTheme.brandPurple),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -977,10 +978,10 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: Colors.red.withValues(alpha: 0.08),
+                          color: AppTheme.error.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(8),
                           border:
-                              Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                              Border.all(color: AppTheme.error.withValues(alpha: 0.3)),
                         ),
                         child:
                             Icon(Icons.close, size: 16, color: context.dangerText),
@@ -1065,28 +1066,40 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                       ),
                     )
                   else
-                    ...tags.map((tag) {
-                      final isSelected = _ui.filterTagIds.contains(tag.id);
-                      return CheckboxListTile(
-                        title: Text(tag.name),
-                        value: isSelected,
-                        activeColor: AppTheme.brandPurple,
-                        controlAffinity: ListTileControlAffinity.leading,
-                        dense: true,
-                        onChanged: (value) {
-                          final next = Set<String>.from(_ui.filterTagIds);
-                          value == true
-                              ? next.add(tag.id)
-                              : next.remove(tag.id);
-                          setSheetState(() => _uiCtl.setTagFilter(next));
-                        },
-                      );
-                    }),
+                    // A to Z, and scrolling: a long list of tags used to run
+                    // past the bottom of the sheet with no way to reach the rest.
+                    Flexible(
+                      child: ListView(
+                        shrinkWrap: true,
+                        children: [
+                          for (final tag in sortedTagOptions([
+                            for (final t in tags) TagOption(t.id, t.name),
+                          ]))
+                            CheckboxListTile(
+                              title: Text(tag.label),
+                              value: _ui.filterTagIds.contains(tag.id),
+                              activeColor: AppTheme.brandPurple,
+                              controlAffinity:
+                                  ListTileControlAffinity.leading,
+                              dense: true,
+                              onChanged: (value) {
+                                final next =
+                                    Set<String>.from(_ui.filterTagIds);
+                                value == true
+                                    ? next.add(tag.id)
+                                    : next.remove(tag.id);
+                                setSheetState(() => _uiCtl.setTagFilter(next));
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
                   Padding(
                     padding: const EdgeInsets.all(16),
                     child: FilledButton(
                       style: FilledButton.styleFrom(
-                        backgroundColor: AppTheme.brandPurple,
+                        backgroundColor: AppTheme.accentSurface(AppTheme.brandPurple),
+                        foregroundColor: AppTheme.onAccent(AppTheme.accentSurface(AppTheme.brandPurple)),
                       ),
                       onPressed: () {
                         Navigator.pop(context);
@@ -1198,7 +1211,8 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                     padding: const EdgeInsets.all(16),
                     child: FilledButton(
                       style: FilledButton.styleFrom(
-                        backgroundColor: AppTheme.brandPurple,
+                        backgroundColor: AppTheme.accentSurface(AppTheme.brandPurple),
+                        foregroundColor: AppTheme.onAccent(AppTheme.accentSurface(AppTheme.brandPurple)),
                       ),
                       onPressed: () {
                         Navigator.pop(context);
@@ -1357,7 +1371,8 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                     padding: const EdgeInsets.all(16),
                     child: FilledButton(
                       style: FilledButton.styleFrom(
-                        backgroundColor: AppTheme.brandPurple,
+                        backgroundColor: AppTheme.accentSurface(AppTheme.brandPurple),
+                        foregroundColor: AppTheme.onAccent(AppTheme.accentSurface(AppTheme.brandPurple)),
                       ),
                       onPressed: () {
                         Navigator.pop(context);

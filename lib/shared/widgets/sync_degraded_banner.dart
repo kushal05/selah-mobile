@@ -85,7 +85,7 @@ class _DegradedBannerState extends ConsumerState<_DegradedBanner> {
                 : 'Sync failed: ${result.error ?? "unknown error"}',
           ),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: result.success ? null : Colors.red.shade600,
+          backgroundColor: result.success ? null : AppTheme.errorSurface,
         ),
       );
     } catch (e) {
@@ -148,7 +148,7 @@ class _DegradedBannerState extends ConsumerState<_DegradedBanner> {
                   child: CircularProgressIndicator(
                     strokeWidth: 1.5,
                     valueColor:
-                        AlwaysStoppedAnimation(Colors.deepOrange.shade800),
+                        AlwaysStoppedAnimation(context.warningText),
                   ),
                 ),
               ],

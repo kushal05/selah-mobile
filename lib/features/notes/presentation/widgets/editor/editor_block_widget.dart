@@ -446,7 +446,7 @@ class _EditorBlockWidgetState extends ConsumerState<EditorBlockWidget> {
 
     // Apply theme color to style if not already set
     final effectiveStyle = style.copyWith(
-      color: style.color ?? theme.textTheme.bodyLarge?.color ?? Colors.black,
+      color: style.color ?? theme.textTheme.bodyLarge?.color ?? theme.colorScheme.onSurface,
     );
 
     return TextField(

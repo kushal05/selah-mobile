@@ -187,12 +187,12 @@ class _FeedbackThreadScreenState extends ConsumerState<FeedbackThreadScreen> {
             IconButton.filled(
               onPressed: _sending ? null : _handleSend,
               icon: _sending
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: Theme.of(context).colorScheme.onPrimary,
                       ),
                     )
                   : const Icon(Icons.send, size: 20),
@@ -345,7 +345,7 @@ class _ChatBubble extends ConsumerWidget {
             Text(
               message.message,
               style: TextStyle(
-                color: isUser ? Colors.white : context.primaryText,
+                color: isUser ? Theme.of(context).colorScheme.onPrimary : context.primaryText,
                 fontSize: 16,
               ),
             ),
@@ -358,7 +358,7 @@ class _ChatBubble extends ConsumerWidget {
               style: TextStyle(
                 fontSize: 12,
                 color: isUser
-                    ? Colors.white.withValues(alpha: 0.7)
+                    ? Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.85)
                     : context.mutedText,
               ),
             ),
