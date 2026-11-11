@@ -1,7 +1,7 @@
 name: notify
 description: "A new Flutter project."
 publish_to: 'none'
-version: 0.2.4+46
+version: 0.2.4+47
 
 environment:
   sdk: ^3.10.7
