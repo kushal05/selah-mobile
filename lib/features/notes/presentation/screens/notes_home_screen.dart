@@ -678,12 +678,10 @@ class _NotesHomeScreenState extends ConsumerState<NotesHomeScreen> {
                                     isLast: false,
                                     onPressed: (_) => _moveNote(note),
                                   ),
-                                  buildSwipeAction(
-                                    icon: Icons.delete_outline_rounded,
-                                    label: l10n(context).trash,
-                                    accent: AppTheme.error,
-                                    isFirst: false,
-                                    onPressed: (context) async {
+                                  buildTrashSwipeAction(
+ context,
+ isFirst: false,
+ onPressed: (context) async {
                                       final shouldDelete =
                                           await _showDeleteConfirmation(
                                             context,

@@ -101,13 +101,11 @@ class _PeopleListScreenState extends ConsumerState<PeopleListScreen> {
                     key: Key(person.id),
                     endActionPane: ActionPane(
                       motion: const DrawerMotion(),
-                      extentRatio: 0.2,
+                      extentRatio: swipePaneExtent(1),
                       children: [
-                        buildSwipeAction(
-            icon: Icons.delete,
-            label: l10n(context).moveToTrash,
-            accent: AppTheme.error,
-            onPressed: (ctx) async {
+                        buildTrashSwipeAction(
+ context,
+ onPressed: (ctx) async {
                             final shouldDelete = await _showDeleteConfirmation(context);
                             if (!context.mounted) return;
                             if (shouldDelete) {

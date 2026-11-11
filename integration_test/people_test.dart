@@ -372,7 +372,7 @@ void main() {
       await settle(tester);
 
       // Look for delete action
-      final deleteIcon = find.byIcon(Icons.delete);
+      final deleteIcon = find.byIcon(Icons.delete_outline_rounded);
       if (deleteIcon.evaluate().isNotEmpty) {
         expectVisible(deleteIcon);
 

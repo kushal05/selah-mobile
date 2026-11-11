@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../l10n/l10n.dart';
 
 /// Fraction of the row one swipe action occupies.
 ///
@@ -113,5 +114,25 @@ CustomSlidableAction buildSwipeAction({
         );
       },
     ),
+  );
+}
+
+/// The "Trash" swipe action every list that moves things to the trash uses
+/// (notes, songs, prayers, promises, people): the same glyph, the same word and
+/// the same colour, so swiping a row means the same thing wherever you are.
+///
+/// Lists with a second action put [isFirst] false and that action first, as the
+/// notes and songs lists do with "Move".
+CustomSlidableAction buildTrashSwipeAction(
+  BuildContext context, {
+  required void Function(BuildContext) onPressed,
+  bool isFirst = true,
+}) {
+  return buildSwipeAction(
+    icon: Icons.delete_outline_rounded,
+    label: l10n(context).trash,
+    accent: AppTheme.error,
+    isFirst: isFirst,
+    onPressed: onPressed,
   );
 }

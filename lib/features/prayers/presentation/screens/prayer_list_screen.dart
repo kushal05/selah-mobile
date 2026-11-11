@@ -155,13 +155,11 @@ class _PrayerListTile extends ConsumerWidget {
       key: Key(prayer.id),
       endActionPane: ActionPane(
         motion: const DrawerMotion(),
-        extentRatio: 0.2,
+        extentRatio: swipePaneExtent(1),
         children: [
-          buildSwipeAction(
-            icon: Icons.delete,
-            label: l10n(context).moveToTrash,
-            accent: AppTheme.error,
-            onPressed: (_) async {
+          buildTrashSwipeAction(
+ context,
+ onPressed: (_) async {
               final confirmed = await _showDeleteConfirmation(context);
               if (confirmed && context.mounted) {
                 final repo = ref.read(prayerRepositoryProvider);

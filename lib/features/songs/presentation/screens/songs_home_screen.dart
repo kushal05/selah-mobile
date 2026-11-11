@@ -241,12 +241,10 @@ class _SongsHomeScreenState extends ConsumerState<SongsHomeScreen> {
                                           onPressed: (ctx) =>
                                               _moveSong(ctx, song.id),
                                         ),
-                                        buildSwipeAction(
-                                          icon: Icons.delete_outline_rounded,
-                                          label: l10n(context).trash,
-                                          accent: AppTheme.error,
-                                          isFirst: false,
-                                          onPressed: (ctx) async {
+                                        buildTrashSwipeAction(
+ context,
+ isFirst: false,
+ onPressed: (ctx) async {
                                             final shouldDelete =
                                                 await _showDeleteConfirmation(
                                                     ctx);
