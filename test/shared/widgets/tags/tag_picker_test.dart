@@ -313,7 +313,7 @@ void main() {
 
       await tester.tap(find.text('Add tag'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'Alpha');
+      await tester.enterText(find.byKey(const Key('tag-add-input')), 'Alpha');
       await tester.tap(find.byIcon(Icons.check));
       await tester.pumpAndSettle();
 
@@ -335,6 +335,282 @@ void main() {
     testWidgets('no tags at all says so', (tester) async {
       await open(tester, options: const []);
       expect(find.text('No tags yet'), findsOneWidget);
+    });
+  });
+
+  group('TagPickerDialog search and polish', () {
+    Future<void> open(
+      WidgetTester tester, {
+      required List<TagOption> options,
+      Set<String> selected = const {},
+      Future<TagOption?> Function(String)? onCreate,
+      void Function(Set<String>?)? onResult,
+    }) async {
+      tester.view.physicalSize = const Size(402, 874) * 3;
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(MaterialApp(
+        theme: AppTheme.light(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () async {
+                final r = await TagPickerDialog.show(
+                  context,
+                  options: options,
+                  selected: selected,
+                  onCreate: onCreate,
+                );
+                onResult?.call(r);
+              },
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+    }
+
+    const fruit = [
+      TagOption('a', 'Apple'),
+      TagOption('b', 'Banana'),
+      TagOption('bl', 'Blueberry'),
+      TagOption('c', 'Cherry'),
+    ];
+
+    Future<void> search(WidgetTester tester, String text) async {
+      await tester.enterText(find.byKey(const Key('tag-search')), text);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('searching narrows the list, ignoring case', (tester) async {
+      await open(tester, options: fruit);
+
+      await search(tester, 'BLUE');
+
+      expect(find.text('Blueberry'), findsOneWidget);
+      expect(find.text('Apple'), findsNothing);
+      expect(find.text('Banana'), findsNothing);
+      expect(find.text('Cherry'), findsNothing);
+    });
+
+    testWidgets('it matches anywhere in the name', (tester) async {
+      await open(tester, options: fruit);
+      await search(tester, 'err');
+      expect(find.text('Cherry'), findsOneWidget);
+      expect(find.text('Blueberry'), findsOneWidget);
+      expect(find.text('Apple'), findsNothing);
+    });
+
+    testWidgets('clearing the search brings every tag back', (tester) async {
+      await open(tester, options: fruit);
+      await search(tester, 'zzz');
+      expect(find.text('Apple'), findsNothing);
+
+      await tester.tap(find.byTooltip('Clear search'));
+      await tester.pumpAndSettle();
+
+      for (final f in ['Apple', 'Banana', 'Blueberry', 'Cherry']) {
+        expect(find.text(f), findsOneWidget);
+      }
+    });
+
+    testWidgets('no match says so, naming what was searched for',
+        (tester) async {
+      await open(tester, options: fruit);
+      await search(tester, 'zzz');
+      expect(find.text('No tags match \u201czzz\u201d'), findsOneWidget);
+    });
+
+    testWidgets('with nothing to create, a no-match search offers no "Create"',
+        (tester) async {
+      await open(tester, options: fruit);
+      await search(tester, 'zzz');
+      expect(find.textContaining('Create'), findsNothing);
+    });
+
+    testWidgets('a search for a new name offers to create it', (tester) async {
+      Set<String>? result;
+      await open(
+        tester,
+        options: fruit,
+        onCreate: (name) async => TagOption('new-$name', name),
+        onResult: (r) => result = r,
+      );
+
+      await search(tester, 'Mango');
+      expect(find.text('Create \u201cMango\u201d'), findsOneWidget);
+
+      await tester.tap(find.text('Create \u201cMango\u201d'));
+      await tester.pumpAndSettle();
+
+      // Created, ticked, and the search is cleared so it shows in the full list.
+      expect(find.text('Mango'), findsOneWidget);
+      expect(find.text('Apple'), findsOneWidget);
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+      expect(result, {'new-Mango'});
+    });
+
+    testWidgets('an exact match is not offered as a new tag', (tester) async {
+      await open(tester,
+          options: fruit, onCreate: (name) async => TagOption(name, name));
+      await search(tester, 'banana');
+      expect(find.textContaining('Create'), findsNothing);
+      expect(find.text('Banana'), findsOneWidget);
+    });
+
+    testWidgets('ticks survive searching', (tester) async {
+      Set<String>? result;
+      await open(tester, options: fruit, onResult: (r) => result = r);
+
+      await tester.tap(find.text('Apple'));
+      await search(tester, 'cher');
+      await tester.tap(find.text('Cherry'));
+      await tester.tap(find.byTooltip('Clear search'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+
+      expect(result, {'a', 'c'});
+    });
+
+    testWidgets('the header counts what is ticked, live', (tester) async {
+      await open(tester, options: fruit, selected: const {'b'});
+      expect(find.text('1 selected'), findsOneWidget);
+
+      await tester.tap(find.text('Apple'));
+      await tester.pump();
+      expect(find.text('2 selected'), findsOneWidget);
+
+      await tester.tap(find.text('Apple'));
+      await tester.tap(find.text('Banana'));
+      await tester.pump();
+      expect(find.text('None selected'), findsOneWidget);
+    });
+
+    testWidgets('letter headings group the list, and go while searching',
+        (tester) async {
+      await open(tester, options: fruit);
+      expect(find.text('A'), findsOneWidget);
+      expect(find.text('B'), findsOneWidget);
+      expect(find.text('C'), findsOneWidget);
+
+      await search(tester, 'b');
+      expect(find.text('A'), findsNothing);
+      expect(find.text('B'), findsNothing);
+    });
+
+    testWidgets('the close button in the header dismisses it', (tester) async {
+      var called = false;
+      Set<String>? result = {'unset'};
+      await open(tester, options: fruit, onResult: (r) {
+        called = true;
+        result = r;
+      });
+
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+
+      expect(called, isTrue);
+      expect(result, isNull);
+    });
+  });
+
+  group('TagPickerDialog layout', () {
+    Future<void> openWith(
+      WidgetTester tester, {
+      required ThemeData theme,
+      required Size size,
+      required double textScale,
+      required List<TagOption> options,
+    }) async {
+      tester.view.physicalSize = size * 3;
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(MaterialApp(
+        theme: theme,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => TagPickerDialog.show(
+                context,
+                options: options,
+                selected: const {'t3'},
+                onCreate: (name) async => TagOption(name, name),
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+    }
+
+    final longNames = [
+      for (var i = 0; i < 40; i++)
+        TagOption('t$i',
+            'A very long tag name number $i that has to be cut with an ellipsis'),
+    ];
+
+    for (final entry in {
+      'light': AppTheme.light(),
+      'dark': AppTheme.dark(),
+    }.entries) {
+      testWidgets(
+          'a narrow screen, 200% text and long names lay out in the '
+          '${entry.key} theme without overflow', (tester) async {
+        await openWith(tester,
+            theme: entry.value,
+            size: const Size(320, 640),
+            textScale: 2.0,
+            options: longNames);
+
+        expect(tester.takeException(), isNull);
+        expect(find.byKey(const Key('tag-search')), findsOneWidget);
+        expect(find.text('Add tag'), findsOneWidget);
+        expect(find.text('Done'), findsOneWidget);
+
+        // Scrolling and searching still work at that size.
+        await tester.drag(find.byType(ListView), const Offset(0, -600));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byKey(const Key('tag-search')), 'number 7');
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('with the keyboard up the dialog still fits the screen',
+        (tester) async {
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300 * 3);
+      addTearDown(tester.view.resetViewInsets);
+      await openWith(tester,
+          theme: AppTheme.light(),
+          size: const Size(360, 640),
+          textScale: 1.0,
+          options: longNames);
+
+      await tester.tap(find.byKey(const Key('tag-search')));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      // The footer is the lowest thing in the card: it must clear the keyboard.
+      expect(tester.getRect(find.text('Done')).bottom,
+          lessThanOrEqualTo(640 - 300 + 1),
+          reason: 'the dialog must sit above the keyboard');
     });
   });
 }

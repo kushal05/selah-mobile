@@ -20,9 +20,12 @@ List<TagOption> sortedTagOptions(Iterable<TagOption> options) =>
     options.toList()
       ..sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
 
-/// Every tag, A to Z, to tick any number of. "Add tag" stays fixed at the top
-/// while the list scrolls under it (and is left out when [onCreate] is null,
-/// for places that only choose among existing tags, like filters).
+/// Every tag, A to Z, to tick any number of.
+///
+/// A search box narrows the list as you type. "Add tag" stays fixed at the top
+/// while the list scrolls under it (and is left out when [onCreate] is null, for
+/// places that only choose among existing tags, like filters). Searching for a
+/// name that does not exist offers to create it, when creating is allowed.
 ///
 /// Returns the ticked ids on Done, or null if dismissed.
 class TagPickerDialog extends StatefulWidget {
@@ -68,34 +71,42 @@ class TagPickerDialog extends StatefulWidget {
 class _TagPickerDialogState extends State<TagPickerDialog> {
   late final List<TagOption> _options = [...widget.options];
   late final Set<String> _selected = {...widget.selected};
-  final _controller = TextEditingController();
-  final _focus = FocusNode();
+  final _search = TextEditingController();
+  final _newName = TextEditingController();
+  final _newNameFocus = FocusNode();
   bool _adding = false;
   bool _busy = false;
 
   @override
+  void initState() {
+    super.initState();
+    _search.addListener(() => setState(() {}));
+  }
+
+  @override
   void dispose() {
-    _controller.dispose();
-    _focus.dispose();
+    _search.dispose();
+    _newName.dispose();
+    _newNameFocus.dispose();
     super.dispose();
   }
 
+  String get _query => _search.text.trim();
+
   void _startAdding() {
     setState(() => _adding = true);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _focus.requestFocus());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _newNameFocus.requestFocus());
   }
 
   void _stopAdding() {
-    _controller.clear();
+    _newName.clear();
     setState(() => _adding = false);
   }
 
-  Future<void> _submit() async {
-    final name = _controller.text.trim();
-    if (name.isEmpty || _busy) {
-      _stopAdding();
-      return;
-    }
+  /// Makes the tag, ticks it, and lists it.
+  Future<void> _create(String name) async {
+    if (_busy) return;
     setState(() => _busy = true);
     try {
       final created = await widget.onCreate!(name);
@@ -105,45 +116,163 @@ class _TagPickerDialogState extends State<TagPickerDialog> {
         _selected.add(created.id);
       }
     } finally {
-      if (mounted) {
-        _busy = false;
-        _stopAdding();
-      }
+      if (mounted) setState(() => _busy = false);
     }
   }
+
+  Future<void> _submitNew() async {
+    final name = _newName.text.trim();
+    if (name.isNotEmpty) await _create(name);
+    if (mounted) _stopAdding();
+  }
+
+  Future<void> _createFromSearch() async {
+    final name = _query;
+    if (name.isEmpty) return;
+    await _create(name);
+    if (mounted) _search.clear();
+  }
+
+  void _toggle(TagOption option, bool on) => setState(() {
+        if (on) {
+          _selected.add(option.id);
+        } else {
+          _selected.remove(option.id);
+        }
+      });
 
   @override
   Widget build(BuildContext context) {
     final t = l10n(context);
+    final theme = Theme.of(context);
     final accent = context.accentInk(widget.accent);
-    final sorted = sortedTagOptions(_options);
+    final tint = widget.accent.withValues(alpha: AppTheme.alphaLightMed);
+
+    final query = _query.toLowerCase();
+    final searching = query.isNotEmpty;
+    final matches = [
+      for (final o in sortedTagOptions(_options))
+        if (!searching || o.label.toLowerCase().contains(query)) o,
+    ];
+    final canCreateFromSearch = widget.onCreate != null &&
+        searching &&
+        !_options.any((o) => o.label.toLowerCase() == query);
+
+    // Letter headings between groups, except while searching, where the result
+    // is a short flat list.
+    final rows = <Object>[];
+    String? letter;
+    for (final o in matches) {
+      final first = o.label.isEmpty ? '#' : o.label.characters.first.toUpperCase();
+      final heading = RegExp(r'\p{L}', unicode: true).hasMatch(first) ? first : '#';
+      if (!searching && heading != letter) {
+        rows.add(heading);
+        letter = heading;
+      }
+      rows.add(o);
+    }
 
     return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      backgroundColor: context.cardSurface,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 480,
-          maxHeight: MediaQuery.sizeOf(context).height * 0.8,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.82,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // ── Header ────────────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
-              child: Text(t.tags, style: AppTheme.headingMedium),
+              padding: const EdgeInsets.fromLTRB(24, 20, 8, 4),
+              child: Row(
+                children: [
+                  Icon(Icons.sell_outlined, size: 22, color: accent),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(t.tags, style: AppTheme.headingMedium),
+                        Text(
+                          t.tagsSelectedCount(_selected.length),
+                          style: AppTheme.caption.copyWith(
+                            color: _selected.isEmpty
+                                ? context.mutedText
+                                : accent,
+                            fontWeight: _selected.isEmpty
+                                ? FontWeight.w400
+                                : FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: t.close,
+                    icon: Icon(Icons.close, color: context.mutedText),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
             ),
-            // Fixed: outside the scrolling list below.
+
+            // ── Search ────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+              child: TextField(
+                key: const Key('tag-search'),
+                controller: _search,
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: t.searchTags,
+                  isDense: true,
+                  filled: true,
+                  fillColor: context.subtleFill,
+                  prefixIcon: Icon(Icons.search,
+                      size: AppTheme.iconBase, color: context.hintText),
+                  suffixIcon: searching
+                      ? IconButton(
+                          tooltip: t.clearSearch,
+                          icon: Icon(Icons.cancel,
+                              size: 18, color: context.hintText),
+                          onPressed: _search.clear,
+                        )
+                      : null,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: accent, width: 1.5),
+                  ),
+                ),
+              ),
+            ),
+
+            // ── Add tag: fixed, outside the scrolling list ────────────────
             if (widget.onCreate != null)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
                 child: _adding
                     ? Row(
                         children: [
                           Expanded(
                             child: TextField(
-                              controller: _controller,
-                              focusNode: _focus,
+                              key: const Key('tag-add-input'),
+                              controller: _newName,
+                              focusNode: _newNameFocus,
                               textCapitalization: TextCapitalization.words,
                               decoration: InputDecoration(
                                 hintText: t.enterTagName,
@@ -153,13 +282,13 @@ class _TagPickerDialogState extends State<TagPickerDialog> {
                                     size: AppTheme.iconBase,
                                     color: context.hintText),
                               ),
-                              onSubmitted: (_) => _submit(),
+                              onSubmitted: (_) => _submitNew(),
                             ),
                           ),
                           IconButton(
                             tooltip: t.addTag,
                             icon: Icon(Icons.check, color: accent),
-                            onPressed: _submit,
+                            onPressed: _submitNew,
                           ),
                           IconButton(
                             tooltip: t.actionCancel,
@@ -172,55 +301,128 @@ class _TagPickerDialogState extends State<TagPickerDialog> {
                         alignment: Alignment.centerLeft,
                         child: TextButton.icon(
                           onPressed: _startAdding,
-                          style: TextButton.styleFrom(foregroundColor: accent),
-                          icon: const Icon(Icons.add, size: 18),
+                          style: TextButton.styleFrom(
+                            foregroundColor: accent,
+                            textStyle: const TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 15),
+                          ),
+                          icon: const Icon(Icons.add_circle_outline, size: 20),
                           label: Text(t.addTag),
                         ),
                       ),
-              ),
-            const Divider(height: 1),
+              )
+            else
+              const SizedBox(height: 8),
+            Divider(height: 1, color: context.hairline),
+
+            // ── List ──────────────────────────────────────────────────
             Flexible(
-              child: sorted.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Center(
-                        child: Text(t.noTagsYet,
-                            style: TextStyle(color: context.mutedText)),
-                      ),
+              child: _options.isEmpty && !canCreateFromSearch
+                  ? _EmptyState(
+                      icon: Icons.sell_outlined,
+                      text: t.noTagsYet,
                     )
-                  : ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: sorted.length,
-                      itemBuilder: (context, i) {
-                        final option = sorted[i];
-                        return CheckboxListTile(
-                          dense: true,
-                          controlAffinity: ListTileControlAffinity.leading,
-                          activeColor: AppTheme.accentSurface(widget.accent),
-                          value: _selected.contains(option.id),
-                          title: Text(option.label),
-                          onChanged: (on) => setState(() {
-                            if (on ?? false) {
-                              _selected.add(option.id);
-                            } else {
-                              _selected.remove(option.id);
+                  : (rows.isEmpty && !canCreateFromSearch)
+                      ? _EmptyState(
+                          icon: Icons.search_off,
+                          text: t.noTagsMatch(_query),
+                        )
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
+                          itemCount: rows.length + (canCreateFromSearch ? 1 : 0),
+                          itemBuilder: (context, i) {
+                            if (canCreateFromSearch) {
+                              if (i == 0) {
+                                return ListTile(
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12)),
+                                  leading: Icon(Icons.add_circle_outline,
+                                      color: accent),
+                                  title: Text(
+                                    t.createTagNamed(_query),
+                                    style: TextStyle(
+                                        color: accent,
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                  onTap: _busy ? null : _createFromSearch,
+                                );
+                              }
+                              i -= 1;
                             }
-                          }),
-                        );
-                      },
-                    ),
+                            final row = rows[i];
+                            if (row is String) {
+                              return Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 12, 16, 2),
+                                child: Text(
+                                  row,
+                                  style: AppTheme.caption.copyWith(
+                                    color: context.mutedText,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                              );
+                            }
+                            final option = row as TagOption;
+                            final on = _selected.contains(option.id);
+                            return CheckboxListTile(
+                              dense: true,
+                              controlAffinity: ListTileControlAffinity.leading,
+                              contentPadding:
+                                  const EdgeInsets.symmetric(horizontal: 12),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              tileColor: on ? tint : null,
+                              activeColor:
+                                  AppTheme.accentSurface(widget.accent),
+                              checkboxShape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(5)),
+                              value: on,
+                              title: Text(
+                                option.label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  fontWeight:
+                                      on ? FontWeight.w600 : FontWeight.w400,
+                                ),
+                              ),
+                              onChanged: (v) => _toggle(option, v ?? false),
+                            );
+                          },
+                        ),
             ),
-            const Divider(height: 1),
+
+            // ── Footer ────────────────────────────────────────────────
+            Divider(height: 1, color: context.hairline),
             Padding(
-              padding: const EdgeInsets.all(8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+              // A Wrap, not a Row: at a large text size on a narrow phone the
+              // two buttons do not fit side by side, and should stack rather
+              // than run off the edge.
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 4,
                 children: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
                     child: Text(t.actionCancel),
                   ),
-                  TextButton(
+                  FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.accentSurface(widget.accent),
+                      foregroundColor:
+                          AppTheme.onAccent(AppTheme.accentSurface(widget.accent)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
                     onPressed: () => Navigator.of(context).pop(_selected),
                     child: Text(t.done),
                   ),
@@ -229,6 +431,32 @@ class _TagPickerDialogState extends State<TagPickerDialog> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _EmptyState({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 36, color: context.hintText),
+          const SizedBox(height: 10),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: context.mutedText),
+          ),
+        ],
       ),
     );
   }
