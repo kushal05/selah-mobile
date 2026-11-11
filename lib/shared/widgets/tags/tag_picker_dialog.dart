@@ -22,10 +22,10 @@ List<TagOption> sortedTagOptions(Iterable<TagOption> options) =>
 
 /// Every tag, A to Z, to tick any number of.
 ///
-/// A search box narrows the list as you type. "Add tag" stays fixed at the top
-/// while the list scrolls under it (and is left out when [onCreate] is null, for
-/// places that only choose among existing tags, like filters). Searching for a
-/// name that does not exist offers to create it, when creating is allowed.
+/// A search box, fixed at the top while the list scrolls under it, narrows the
+/// list as you type. Searching for a name that does not exist offers to create
+/// it, when [onCreate] is given; places that only choose among existing tags,
+/// like filters, leave it null.
 ///
 /// Returns the ticked ids on Done, or null if dismissed.
 class TagPickerDialog extends StatefulWidget {
@@ -72,9 +72,6 @@ class _TagPickerDialogState extends State<TagPickerDialog> {
   late final List<TagOption> _options = [...widget.options];
   late final Set<String> _selected = {...widget.selected};
   final _search = TextEditingController();
-  final _newName = TextEditingController();
-  final _newNameFocus = FocusNode();
-  bool _adding = false;
   bool _busy = false;
 
   @override
@@ -86,23 +83,10 @@ class _TagPickerDialogState extends State<TagPickerDialog> {
   @override
   void dispose() {
     _search.dispose();
-    _newName.dispose();
-    _newNameFocus.dispose();
     super.dispose();
   }
 
   String get _query => _search.text.trim();
-
-  void _startAdding() {
-    setState(() => _adding = true);
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => _newNameFocus.requestFocus());
-  }
-
-  void _stopAdding() {
-    _newName.clear();
-    setState(() => _adding = false);
-  }
 
   /// Makes the tag, ticks it, and lists it.
   Future<void> _create(String name) async {
@@ -118,12 +102,6 @@ class _TagPickerDialogState extends State<TagPickerDialog> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
-  }
-
-  Future<void> _submitNew() async {
-    final name = _newName.text.trim();
-    if (name.isNotEmpty) await _create(name);
-    if (mounted) _stopAdding();
   }
 
   Future<void> _createFromSearch() async {
@@ -222,15 +200,15 @@ class _TagPickerDialogState extends State<TagPickerDialog> {
               ),
             ),
 
-            // ── Search ────────────────────────────────────────────────
+            // ── Search (also how a new tag is made) ───────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
               child: TextField(
                 key: const Key('tag-search'),
                 controller: _search,
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
-                  hintText: t.searchTags,
+                  hintText: widget.onCreate != null ? t.searchOrCreateTag : t.searchTags,
                   isDense: true,
                   filled: true,
                   fillColor: context.subtleFill,
@@ -261,58 +239,6 @@ class _TagPickerDialogState extends State<TagPickerDialog> {
               ),
             ),
 
-            // ── Add tag: fixed, outside the scrolling list ────────────────
-            if (widget.onCreate != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-                child: _adding
-                    ? Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              key: const Key('tag-add-input'),
-                              controller: _newName,
-                              focusNode: _newNameFocus,
-                              textCapitalization: TextCapitalization.words,
-                              decoration: InputDecoration(
-                                hintText: t.enterTagName,
-                                isDense: true,
-                                border: InputBorder.none,
-                                prefixIcon: Icon(Icons.label_outline,
-                                    size: AppTheme.iconBase,
-                                    color: context.hintText),
-                              ),
-                              onSubmitted: (_) => _submitNew(),
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: t.addTag,
-                            icon: Icon(Icons.check, color: accent),
-                            onPressed: _submitNew,
-                          ),
-                          IconButton(
-                            tooltip: t.actionCancel,
-                            icon: Icon(Icons.close, color: context.mutedText),
-                            onPressed: _stopAdding,
-                          ),
-                        ],
-                      )
-                    : Align(
-                        alignment: Alignment.centerLeft,
-                        child: TextButton.icon(
-                          onPressed: _startAdding,
-                          style: TextButton.styleFrom(
-                            foregroundColor: accent,
-                            textStyle: const TextStyle(
-                                fontWeight: FontWeight.w600, fontSize: 15),
-                          ),
-                          icon: const Icon(Icons.add_circle_outline, size: 20),
-                          label: Text(t.addTag),
-                        ),
-                      ),
-              )
-            else
-              const SizedBox(height: 8),
             Divider(height: 1, color: context.hairline),
 
             // ── List ──────────────────────────────────────────────────
@@ -320,7 +246,9 @@ class _TagPickerDialogState extends State<TagPickerDialog> {
               child: _options.isEmpty && !canCreateFromSearch
                   ? _EmptyState(
                       icon: Icons.sell_outlined,
-                      text: t.noTagsYet,
+                      text: widget.onCreate != null
+                          ? t.noTagsYetCreate
+                          : t.noTagsYet,
                     )
                   : (rows.isEmpty && !canCreateFromSearch)
                       ? _EmptyState(

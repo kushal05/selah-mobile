@@ -284,11 +284,11 @@ void main() {
       expect(result, isNull);
     });
 
-    testWidgets('"Add tag" stays put while the list scrolls', (tester) async {
-      await open(tester,
-          options: _tags(60), onCreate: (n) async => TagOption(n, n));
+    testWidgets('the search box stays put while the list scrolls',
+        (tester) async {
+      await open(tester, options: _tags(60));
 
-      final before = tester.getTopLeft(find.text('Add tag'));
+      final before = tester.getTopLeft(find.byKey(const Key('tag-search')));
       expect(find.text('Tag 60'), findsNothing,
           reason: 'off screen until scrolled to');
 
@@ -296,12 +296,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Tag 01'), findsNothing, reason: 'it did scroll');
-      expect(tester.getTopLeft(find.text('Add tag')), before);
+      expect(tester.getTopLeft(find.byKey(const Key('tag-search'))), before);
       // And it is above the list, not below it.
       expect(before.dy, lessThan(tester.getTopLeft(find.byType(ListView)).dy));
     });
 
-    testWidgets('a tag added in the dialog is ticked and listed',
+    testWidgets('a tag created in the dialog is ticked and listed A to Z',
         (tester) async {
       Set<String>? result;
       await open(
@@ -311,31 +311,62 @@ void main() {
         onResult: (r) => result = r,
       );
 
-      await tester.tap(find.text('Add tag'));
+      await tester.enterText(find.byKey(const Key('tag-search')), 'Alpha');
       await tester.pumpAndSettle();
-      await tester.enterText(find.byKey(const Key('tag-add-input')), 'Alpha');
-      await tester.tap(find.byIcon(Icons.check));
+      await tester.tap(find.text('Create \u201cAlpha\u201d'));
       await tester.pumpAndSettle();
 
       // In the list, A to Z (Alpha before Bravo), already ticked.
       expect(tester.getTopLeft(find.text('Alpha')).dy,
           lessThan(tester.getTopLeft(find.text('Bravo')).dy));
+      expect(find.text('1 selected'), findsOneWidget);
       await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
 
       expect(result, {'new-Alpha'});
     });
 
-    testWidgets('with nothing to create, there is no "Add tag"',
+    testWidgets('there is no "Add tag" button, with or without creating',
         (tester) async {
       await open(tester, options: _tags(3));
       expect(find.text('Add tag'), findsNothing);
+      expect(find.byTooltip('Add tag'), findsNothing);
+    });
+
+    testWidgets('where tags can be created, the dialog has no "Add tag" either',
+        (tester) async {
+      await open(tester,
+          options: _tags(3), onCreate: (n) async => TagOption(n, n));
+      expect(find.text('Add tag'), findsNothing);
+      expect(find.byKey(const Key('tag-add-input')), findsNothing);
+    });
+
+    testWidgets('the search hint says tags can be created, only where they can',
+        (tester) async {
+      await open(tester,
+          options: _tags(3), onCreate: (n) async => TagOption(n, n));
+      expect(find.text('Search or create a tag'), findsOneWidget);
+    });
+
+    testWidgets('where they cannot, the hint is plain search', (tester) async {
+      await open(tester, options: _tags(3));
+      expect(find.text('Search tags'), findsOneWidget);
+      expect(find.text('Search or create a tag'), findsNothing);
     });
 
     testWidgets('no tags at all says so', (tester) async {
       await open(tester, options: const []);
       expect(find.text('No tags yet'), findsOneWidget);
     });
+
+    testWidgets('no tags yet, where they can be created, says how',
+        (tester) async {
+      await open(tester,
+          options: const [], onCreate: (n) async => TagOption(n, n));
+      expect(find.text('No tags yet. Type a name above to create one.'),
+          findsOneWidget);
+    });
+
   });
 
   group('TagPickerDialog search and polish', () {
@@ -581,7 +612,6 @@ void main() {
 
         expect(tester.takeException(), isNull);
         expect(find.byKey(const Key('tag-search')), findsOneWidget);
-        expect(find.text('Add tag'), findsOneWidget);
         expect(find.text('Done'), findsOneWidget);
 
         // Scrolling and searching still work at that size.
