@@ -588,6 +588,21 @@
   "trashEmptied": "Trash emptied",
   "linkUnavailable": "Link unavailable",
   "openingSharedPrayer": "Opening shared prayer…",
+  "sharedPrayerViewOnlyTitle": "Shared prayer",
+  "sharedPrayerLinkInvalid": "This share link is no longer valid.",
+  "sharedPrayerOpenFailed": "Could not open the shared prayer. Check your connection and try again.",
+  "sharedPrayerViewOnlyNotice": "View only. Only the author can change this prayer.",
+  "@sharedPrayerViewOnlyNotice": { "description": "Banner on the preview of a prayer someone else shared, opened from a share link." },
+  "sharedPrayerSharedBy": "Shared by {name}",
+  "@sharedPrayerSharedBy": {
+    "description": "Byline on a shared-prayer preview.",
+    "placeholders": { "name": { "type": "String", "example": "Ann" } }
+  },
+  "sharedPrayerAnsweredOn": "Answered on {date}",
+  "@sharedPrayerAnsweredOn": {
+    "description": "Shown on a shared-prayer preview when the prayer was answered.",
+    "placeholders": { "date": { "type": "String", "example": "Nov 9, 2026" } }
+  },
   "sharedWithMe": "Shared with me",
   "shareAccepted": "Share accepted",
   "enterChordsForEachLyricLineUseSpacesToSepara": "Enter chords for each lyric line. Use spaces to separate chords (e.g. \"G  D  Em  C\").",

@@ -13,13 +13,13 @@ import '../../../../core/sync/models/group_model.dart';
 import '../../../../core/sync/models/prayer_collaborator_model.dart';
 import '../../../../core/sync/models/prayer_model.dart';
 import '../../../../core/sync/models/prayer_update_model.dart';
-import '../../../../core/sync/models/shared_prayer_model.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/sync/models/promise_model.dart';
 import '../../../../shared/widgets/dialogs/link_picker_dialog.dart';
 import '../../../../shared/widgets/status_chip.dart';
 import '../../../../shared/widgets/timeline_item.dart';
 import '../../domain/models/prayer_metadata_codec.dart';
+import '../../domain/prayer_permissions.dart';
 import '../widgets/share_prayer_sheet.dart';
 import '../../../../shared/widgets/skeletons/skeletons.dart';
 import '../../../../shared/widgets/undo_snackbar.dart';
@@ -650,50 +650,6 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
     }
   }
 
-  _PrayerPermissions _computePermissions({
-    required PrayerModel prayer,
-    required String currentUserId,
-    required SharedPrayerModel? sharedPrayer,
-    required List<PrayerCollaboratorModel> collaborators,
-  }) {
-    final isOwner = prayer.userId == currentUserId;
-    if (isOwner) {
-      return const _PrayerPermissions(
-        canEdit: true,
-        canLog: true,
-        canAddUpdates: true,
-        canManageSharing: true,
-      );
-    }
-
-    if (sharedPrayer == null) {
-      return const _PrayerPermissions(
-        canEdit: false,
-        canLog: false,
-        canAddUpdates: false,
-        canManageSharing: false,
-      );
-    }
-
-    PrayerCollaboratorModel? collaborator;
-    for (final c in collaborators) {
-      if (c.collaboratorUserId == currentUserId) {
-        collaborator = c;
-        break;
-      }
-    }
-    final role = collaborator?.role;
-    final canContribute = role == CollaboratorRole.owner ||
-        role == CollaboratorRole.collaborator;
-
-    return _PrayerPermissions(
-      canEdit: sharedPrayer.allowEditing && canContribute,
-      canLog: sharedPrayer.allowLogging,
-      canAddUpdates: sharedPrayer.allowUpdates && canContribute,
-      canManageSharing: false,
-    );
-  }
-
   Future<void> _markAsAnswered() async {
     try {
       final repository = ref.read(prayerRepositoryProvider);
@@ -1025,7 +981,7 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
     final collaborators =
         ref.watch(prayerCollaboratorsProvider(widget.prayerId)).valueOrNull ??
             const <PrayerCollaboratorModel>[];
-    final permissions = _computePermissions(
+    final permissions = computePrayerPermissions(
       prayer: prayer,
       currentUserId: currentUserId,
       sharedPrayer: sharedPrayer,
@@ -1614,20 +1570,6 @@ class _PrayerDetailScreenState extends ConsumerState<PrayerDetailScreen> {
     );
     if (text != null) await _addUpdate(text);
   }
-}
-
-class _PrayerPermissions {
-  final bool canEdit;
-  final bool canLog;
-  final bool canAddUpdates;
-  final bool canManageSharing;
-
-  const _PrayerPermissions({
-    required this.canEdit,
-    required this.canLog,
-    required this.canAddUpdates,
-    required this.canManageSharing,
-  });
 }
 
 /// A small icon button used in the description formatting toolbar.

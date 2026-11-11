@@ -37,6 +37,7 @@ import '../repositories/folder_repository.dart';
 import '../repositories/note_repository.dart';
 import '../repositories/note_block_repository.dart';
 import '../repositories/prayer_repository.dart';
+import '../repositories/local_share_code_repository.dart';
 import '../repositories/promise_repository.dart';
 import '../repositories/person_repository.dart';
 import '../repositories/song_repository.dart';
@@ -1097,7 +1098,30 @@ final pendingRequestCountProvider = FutureProvider<int>((ref) async {
 final sharedPrayerProvider =
     FutureProvider.family<SharedPrayerModel?, String>((ref, prayerId) async {
   final api = ref.watch(sharedPrayerApiServiceProvider);
-  return api.getSharedPrayer(prayerId);
+  final shared = await api.getSharedPrayer(prayerId);
+
+  // Remember the code on this device so the author can open their own share
+  // link offline. Best effort: never let bookkeeping fail the screen.
+  try {
+    final codes = ref.read(localShareCodeRepositoryProvider);
+    if (shared == null || shared.deleted != 0) {
+      await codes.forgetPrayer(prayerId);
+    } else if (shared.shareCode.isNotEmpty) {
+      await codes.remember(
+        code: shared.shareCode,
+        prayerId: prayerId,
+        sharedPrayerId: shared.id,
+      );
+    }
+  } catch (_) {}
+
+  return shared;
+});
+
+/// Local-only code -> prayer memory used to open one's own share link offline.
+final localShareCodeRepositoryProvider =
+    Provider<LocalShareCodeRepository>((ref) {
+  return LocalShareCodeRepository(ref.watch(syncDatabaseProvider));
 });
 
 /// Future provider for prayer collaborators by prayer ID

@@ -6,6 +6,42 @@ import '../config/sync_config.dart';
 import 'api_interceptor.dart';
 import 'base_social_api_service.dart';
 
+/// Read-only snapshot of a shared prayer, from the unauthenticated
+/// `GET /v1/public/prayers/:shareCode`. Carries no user ids or permissions.
+class PublicPrayerPreview {
+  final String title;
+  final String content;
+  final String category;
+  final String status;
+  final int? answeredAt;
+  final int createdAt;
+  final String? sharedByName;
+
+  const PublicPrayerPreview({
+    required this.title,
+    required this.content,
+    required this.category,
+    required this.status,
+    required this.answeredAt,
+    required this.createdAt,
+    required this.sharedByName,
+  });
+
+  factory PublicPrayerPreview.fromJson(Map<String, dynamic> json) {
+    return PublicPrayerPreview(
+      title: json['title'] as String? ?? '',
+      content: json['content'] as String? ?? '',
+      category: json['category'] as String? ?? '',
+      status: json['status'] as String? ?? '',
+      answeredAt: (json['answeredAt'] as num?)?.toInt(),
+      createdAt: (json['createdAt'] as num?)?.toInt() ?? 0,
+      sharedByName: json['sharedByName'] as String?,
+    );
+  }
+
+  bool get isAnswered => status.toLowerCase() == 'answered' || answeredAt != null;
+}
+
 /// Metadata for a public share token returned by the list/create endpoints.
 ///
 /// The plaintext token is only populated on the create response — never by
@@ -199,6 +235,19 @@ class PublicShareApiService {
     _assertSuccess(response, 'Resolve public note');
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     return PublicNoteSnapshot.fromJson(body);
+  }
+
+  /// Resolve a prayer share code to a read-only preview. No auth. Returns null
+  /// when the code is unknown, revoked or the prayer was deleted (404).
+  Future<PublicPrayerPreview?> resolvePrayer(String shareCode) async {
+    final uri = _public('/prayers/${Uri.encodeComponent(shareCode)}');
+    final response = await http
+        .get(uri, headers: _publicHeaders)
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 404) return null;
+    _assertSuccess(response, 'Resolve shared prayer');
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return PublicPrayerPreview.fromJson(body);
   }
 
   void _assertSuccess(http.Response response, String operation) {

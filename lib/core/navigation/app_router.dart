@@ -191,6 +191,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // the unauthenticated `/v1/public/notes/:token` endpoint directly.
       if (location.startsWith('/share/')) return null;
 
+      // Shared-prayer links are view-only for anyone, signed in or not: the
+      // screen shows a read-only preview unless the prayer is already theirs.
+      if (location.startsWith('/social/share/')) return null;
+
       // A user "exists" if a token was ever stored, regardless of expiry.
       // Token refresh is handled by the sync/API layer.
       final hasUser = authService.currentToken != null;
@@ -292,6 +296,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           key: state.pageKey,
           child: const GlobalSearchScreen(),
           fullscreenDialog: true,
+        ),
+      ),
+
+      // Shared-prayer link (`/social/share/:shareCode`). Root level so it works
+      // before login; see ShareCodeScreen for who sees what.
+      GoRoute(
+        path: Routes.socialShareCode,
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: ShareCodeScreen(
+            shareCode: state.pathParameters['shareCode'] ?? '',
+          ),
         ),
       ),
 
@@ -766,15 +783,6 @@ StatefulShellBranch _socialBranch() {
                 builder: (_, _) => const ProfileSettingsScreen(),
               ),
             ],
-          ),
-
-          // ── Share code deep link resolution ──
-          GoRoute(
-            path: 'share/:shareCode',
-            builder: (context, state) {
-              final code = state.pathParameters['shareCode']!;
-              return ShareCodeScreen(shareCode: code);
-            },
           ),
 
           // ── Groups (moved from /groups) ──
