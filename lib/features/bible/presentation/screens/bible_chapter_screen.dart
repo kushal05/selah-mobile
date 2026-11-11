@@ -7,7 +7,9 @@ import '../../../../core/navigation/routes.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/dialogs/reading_text_size_sheet.dart';
+import '../../../../shared/widgets/selectable_chip.dart';
 import '../../domain/models/bible_books.dart';
+import '../../domain/models/bible_version_info.dart';
 import '../../domain/models/bible_highlight_entity.dart';
 import '../../domain/models/bible_verse_entity.dart';
 import '../../../../core/theme/theme_colors.dart';
@@ -26,12 +28,13 @@ import '../../../notes/presentation/providers/database_provider.dart';
 import '../../../notes/presentation/widgets/editor/bible_reference_picker.dart';
 import '../../../../l10n/l10n.dart';
 
-/// Full chapter reading screen with highlight support and parallel view.
+/// Full chapter reading screen with highlight support and a compare view.
 ///
 /// Features:
 /// - Displays all verses of a chapter
 /// - Long-press to highlight with color + note
-/// - Parallel translation toggle (split-screen, synced scroll)
+/// - Compare versions: pick versions along the top and each verse shows them
+///   one after another
 /// - Previous/next chapter navigation
 class BibleChapterScreen extends ConsumerStatefulWidget {
   final int bookId;
@@ -56,12 +59,14 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
   late int _bookId;
   late int _chapter;
   late String _primaryTranslation;
-  late String _secondaryTranslation;
-  bool _isParallel = false;
+
+  /// Compare view: several versions of each verse, one after another.
+  bool _isComparing = false;
+
+  /// The versions being compared, in the order they are shown.
+  List<String> _compared = [];
 
   final _primaryScrollController = ScrollController();
-  final _secondaryScrollController = ScrollController();
-  bool _isSyncingScroll = false;
 
   /// Bible tab accent colour.
   static const _bibleGreen = AppTheme.bibleGreen;
@@ -73,21 +78,6 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     _chapter = widget.chapter;
     _primaryTranslation = widget.initialTranslation;
 
-    // `.first` on an empty list throws, and this list is empty on any device
-    // with no Bible downloaded — which a chapter is still reachable from, via
-    // a note's verse reference or reading history. The screen died in
-    // initState rather than showing anything. Falling back to the primary
-    // covers both that case and the single-translation one; parallel view is
-    // gated on having two regardless.
-    final translations = ref.read(bibleTranslationsProvider);
-    _secondaryTranslation = translations.firstWhere(
-      (t) => t != _primaryTranslation,
-      orElse: () => _primaryTranslation,
-    );
-
-    _primaryScrollController.addListener(_onPrimaryScroll);
-    _secondaryScrollController.addListener(_onSecondaryScroll);
-
     // Log initial chapter view to reading history
     _logBibleReference();
   }
@@ -95,37 +85,7 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
   @override
   void dispose() {
     _primaryScrollController.dispose();
-    _secondaryScrollController.dispose();
     super.dispose();
-  }
-
-  // ── Scroll sync ──────────────────────────────────────────────────────
-
-  void _onPrimaryScroll() {
-    if (!_isParallel || _isSyncingScroll) return;
-    _isSyncingScroll = true;
-    _syncScroll(_primaryScrollController, _secondaryScrollController);
-    _isSyncingScroll = false;
-  }
-
-  void _onSecondaryScroll() {
-    if (!_isParallel || _isSyncingScroll) return;
-    _isSyncingScroll = true;
-    _syncScroll(_secondaryScrollController, _primaryScrollController);
-    _isSyncingScroll = false;
-  }
-
-  void _syncScroll(ScrollController source, ScrollController target) {
-    if (!source.hasClients || !target.hasClients) return;
-    final maxExtent = source.position.maxScrollExtent;
-    if (maxExtent == 0) return;
-    final fraction = source.offset / maxExtent;
-    final targetOffset =
-        (fraction * target.position.maxScrollExtent).clamp(
-      0.0,
-      target.position.maxScrollExtent,
-    );
-    target.jumpTo(targetOffset);
   }
 
   // ── History logging ──────────────────────────────────────────────────
@@ -158,9 +118,6 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     // Reset scroll positions
     if (_primaryScrollController.hasClients) {
       _primaryScrollController.jumpTo(0);
-    }
-    if (_secondaryScrollController.hasClients) {
-      _secondaryScrollController.jumpTo(0);
     }
     // Log navigated chapter to reading history
     _logBibleReference();
@@ -248,11 +205,44 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     if (match == null) return; // chosen but not downloaded
     setState(() {
       _primaryTranslation = match;
-      if (_secondaryTranslation == match) {
-        _secondaryTranslation = translations.firstWhere(
-          (t) => t != match,
-          orElse: () => match,
+      // Comparing: the chosen version leads, the rest follow.
+      if (_isComparing) {
+        _compared = [
+          match,
+          ..._compared.where((c) => c != match && translations.contains(c)),
+        ];
+      }
+    });
+  }
+
+  // ── Compare ──────────────────────────────────────────────────────────
+
+  /// Turns the compare view on or off. Turning it on starts with the version
+  /// being read and one other.
+  void _toggleCompare(List<String> translations) {
+    setState(() {
+      _isComparing = !_isComparing;
+      if (_isComparing) {
+        final other = translations.firstWhere(
+          (t) => t != _primaryTranslation,
+          orElse: () => _primaryTranslation,
         );
+        _compared = [
+          _primaryTranslation,
+          if (other != _primaryTranslation) other,
+        ];
+      }
+    });
+  }
+
+  /// Adds a version to the comparison (at the end), or takes it out. One always
+  /// stays.
+  void _toggleComparedVersion(String code) {
+    setState(() {
+      if (_compared.contains(code)) {
+        if (_compared.length > 1) _compared = [..._compared]..remove(code);
+      } else {
+        _compared = [..._compared, code];
       }
     });
   }
@@ -432,9 +422,34 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     // like a failure — it looks like the highlights are gone. Say so instead.
     final highlightsFailed = highlightsAsync.hasError;
     final highlights = highlightsAsync.valueOrNull ?? [];
-    final primaryVerses = ref.watch(bibleVersesProvider(
-      (bookId: _bookId, chapter: _chapter, translation: _primaryTranslation),
+
+    // Comparing: the versions chosen, in order, that are still installed. The
+    // first drives the list; the others are laid under each verse.
+    final compared = [
+      for (final c in _compared)
+        if (translations.contains(c)) c,
+    ];
+    final comparing = _isComparing && compared.isNotEmpty;
+    final listVersion = comparing ? compared.first : _primaryTranslation;
+    final verses = ref.watch(bibleVersesProvider(
+      (bookId: _bookId, chapter: _chapter, translation: listVersion),
     ));
+    final otherVersions = <int, List<VerseVersionText>>{};
+    if (comparing) {
+      for (final code in compared.skip(1)) {
+        final byVerse = {
+          for (final v in ref.watch(bibleVersesProvider(
+            (bookId: _bookId, chapter: _chapter, translation: code),
+          )))
+            v.verse: v.text,
+        };
+        for (final v in verses) {
+          (otherVersions[v.verse] ??= []).add(
+            VerseVersionText(bibleVersionDisplayName(code), byVerse[v.verse]),
+          );
+        }
+      }
+    }
 
     final theme = parentTheme.copyWith(
       colorScheme: parentTheme.colorScheme.copyWith(
@@ -447,7 +462,7 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
       ),
     );
 
-    final canParallel = translations.length > 1;
+    final canCompare = translations.length > 1;
 
     return Theme(
       data: theme,
@@ -483,14 +498,14 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
           ),
           actions: [
             // Version pill: tap opens the downloader, long-press switches.
-            if (!_isParallel)
+            if (!comparing)
               TranslationSelector(
                 currentTranslation: _primaryTranslation,
                 availableTranslations: translations,
                 onChanged: (t) => setState(() => _primaryTranslation = t),
                 onManage: _openVersions,
               ),
-            // Text size, parallel toggle and version management share one
+            // Text size, compare toggle and version management share one
             // menu, to leave the title the width it needs at 360dp.
             PopupMenuButton<String>(
               tooltip: l10n(context).moreOptions,
@@ -498,8 +513,8 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
                 switch (v) {
                   case 'textSize':
                     showReadingTextSizeSheet(context);
-                  case 'parallel':
-                    setState(() => _isParallel = !_isParallel);
+                  case 'compare':
+                    _toggleCompare(translations);
                   case 'versions':
                     _openVersions();
                 }
@@ -510,10 +525,11 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
                   child: Text(l10n(context).textSize),
                 ),
                 PopupMenuItem(
-                  value: 'parallel',
-                  enabled: canParallel,
-                  child:
-                      Text(_isParallel ? 'Single view' : 'Parallel view'),
+                  value: 'compare',
+                  enabled: canCompare,
+                  child: Text(comparing
+                      ? l10n(context).singleVersion
+                      : l10n(context).compareVersions),
                 ),
                 PopupMenuItem(
                   value: 'versions',
@@ -564,21 +580,38 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
                   ),
                 ),
               ),
-            _isParallel
-                ? _buildParallelView(
-                    theme, primaryVerses, highlights, translations, verseTags)
-                : ChapterVerseList(
-                    verses: primaryVerses,
-                    highlights: highlights,
-                    verseTags: verseTags,
-                    onTagTap: _openNotesWithTag,
-                    scrollController: _primaryScrollController,
-                    scrollToVerse: widget.scrollToVerse,
-                    onVerseTap: (verse) =>
-                        _showHighlightSheet(verse, highlights),
-                    onVerseLongPress: (verse) =>
-                        _showHighlightSheet(verse, highlights),
+            Positioned.fill(
+              child: Column(
+                children: [
+                  // Compare view: pick the versions here, and they are laid
+                  // out one after another under each verse.
+                  if (comparing)
+                    _CompareVersionsBar(
+                      available: translations,
+                      selected: compared,
+                      onToggle: _toggleComparedVersion,
+                    ),
+                  Expanded(
+                    child: ChapterVerseList(
+                      verses: verses,
+                      highlights: highlights,
+                      verseTags: verseTags,
+                      onTagTap: _openNotesWithTag,
+                      scrollController: _primaryScrollController,
+                      scrollToVerse: widget.scrollToVerse,
+                      versionLabel: comparing
+                          ? bibleVersionDisplayName(compared.first)
+                          : null,
+                      otherVersions: otherVersions,
+                      onVerseTap: (verse) =>
+                          _showHighlightSheet(verse, highlights),
+                      onVerseLongPress: (verse) =>
+                          _showHighlightSheet(verse, highlights),
+                    ),
                   ),
+                ],
+              ),
+            ),
             // Floating prev/next navigation
             Positioned(
               left: AppTheme.spacing16,
@@ -603,86 +636,6 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildParallelView(
-    ThemeData theme,
-    List<BibleVerseEntity> primaryVerses,
-    List<BibleHighlightEntity> highlights,
-    List<String> translations,
-    Map<int, Set<String>> verseTags,
-  ) {
-    final secondaryVerses = ref.watch(bibleVersesProvider(
-      (
-        bookId: _bookId,
-        chapter: _chapter,
-        translation: _secondaryTranslation,
-      ),
-    ));
-
-    return Row(
-      children: [
-        // Primary (left) column
-        Expanded(
-          child: Column(
-            children: [
-              _TranslationHeader(
-                translation: _primaryTranslation,
-                availableTranslations: translations,
-                onChanged: (t) =>
-                    setState(() => _primaryTranslation = t),
-              ),
-              Expanded(
-                child: ChapterVerseList(
-                  verses: primaryVerses,
-                  highlights: highlights,
-                  verseTags: verseTags,
-                  onTagTap: _openNotesWithTag,
-                  scrollController: _primaryScrollController,
-                  onVerseTap: (verse) =>
-                      _showHighlightSheet(verse, highlights),
-                  onVerseLongPress: (verse) =>
-                      _showHighlightSheet(verse, highlights),
-                ),
-              ),
-            ],
-          ),
-        ),
-        VerticalDivider(
-          width: 1,
-          thickness: 1,
-          color: theme.colorScheme.outlineVariant,
-        ),
-        // Secondary (right) column
-        Expanded(
-          child: Column(
-            children: [
-              _TranslationHeader(
-                translation: _secondaryTranslation,
-                availableTranslations: translations,
-                onChanged: (t) =>
-                    setState(() => _secondaryTranslation = t),
-              ),
-              Expanded(
-                child: ChapterVerseList(
-                  verses: secondaryVerses,
-                  highlights: highlights,
-                  // The tags belong to the verse, not to a translation, so
-                  // the primary column carries them; showing them in both
-                  // would put two controls on screen for one thing.
-                  showVerseTags: false,
-                  scrollController: _secondaryScrollController,
-                  onVerseTap: (verse) =>
-                      _showHighlightSheet(verse, highlights),
-                  onVerseLongPress: (verse) =>
-                      _showHighlightSheet(verse, highlights),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
@@ -722,41 +675,55 @@ class _NavButton extends StatelessWidget {
   }
 }
 
-/// Translation label header for each column in parallel view.
-class _TranslationHeader extends StatelessWidget {
-  final String translation;
-  final List<String> availableTranslations;
-  final ValueChanged<String> onChanged;
+/// The versions to compare, as chips along the top: tap to add one to the
+/// comparison (it goes at the end) or to take it out. One always stays.
+class _CompareVersionsBar extends StatelessWidget {
+  final List<String> available;
+  final List<String> selected;
+  final ValueChanged<String> onToggle;
 
-  const _TranslationHeader({
-    required this.translation,
-    required this.availableTranslations,
-    required this.onChanged,
+  const _CompareVersionsBar({
+    required this.available,
+    required this.selected,
+    required this.onToggle,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing12, vertical: AppTheme.spacing8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        border: Border(
-          bottom: BorderSide(
-            color: theme.colorScheme.outlineVariant,
-            width: 0.5,
+    return Semantics(
+      container: true,
+      label: l10n(context).versionsToCompare,
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: theme.scaffoldBackgroundColor,
+          border: Border(
+            bottom: BorderSide(
+              color: theme.colorScheme.outlineVariant,
+              width: 0.5,
+            ),
           ),
         ),
-      ),
-      child: Row(
-        children: [
-          TranslationSelector(
-            currentTranslation: translation,
-            availableTranslations: availableTranslations,
-            onChanged: onChanged,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.spacing16, vertical: AppTheme.spacing8),
+          child: Row(
+            children: [
+              for (final code in available)
+                Padding(
+                  padding: const EdgeInsets.only(right: AppTheme.spacing8),
+                  child: SelectableChip(
+                    label: bibleVersionDisplayName(code),
+                    accent: AppTheme.emerald,
+                    isSelected: selected.contains(code),
+                    onTap: () => onToggle(code),
+                  ),
+                ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

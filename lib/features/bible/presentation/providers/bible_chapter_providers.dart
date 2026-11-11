@@ -6,7 +6,6 @@ import '../../data/bible_highlight_repository.dart';
 import '../../data/bible_verse_note_repository.dart';
 import '../../domain/models/bible_highlight_entity.dart';
 import '../../domain/models/bible_verse_note_entity.dart';
-import 'bible_providers.dart';
 
 // =============================================================================
 // Highlight providers
@@ -84,21 +83,4 @@ final bibleBookmarkRepositoryProvider =
 final bibleBookmarksProvider =
     StreamProvider<List<BibleBookmarkEntry>>((ref) {
   return ref.watch(bibleBookmarkRepositoryProvider).watchBookmarks();
-});
-
-// =============================================================================
-// Parallel view providers
-// =============================================================================
-
-/// Whether parallel (split-screen) translation view is active.
-final bibleParallelModeProvider = StateProvider<bool>((ref) => false);
-
-/// Translation for the secondary (right) column in parallel view.
-///
-/// Defaults to the first available translation. When only one translation
-/// is available, parallel mode should be disabled in the UI.
-final bibleParallelTranslationProvider = StateProvider<String>((ref) {
-  final translations = ref.read(bibleTranslationsProvider);
-  if (translations.isEmpty) return 'KJV';
-  return translations.length > 1 ? translations[1] : translations.first;
 });

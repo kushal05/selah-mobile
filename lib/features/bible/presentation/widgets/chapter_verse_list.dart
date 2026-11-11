@@ -13,8 +13,9 @@ import '../../../../l10n/l10n.dart';
 
 /// Displays all verses of a Bible chapter in a scrollable list.
 ///
-/// Reusable by both single and parallel reading modes.
 /// Renders highlight backgrounds and supports long-press for highlight creation.
+/// In the compare view each verse also carries the other versions of it, one
+/// after another under the first.
 class ChapterVerseList extends StatefulWidget {
   final List<BibleVerseEntity> verses;
   final List<BibleHighlightEntity> highlights;
@@ -29,13 +30,13 @@ class ChapterVerseList extends StatefulWidget {
   /// Opens the notes carrying [tagId].
   final void Function(String tagId)? onTagTap;
 
-  /// Whether this column shows verse tags.
-  ///
-  /// Parallel view renders this widget twice side by side. The tags belong to
-  /// the verse rather than to a translation, so showing them in both columns
-  /// would put two controls on screen for the same thing; the primary column
-  /// carries them.
-  final bool showVerseTags;
+  /// Compare view: the name of the version [verses] is in, shown above its
+  /// text. Null in the single-version view, where the text stands alone.
+  final String? versionLabel;
+
+  /// Compare view: the other versions of each verse, by verse number, in the
+  /// order they are shown under [verses].
+  final Map<int, List<VerseVersionText>> otherVersions;
 
   const ChapterVerseList({
     super.key,
@@ -47,7 +48,8 @@ class ChapterVerseList extends StatefulWidget {
     this.scrollToVerse,
     this.verseTags = const {},
     this.onTagTap,
-    this.showVerseTags = true,
+    this.versionLabel,
+    this.otherVersions = const {},
   });
 
   @override
@@ -133,9 +135,9 @@ class _ChapterVerseListState extends State<ChapterVerseList> {
           verse: verse,
           highlight: highlight,
           isFlashing: isFlashing,
-          tagIds: widget.showVerseTags
-              ? (widget.verseTags[verse.verse] ?? const {})
-              : const {},
+          tagIds: widget.verseTags[verse.verse] ?? const {},
+          versionLabel: widget.versionLabel,
+          others: widget.otherVersions[verse.verse] ?? const [],
           onTagTap: widget.onTagTap,
           onTap: widget.onVerseTap != null
               ? () => widget.onVerseTap!(verse)
@@ -149,9 +151,20 @@ class _ChapterVerseListState extends State<ChapterVerseList> {
   }
 }
 
+/// One version's wording of a verse, for the compare view. [text] is null where
+/// that version has no such verse.
+class VerseVersionText {
+  final String label;
+  final String? text;
+
+  const VerseVersionText(this.label, this.text);
+}
+
 /// A single verse row with optional highlight background.
 class _VerseRow extends ConsumerWidget {
   final BibleVerseEntity verse;
+  final String? versionLabel;
+  final List<VerseVersionText> others;
   final Set<String> tagIds;
   final void Function(String tagId)? onTagTap;
   final BibleHighlightEntity? highlight;
@@ -162,6 +175,8 @@ class _VerseRow extends ConsumerWidget {
   const _VerseRow({
     super.key,
     required this.verse,
+    this.versionLabel,
+    this.others = const [],
     this.highlight,
     this.isFlashing = false,
     this.onTap,
@@ -239,6 +254,54 @@ class _VerseRow extends ConsumerWidget {
     );
   }
 
+  /// A version's name (when comparing) and its wording of this verse.
+  Widget _versionBlock(
+    BuildContext context,
+    double bodySize, {
+    required String? label,
+    required String? text,
+  }) {
+    final theme = Theme.of(context);
+    // A highlight paints a light pastel behind the verse in both themes, so the
+    // text must go dark when one is present. Following colorScheme.onSurface
+    // here would put near-white text on pale yellow in dark mode — 1.08:1,
+    // unreadable.
+    final ink = highlight != null
+        ? AppTheme.onHighlight
+        : theme.colorScheme.onSurface;
+    final muted = highlight != null
+        ? AppTheme.onHighlight
+        : theme.colorScheme.onSurfaceVariant;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (label != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 2, bottom: 1),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.6,
+                color: muted,
+              ),
+            ),
+          ),
+        Text(
+          text ?? l10n(context).bibleVersionNotAvailable,
+          style: TextStyle(
+            fontSize: bodySize,
+            height: 1.6,
+            fontStyle: text == null ? FontStyle.italic : FontStyle.normal,
+            color: text == null ? muted : ink,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -303,20 +366,16 @@ class _VerseRow extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-              Text(
-                verse.text,
-                style: TextStyle(
-                  fontSize: bodySize,
-                  height: 1.6,
-                  // A highlight paints a light pastel behind the verse in both
-                  // themes, so the text must go dark when one is present.
-                  // Following colorScheme.onSurface here would put near-white
-                  // text on pale yellow in dark mode — 1.08:1, unreadable.
-                  color: highlight != null
-                      ? AppTheme.onHighlight
-                      : theme.colorScheme.onSurface,
-                ),
-              ),
+                  // The verse in each version being compared, one after another;
+                  // just the one text when not comparing.
+                  _versionBlock(context, bodySize,
+                      label: others.isEmpty ? null : versionLabel,
+                      text: verse.text),
+                  for (final other in others) ...[
+                    const SizedBox(height: 10),
+                    _versionBlock(context, bodySize,
+                        label: other.label, text: other.text),
+                  ],
                   _buildTags(context, ref),
                 ],
               ),
@@ -329,7 +388,11 @@ class _VerseRow extends ConsumerWidget {
                 child: Icon(
                   Icons.sticky_note_2_outlined,
                   size: 14,
-                  color: AppTheme.onHighlight,
+                  // The dark ink belongs on a highlight's pastel only; on the
+                  // plain page in the dark theme it was dark on dark.
+                  color: highlight != null
+                      ? AppTheme.onHighlight
+                      : theme.colorScheme.onSurfaceVariant,
                 ),
               ),
 

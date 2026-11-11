@@ -39,7 +39,6 @@ void main() {
     WidgetTester tester, {
     Map<int, Set<String>> verseTags = const {},
     List<TagModel> tags = const [],
-    bool showVerseTags = true,
     List<BibleHighlightEntity> highlights = const [],
   }) async {
     tester.view.physicalSize = const Size(402, 874) * 3;
@@ -66,7 +65,6 @@ void main() {
             highlights: highlights,
             scrollController: controller,
             verseTags: verseTags,
-            showVerseTags: showVerseTags,
             onTagTap: (id) => tapped = id,
           ),
         ),
@@ -121,19 +119,6 @@ void main() {
 
     expect(tapped, 't1',
         reason: 'the row gesture detector swallowed the tap');
-  });
-
-  testWidgets('the secondary parallel column shows no tags', (tester) async {
-    // The tags belong to the verse, not a translation, so showing them in
-    // both columns would put two controls on screen for one thing.
-    await pumpList(
-      tester,
-      verseTags: {16: {'t1'}},
-      tags: [tag('t1', 'faith')],
-      showVerseTags: false,
-    );
-
-    expect(find.text('faith'), findsNothing);
   });
 
   testWidgets('a tag whose name has not loaded is not shown as a raw id',

@@ -52,19 +52,20 @@ void main() {
 
   Future<void> settle(WidgetTester tester) async {
     await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 50)));
+        () => Future<void>.delayed(const Duration(milliseconds: 150)));
     await tester.pump(const Duration(milliseconds: 50));
   }
 
   Future<void> pumpList(WidgetTester tester,
-      {List<BibleHighlightEntity> highlights = const []}) async {
+      {List<BibleHighlightEntity> highlights = const [],
+      ThemeData? theme}) async {
     tester.view.physicalSize = const Size(402, 874) * 3;
     tester.view.devicePixelRatio = 3.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
-        theme: AppTheme.light(),
+        theme: theme ?? AppTheme.light(),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
@@ -130,5 +131,41 @@ void main() {
         .addNote(bookId: 43, chapter: 4, verse: 16, content: 'elsewhere'));
     await pumpList(tester);
     expect(find.byIcon(Icons.sticky_note_2_outlined), findsNothing);
+  });
+
+  testWidgets('on a plain verse the marker is readable in the dark theme',
+      (tester) async {
+    await tester.runAsync(() => container
+        .read(bibleVerseNoteRepositoryProvider)
+        .addNote(bookId: 43, chapter: 3, verse: 16, content: 'a thought'));
+    await pumpList(tester, theme: AppTheme.dark());
+
+    final icon = tester.widget<Icon>(find.byIcon(Icons.sticky_note_2_outlined));
+    expect(icon.color, isNot(AppTheme.onHighlight),
+        reason: 'the dark ink belongs on a highlight pastel, not the dark page');
+    expect(icon.color, AppTheme.dark().colorScheme.onSurfaceVariant);
+  });
+
+  testWidgets('on a highlighted verse the marker keeps the dark ink',
+      (tester) async {
+    await tester.runAsync(() => container
+        .read(bibleVerseNoteRepositoryProvider)
+        .addNote(bookId: 43, chapter: 3, verse: 16, content: 'a thought'));
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await pumpList(tester, theme: AppTheme.dark(), highlights: [
+      BibleHighlightEntity(
+        id: 'h',
+        bookId: 43,
+        chapter: 3,
+        verseStart: 16,
+        verseEnd: 16,
+        color: HighlightColor.yellow,
+        createdAt: now,
+        updatedAt: now,
+      ),
+    ]);
+
+    final icon = tester.widget<Icon>(find.byIcon(Icons.sticky_note_2_outlined));
+    expect(icon.color, AppTheme.onHighlight);
   });
 }
