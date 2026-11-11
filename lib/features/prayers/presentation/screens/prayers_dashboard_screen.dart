@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/domain/enums/prayer_enums.dart';
@@ -16,6 +17,7 @@ import '../widgets/quick_prayer_sheet.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/cards/prayer_card.dart';
 import '../../../../shared/widgets/row_actions.dart';
+import '../../../../shared/widgets/swipe_action.dart';
 import '../../../../shared/widgets/undo_snackbar.dart';
 import '../../domain/models/prayer_metadata_codec.dart';
 import '../../../../core/navigation/tab_navigation.dart';
@@ -254,46 +256,60 @@ class PrayersDashboardScreen extends ConsumerWidget {
             .toList() ??
         const <String>[];
 
+    // One routine for the swipe and the long-press menu, so they cannot drift.
+    Future<void> trash() async {
+      final confirmed = await _confirmTrash(context);
+      if (!confirmed || !context.mounted) return;
+      final repo = ref.read(prayerRepositoryProvider);
+      try {
+        await repo.trashPrayer(prayer.id);
+        if (!context.mounted) return;
+        showUndoSnackBar(
+          context,
+          itemLabel: l10n(context).prayer,
+          onUndo: () => repo.restorePrayer(prayer.id),
+        );
+      } catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              UserFacingError.message(e, action: 'move this prayer to Trash')),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppTheme.errorSurface,
+        ));
+      }
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: PrayerCard(
-        title: prayer.title,
-        frequencyLabel: prayer.frequency.displayName,
-        statusLabel: prayer.status.displayName,
-        statusColor: _statusColor(prayer.status),
-        description: prayer.content,
-        linkedPeopleNames: peopleNames,
-        showStatusBadge: prayer.status != PrayerStatus.active,
-        onTap: () => context.push('/prayers/${prayer.id}'),
-        actions: [
-          RowAction(
-            icon: Icons.delete_outline_rounded,
-            label: l10n(context).moveToTrash,
-            isDestructive: true,
-            onSelected: () async {
-              final confirmed = await _confirmTrash(context);
-              if (!confirmed || !context.mounted) return;
-              final repo = ref.read(prayerRepositoryProvider);
-              try {
-                await repo.trashPrayer(prayer.id);
-                if (!context.mounted) return;
-                showUndoSnackBar(
-                  context,
-                  itemLabel: l10n(context).prayer,
-                  onUndo: () => repo.restorePrayer(prayer.id),
-                );
-              } catch (e) {
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(
-                      UserFacingError.message(e, action: 'move this prayer to Trash')),
-                  behavior: SnackBarBehavior.floating,
-                  backgroundColor: AppTheme.errorSurface,
-                ));
-              }
-            },
-          ),
-        ],
+      // Swipe to trash, the same as the notes, songs and promises lists.
+      child: Slidable(
+        key: Key(prayer.id),
+        endActionPane: ActionPane(
+          motion: const DrawerMotion(),
+          extentRatio: swipePaneExtent(1),
+          children: [
+            buildTrashSwipeAction(context, onPressed: (_) => trash()),
+          ],
+        ),
+        child: PrayerCard(
+          title: prayer.title,
+          frequencyLabel: prayer.frequency.displayName,
+          statusLabel: prayer.status.displayName,
+          statusColor: _statusColor(prayer.status),
+          description: prayer.content,
+          linkedPeopleNames: peopleNames,
+          showStatusBadge: prayer.status != PrayerStatus.active,
+          onTap: () => context.push('/prayers/${prayer.id}'),
+          actions: [
+            RowAction(
+              icon: Icons.delete_outline_rounded,
+              label: l10n(context).moveToTrash,
+              isDestructive: true,
+              onSelected: trash,
+            ),
+          ],
+        ),
       ),
     );
   }

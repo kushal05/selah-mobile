@@ -18,6 +18,8 @@ const _trashLists = {
   'notes': 'lib/features/notes/presentation/screens/notes_home_screen.dart',
   'songs': 'lib/features/songs/presentation/screens/songs_home_screen.dart',
   'prayers': 'lib/features/prayers/presentation/screens/prayer_list_screen.dart',
+  'prayers dashboard':
+      'lib/features/prayers/presentation/screens/prayers_dashboard_screen.dart',
   'promises':
       'lib/features/promises/presentation/screens/promises_list_screen.dart',
   'people': 'lib/features/people/presentation/screens/people_list_screen.dart',
