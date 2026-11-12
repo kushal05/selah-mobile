@@ -6,7 +6,6 @@ import '../../../../core/navigation/routes.dart';
 import 'bible_version_onboarding_screen.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/models/bible_book_entity.dart';
-import '../providers/bible_chapter_providers.dart';
 import '../providers/bible_providers.dart';
 import '../../../../shared/widgets/feature_intro.dart';
 import '../../../../core/theme/theme_colors.dart';
@@ -127,8 +126,6 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
                           padding: EdgeInsets.symmetric(horizontal: 16),
                           child: FeatureIntros.bible,
                         ),
-                        // Bookmarks strip
-                        _buildBookmarksStrip(theme),
                         // Book chips
                         Padding(
                           padding: const EdgeInsets.fromLTRB(
@@ -178,113 +175,6 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
                 ],
               ),
       ),
-    );
-  }
-
-  Widget _buildBookmarksStrip(ThemeData theme) {
-    final bookmarksAsync = ref.watch(bibleBookmarksProvider);
-
-    // A failed read used to take the whole strip off the screen, which reads
-    // as "you have no bookmarks" rather than "we could not fetch them".
-    if (bookmarksAsync.hasError) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(AppTheme.spacing16,
-            AppTheme.spacing12, AppTheme.spacing8, AppTheme.spacing4),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                l10n(context).bookmarksCouldntBeLoaded,
-                style: AppTheme.caption.copyWith(color: context.mutedText),
-              ),
-            ),
-            TextButton(
-              onPressed: () => ref.invalidate(bibleBookmarksProvider),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                minimumSize: const Size(0, 32),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: Text(l10n(context).retry),
-            ),
-          ],
-        ),
-      );
-    }
-
-    final bookmarks = bookmarksAsync.valueOrNull ?? [];
-    if (bookmarks.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppTheme.spacing16, AppTheme.spacing12,
-            AppTheme.spacing16, AppTheme.spacing4,
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.bookmark, size: 14,
-                  color: context.mutedText),
-              const SizedBox(width: 4),
-              Text(
-                l10n(context).bookmarks,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: context.mutedText,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(
-          height: 36,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing16),
-            itemCount: bookmarks.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 8),
-            itemBuilder: (context, index) {
-              final bm = bookmarks[index];
-              return GestureDetector(
-                onTap: () => _onChapterTap(bm.bookId, bm.chapter),
-                onLongPress: () async {
-                  try {
-                    await ref
-                        .read(bibleBookmarkRepositoryProvider)
-                        .deleteBookmark(bm.id);
-                  } catch (_) {
-                    // Best-effort — bookmark remains if delete fails
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppTheme.spacing12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: _bibleGreen.withValues(alpha: 0.1),
-                    borderRadius: AppTheme.borderRadiusMD,
-                    border: Border.all(
-                        color: _bibleGreen.withValues(alpha: 0.3)),
-                  ),
-                  child: Text(
-                    '${bm.bookName} ${bm.chapter}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: _bibleGreen,
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: AppTheme.spacing8),
-        Divider(color: context.hairline, height: 1),
-      ],
     );
   }
 

@@ -7,7 +7,6 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart' show driftRuntimeOptions;
 import 'package:drift/native.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -159,14 +158,18 @@ void main() {
   TextSpan verseSpan(WidgetTester tester, int n) =>
       spans(tester).firstWhere((s) => s.text == 'Words of verse $n. ');
 
-  testWidgets('the chapter is set as one page of text under a large title',
+  testWidgets('the chapter is set as one page of text, with no second title',
       (tester) async {
     await build();
     await pump(tester);
 
     expect(find.byType(FlowingChapterText), findsOneWidget);
     expect(find.byType(ChapterVerseList), findsNothing);
-    expect(find.text('Genesis 1'), findsOneWidget, reason: 'the chapter title');
+    // The chapter is named once, in the header pill: not again above the text.
+    expect(find.text('Genesis 1'), findsNothing);
+    expect(
+        find.descendant(of: find.byType(AppBar), matching: find.text('Genesis')),
+        findsOneWidget);
     // All eight verses are inside the same paragraph.
     final text = tester
         .renderObject<RenderParagraph>(_paragraph())

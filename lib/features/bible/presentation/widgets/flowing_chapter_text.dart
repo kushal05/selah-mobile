@@ -20,8 +20,6 @@ import '../providers/bible_reader_preferences.dart';
 /// background on the verse's own words, a note is marked by a small icon after
 /// the verse, and a tag by its name, which opens the notes carrying it.
 class FlowingChapterText extends ConsumerStatefulWidget {
-  /// What stands above the text: the chapter's title.
-  final Widget header;
   final int bookId;
   final int chapter;
   final List<BibleVerseEntity> verses;
@@ -40,7 +38,6 @@ class FlowingChapterText extends ConsumerStatefulWidget {
 
   const FlowingChapterText({
     super.key,
-    required this.header,
     required this.bookId,
     required this.chapter,
     required this.verses,
@@ -299,7 +296,7 @@ class _FlowingChapterTextState extends ConsumerState<FlowingChapterText> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          widget.header,
+          const SizedBox(height: 8),
           if (widget.verses.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 24),

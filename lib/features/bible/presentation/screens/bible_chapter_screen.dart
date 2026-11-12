@@ -465,38 +465,6 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     final selecting = _selected.isNotEmpty;
     // The panel can grow to 60% of the screen; keep the text scrollable above it.
     final panelRoom = MediaQuery.sizeOf(context).height * 0.6 + 24;
-    final typeface = ref.watch(readerTypefaceProvider);
-
-    final chapterHeader = Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '$bookName $_chapter',
-            style: TextStyle(
-              fontSize: 28,
-              height: 1.15,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.2,
-              fontFamily: typeface.family,
-              fontFamilyFallback: typeface.fallback,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            bibleVersionDisplayName(_primaryTranslation),
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
 
     return Theme(
       data: theme,
@@ -673,7 +641,6 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
                               onVerseLongPress: _toggleVerse,
                             )
                           : FlowingChapterText(
-                              header: chapterHeader,
                               bookId: _bookId,
                               chapter: _chapter,
                               verses: verses,
