@@ -1,3 +1,4 @@
+import 'shared/widgets/keyboard_inset_guard.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -430,7 +431,9 @@ class _SelahAppState extends ConsumerState<SelahApp>
         // first, and clipped text is a worse failure than capped text.
         return MediaQuery.withClampedTextScaling(
           maxScaleFactor: 2.0,
-          child: themed,
+          // A keyboard inset left over after the app was backgrounded would
+          // otherwise leave every screen half height.
+          child: KeyboardInsetGuard(child: themed),
         );
       },
     );
