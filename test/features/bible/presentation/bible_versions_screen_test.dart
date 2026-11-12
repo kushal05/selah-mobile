@@ -18,6 +18,7 @@ import 'package:notify/features/bible/data/bible_version_state_repository.dart';
 import 'package:notify/features/bible/domain/models/bible_book_entity.dart';
 import 'package:notify/features/bible/domain/models/bible_version_info.dart';
 import 'package:notify/features/bible/presentation/providers/bible_chapter_providers.dart';
+import 'package:notify/features/bible/presentation/providers/bible_download_manager.dart';
 import 'package:notify/features/bible/presentation/providers/bible_providers.dart';
 import 'package:notify/features/bible/presentation/providers/verse_tag_providers.dart';
 import 'package:notify/features/bible/presentation/screens/bible_chapter_screen.dart';
@@ -51,8 +52,10 @@ class _FakeStates implements BibleVersionStateRepository {
 
 Future<_FakeStates> _pumpVersions(
   WidgetTester tester,
-  List<BibleVersionInfo> versions,
-) async {
+  List<BibleVersionInfo> versions, {
+  Set<String> updates = const {},
+  BibleDownloadRunner? updateRunner,
+}) async {
   final repo = _FakeStates();
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
@@ -62,6 +65,9 @@ Future<_FakeStates> _pumpVersions(
       bibleVersionStateRepositoryProvider.overrideWithValue(repo),
       bibleVersionStatesProvider
           .overrideWith((ref) => Stream.value(versions)),
+      bibleVersionUpdatesProvider.overrideWith((ref) async => updates),
+      if (updateRunner != null)
+        bibleUpdateRunnerProvider.overrideWithValue(updateRunner),
     ],
     child: MaterialApp(
       theme: AppTheme.light(),
@@ -79,6 +85,8 @@ double _top(WidgetTester tester, String text) =>
     tester.getTopLeft(find.text(text)).dy;
 
 void main() {
+  _updateTests();
+
   final versions = [
     _v('ZZ', 'Zeta Bible', downloaded: true),
     _v('AV', 'amplified version'),
@@ -292,6 +300,93 @@ void main() {
         find.descendant(of: find.byType(AppBar), matching: find.text('NIV')),
         findsOneWidget,
         reason: 'opened from a NIV verse, it stays NIV');
+  });
+}
+
+
+// ─── Updates ──────────────────────────────────────────────────────────────────
+
+void _updateTests() {
+  final versions = [
+    BibleVersionInfo(
+        code: 'TLB',
+        name: 'The Living Bible',
+        downloadUrl: 'https://example.test/TLB',
+        approximateSizeMb: 12,
+        sortOrder: 1,
+        isDefault: false,
+        isDownloaded: true),
+    BibleVersionInfo(
+        code: 'NIV',
+        name: 'New International',
+        downloadUrl: 'https://example.test/NIV',
+        approximateSizeMb: 12,
+        sortOrder: 2,
+        isDefault: false,
+        isDownloaded: true),
+  ];
+
+  testWidgets('a version with a newer file says so and offers Update',
+      (tester) async {
+    await _pumpVersions(tester, versions, updates: {'TLB'});
+    await tester.pump();
+
+    expect(find.text('A newer, more complete copy is available'),
+        findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'Update'), findsOneWidget,
+        reason: 'only TLB has one');
+  });
+
+  testWidgets('no update, no button and no note', (tester) async {
+    await _pumpVersions(tester, versions);
+    await tester.pump();
+
+    expect(find.text('A newer, more complete copy is available'),
+        findsNothing);
+    expect(find.widgetWithText(OutlinedButton, 'Update'), findsNothing);
+  });
+
+  testWidgets('Update runs the update download, not a plain one',
+      (tester) async {
+    final calls = <String>[];
+    await _pumpVersions(
+      tester,
+      versions,
+      updates: {'TLB'},
+      updateRunner: (info, onProgress) async => calls.add(info.code),
+    );
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Update'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(calls, ['TLB']);
+  });
+
+  testWidgets('Remove is still there beside Update', (tester) async {
+    await _pumpVersions(tester, versions, updates: {'TLB'});
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('More options').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Remove'), findsOneWidget);
+  });
+
+  testWidgets('a failed update says so on the row', (tester) async {
+    await _pumpVersions(
+      tester,
+      versions,
+      updates: {'TLB'},
+      updateRunner: (info, onProgress) async => throw StateError('offline'),
+    );
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Update'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.textContaining('Download failed'), findsOneWidget);
   });
 }
 

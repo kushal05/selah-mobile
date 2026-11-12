@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 import 'bible_schema_ddl.dart';
+import 'bible_version_updates.dart';
 
 /// Thrown from a download that was stopped by [BibleDatabaseService.cancelDownload].
 class BibleDownloadCancelled implements Exception {
@@ -23,17 +24,47 @@ class BibleDownloadCancelled implements Exception {
 ///
 /// The FTS5 triggers are part of the main db's schema, so they fire here too.
 /// The busy timeout covers a lock held briefly by the app's own connections.
+///
+/// With [replace], the translation's existing verses are removed first, in the
+/// same transaction, so an update never leaves old and new text side by side
+/// (verse numbers can move between releases of a file). If the incoming file
+/// has no verses the existing ones are kept and this throws.
 @visibleForTesting
-void mergeVersionFile(String dbPath, String srcPath, String alias) {
+void mergeVersionFile(String dbPath, String srcPath, String alias,
+    {bool replace = false}) {
   final db = sqlite3.open(dbPath);
   try {
     db.execute('PRAGMA busy_timeout = ${BibleDatabaseService._busyTimeoutMs}');
     db.execute('ATTACH DATABASE ? AS $alias', [srcPath]);
     try {
-      db.execute(
-        'INSERT OR IGNORE INTO bible_verses(translation, book_id, chapter, verse, text) '
-        'SELECT translation, book_id, chapter, verse, text FROM $alias.bible_verses',
-      );
+      if (replace) {
+        final incoming = db
+            .select('SELECT COUNT(*) AS n FROM $alias.bible_verses')
+            .first['n'] as int;
+        if (incoming == 0) {
+          throw StateError('The downloaded Bible file has no verses');
+        }
+        db.execute('BEGIN');
+        try {
+          db.execute(
+            'DELETE FROM bible_verses WHERE translation IN '
+            '(SELECT DISTINCT translation FROM $alias.bible_verses)',
+          );
+          db.execute(
+            'INSERT INTO bible_verses(translation, book_id, chapter, verse, text) '
+            'SELECT translation, book_id, chapter, verse, text FROM $alias.bible_verses',
+          );
+          db.execute('COMMIT');
+        } catch (_) {
+          db.execute('ROLLBACK');
+          rethrow;
+        }
+      } else {
+        db.execute(
+          'INSERT OR IGNORE INTO bible_verses(translation, book_id, chapter, verse, text) '
+          'SELECT translation, book_id, chapter, verse, text FROM $alias.bible_verses',
+        );
+      }
     } finally {
       db.execute('DETACH DATABASE $alias');
     }
@@ -197,16 +228,23 @@ class BibleDatabaseService extends ChangeNotifier {
   /// queued requests would both see a closed database and both take the
   /// first-install path; the second would rename its temp file over the
   /// bible.db the first one just opened.
+  ///
+  /// With [replace] the version's installed verses are swapped for the
+  /// downloaded ones (an update). [onStamp] receives the ETag of the file that
+  /// was installed, to compare with the host later.
   Future<void> install(
     String code,
     String url, {
     void Function(double progress)? onProgress,
+    bool replace = false,
+    void Function(String? stamp)? onStamp,
   }) {
     return _enqueueCancellable(
       code,
       () => _db == null
-          ? _downloadImpl(url, code, onProgress: onProgress)
-          : _downloadVersionImpl(code, url, onProgress: onProgress),
+          ? _downloadImpl(url, code, onProgress: onProgress, onStamp: onStamp)
+          : _downloadVersionImpl(code, url,
+              onProgress: onProgress, replace: replace, onStamp: onStamp),
     );
   }
 
@@ -234,18 +272,23 @@ class BibleDatabaseService extends ChangeNotifier {
     String url,
     String key, {
     void Function(double progress)? onProgress,
+    void Function(String? stamp)? onStamp,
   }) async {
     assert(url.isNotEmpty, 'download URL must not be empty — provide a URL from the Bible versions API');
 
     final dbPath = await _localDbPath();
     final tempPath = '$dbPath.tmp';
-    await _downloadToFile(url, tempPath, key, onProgress: onProgress);
+    // Awaited first: in `onStamp?.call(await ...)` the argument is not even
+    // evaluated when there is no callback, so nothing would be downloaded.
+    final stamp =
+        await _downloadToFile(url, tempPath, key, onProgress: onProgress);
 
     // Atomically replace any existing file only after a successful download.
     await File(tempPath).rename(dbPath);
 
     // Open the freshly downloaded database.
     await init();
+    onStamp?.call(stamp);
   }
 
   /// Download a per-version database file and merge its verses into the main db.
@@ -271,12 +314,15 @@ class BibleDatabaseService extends ChangeNotifier {
     String code,
     String url, {
     void Function(double progress)? onProgress,
+    bool replace = false,
+    void Function(String? stamp)? onStamp,
   }) async {
     assert(_db != null, 'BibleDatabaseService must be initialized before downloading additional versions');
 
     final dbPath = await _localDbPath();
     final tempPath = '$dbPath.$code.tmp';
-    await _downloadToFile(url, tempPath, code, onProgress: onProgress);
+    final stamp =
+        await _downloadToFile(url, tempPath, code, onProgress: onProgress);
 
     // Merge verses from the downloaded per-version db into the main db.
     // ATTACH + INSERT OR IGNORE handles duplicates gracefully (e.g., existing
@@ -289,7 +335,9 @@ class BibleDatabaseService extends ChangeNotifier {
     try {
       // ~31k rows plus FTS5 maintenance: run on a background isolate with its
       // own connection so the UI isolate keeps painting.
-      await Isolate.run(() => mergeVersionFile(dbPath, tempPath, alias));
+      await Isolate.run(
+          () => mergeVersionFile(dbPath, tempPath, alias, replace: replace));
+      onStamp?.call(stamp);
     } finally {
       try {
         File(tempPath).deleteSync();
@@ -345,7 +393,9 @@ class BibleDatabaseService extends ChangeNotifier {
   /// Throws [StateError] on a non-200 response, [TimeoutException] when the
   /// connection stalls, and [BibleDownloadCancelled] when cancelled under [key].
   /// The partial file is deleted on any failure.
-  Future<void> _downloadToFile(
+  ///
+  /// Returns the ETag the host sent with the file, or null.
+  Future<String?> _downloadToFile(
     String url,
     String destPath,
     String key, {
@@ -362,6 +412,7 @@ class BibleDatabaseService extends ChangeNotifier {
         throw StateError('Download failed with HTTP ${response.statusCode}');
       }
 
+      final stamp = bibleStampFromHeaders(response.headers);
       final contentLength = response.contentLength;
       var bytesReceived = 0;
       final sink = File(destPath).openWrite();
@@ -377,6 +428,7 @@ class BibleDatabaseService extends ChangeNotifier {
         await sink.close();
       }
       completed = true;
+      return stamp;
     } catch (_) {
       // Closing the client surfaces as an arbitrary ClientException; report
       // what actually happened.

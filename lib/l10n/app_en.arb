@@ -1206,6 +1206,8 @@
   "@bibleDownloadNeededForVerse": {
     "description": "Shown in the Bible reference picker when no translation is installed."
   },
+  "bibleVersionUpdateAvailable": "A newer, more complete copy is available",
+  "bibleVersionUpdate": "Update",
   "bibleDownloadFailed": "Download failed. Check your connection and try again.",
   "@bibleDownloadFailed": {
     "description": "Shown in the Bible reference picker when no translation is installed."

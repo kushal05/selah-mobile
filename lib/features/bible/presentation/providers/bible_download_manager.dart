@@ -58,8 +58,18 @@ typedef BibleDownloadCanceller = void Function(String code);
 final bibleDownloadRunnerProvider = Provider<BibleDownloadRunner>((ref) {
   final dbService = ref.read(bibleDatabaseServiceProvider);
   final repo = ref.read(bibleVersionStateRepositoryProvider);
-  return (info, onProgress) =>
-      downloadBibleVersion(dbService, repo, info, onProgress: onProgress);
+  final stamps = ref.read(bibleVersionStampsProvider);
+  return (info, onProgress) => downloadBibleVersion(dbService, repo, info,
+      onProgress: onProgress, stamps: stamps);
+});
+
+/// Runs an update: the same download, but the installed verses are replaced.
+final bibleUpdateRunnerProvider = Provider<BibleDownloadRunner>((ref) {
+  final dbService = ref.read(bibleDatabaseServiceProvider);
+  final repo = ref.read(bibleVersionStateRepositoryProvider);
+  final stamps = ref.read(bibleVersionStampsProvider);
+  return (info, onProgress) => downloadBibleVersion(dbService, repo, info,
+      onProgress: onProgress, stamps: stamps, replace: true);
 });
 
 final bibleDownloadCancellerProvider = Provider<BibleDownloadCanceller>((ref) {
@@ -83,8 +93,9 @@ class BibleDownloadManager extends Notifier<Map<String, BibleDownloadState>> {
   Map<String, BibleDownloadState> build() => const {};
 
   /// Starts downloading [info]. Ignored if that code is already queued,
-  /// downloading or installing.
-  Future<void> start(BibleVersionInfo info) async {
+  /// downloading or installing. With [update], the installed copy is replaced
+  /// by the newer file.
+  Future<void> start(BibleVersionInfo info, {bool update = false}) async {
     if (state[info.code]?.isActive ?? false) return;
     _set(BibleDownloadState(
       code: info.code,
@@ -94,7 +105,8 @@ class BibleDownloadManager extends Notifier<Map<String, BibleDownloadState>> {
 
     // Read once, up front: the notifier outlives screens but not necessarily
     // the container in tests.
-    final runner = ref.read(bibleDownloadRunnerProvider);
+    final runner = ref.read(
+        update ? bibleUpdateRunnerProvider : bibleDownloadRunnerProvider);
     try {
       await runner(info, (p) {
         final current = state[info.code];
@@ -127,11 +139,11 @@ class BibleDownloadManager extends Notifier<Map<String, BibleDownloadState>> {
   }
 
   /// Restarts a failed download.
-  Future<void> retry(BibleVersionInfo info) {
+  Future<void> retry(BibleVersionInfo info, {bool update = false}) {
     if (state[info.code]?.status != BibleDownloadStatus.failed) {
       return Future.value();
     }
-    return start(info);
+    return start(info, update: update);
   }
 
   /// Drops a finished or failed entry (e.g. once the user has seen it).

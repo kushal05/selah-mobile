@@ -6,6 +6,7 @@ import '../../data/bible_database_service.dart';
 import '../../data/bible_repository.dart';
 import '../../data/bible_version_api_service.dart';
 import '../../data/bible_version_state_repository.dart';
+import '../../data/bible_version_updates.dart';
 import '../../domain/models/bible_book_entity.dart';
 import '../../domain/models/bible_verse_entity.dart';
 import '../../domain/models/bible_version_info.dart';
@@ -127,6 +128,24 @@ final installedBibleVersionsProvider = Provider<List<BibleVersionInfo>>((ref) {
 final bibleVersionStateRepositoryProvider =
     Provider<BibleVersionStateRepository>((ref) {
   return BibleVersionStateRepository(ref.watch(syncDatabaseProvider));
+});
+
+/// What was installed of each version, to tell when the host has a newer file.
+final bibleVersionStampsProvider = Provider<BibleVersionStamps>(
+    (ref) => BibleVersionStamps(ref.watch(sharedPreferencesProvider)));
+
+final bibleVersionUpdateCheckerProvider = Provider<BibleVersionUpdateChecker>(
+    (ref) => BibleVersionUpdateChecker(ref.watch(bibleVersionStampsProvider)));
+
+/// Codes of the installed versions that have a newer file on the host.
+///
+/// One HEAD request each, made when the versions screen opens. A version that
+/// cannot be reached is simply not listed.
+final bibleVersionUpdatesProvider = FutureProvider<Set<String>>((ref) async {
+  final versions = ref.watch(bibleVersionStatesProvider).valueOrNull ?? const [];
+  final installed = versions.where((v) => v.isDownloaded).toList();
+  if (installed.isEmpty) return const {};
+  return ref.read(bibleVersionUpdateCheckerProvider).check(installed);
 });
 
 /// All available Bible versions from the local cache, ordered by sort_order.

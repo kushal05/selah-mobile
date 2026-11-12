@@ -158,4 +158,43 @@ void main() {
     expect(c.read(bibleDownloadManagerProvider)['KJV']!.status,
         BibleDownloadStatus.done);
   });
+
+  test('an update runs the update runner, not the plain download', () async {
+    final plain = _FakeRunner();
+    final update = _FakeRunner();
+    final c = ProviderContainer(overrides: [
+      bibleDownloadRunnerProvider.overrideWithValue(plain.run),
+      bibleUpdateRunnerProvider.overrideWithValue(update.run),
+      bibleDownloadCancellerProvider.overrideWithValue(plain.cancel),
+    ]);
+    addTearDown(c.dispose);
+    final m = c.read(bibleDownloadManagerProvider.notifier);
+
+    final f = m.start(_info('TLB'), update: true);
+    update.completers['TLB']!.complete();
+    await f;
+
+    expect(update.calls, ['TLB']);
+    expect(plain.calls, isEmpty);
+    expect(c.read(bibleDownloadManagerProvider)['TLB']!.status,
+        BibleDownloadStatus.done);
+  });
+
+  test('a download that is not an update uses the plain runner', () async {
+    final plain = _FakeRunner();
+    final update = _FakeRunner();
+    final c = ProviderContainer(overrides: [
+      bibleDownloadRunnerProvider.overrideWithValue(plain.run),
+      bibleUpdateRunnerProvider.overrideWithValue(update.run),
+      bibleDownloadCancellerProvider.overrideWithValue(plain.cancel),
+    ]);
+    addTearDown(c.dispose);
+
+    final f = c.read(bibleDownloadManagerProvider.notifier).start(_info('NIV'));
+    plain.completers['NIV']!.complete();
+    await f;
+
+    expect(plain.calls, ['NIV']);
+    expect(update.calls, isEmpty);
+  });
 }

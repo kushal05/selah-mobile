@@ -54,6 +54,16 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
     final versionsAsync = ref.watch(bibleVersionStatesProvider);
     final downloads = ref.watch(bibleDownloadManagerProvider);
 
+    // A finished update is no longer an update: ask the host again.
+    ref.listen(bibleDownloadManagerProvider, (prev, next) {
+      for (final entry in next.entries) {
+        if (entry.value.status == BibleDownloadStatus.done &&
+            prev?[entry.key]?.status != BibleDownloadStatus.done) {
+          ref.invalidate(bibleVersionUpdatesProvider);
+        }
+      }
+    });
+
     return Scaffold(
       backgroundColor: context.pageGround,
       appBar: AppBar(
@@ -157,6 +167,14 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
                   _VersionTile(
                     info: items[i],
                     download: downloads[items[i].code],
+                    updateAvailable: ref
+                            .watch(bibleVersionUpdatesProvider)
+                            .valueOrNull
+                            ?.contains(items[i].code) ??
+                        false,
+                    onUpdate: () => ref
+                        .read(bibleDownloadManagerProvider.notifier)
+                        .start(items[i], update: true),
                     onDownload: () => ref
                         .read(bibleDownloadManagerProvider.notifier)
                         .start(items[i]),
@@ -256,6 +274,8 @@ class _BibleVersionsScreenState extends ConsumerState<BibleVersionsScreen> {
 class _VersionTile extends StatelessWidget {
   final BibleVersionInfo info;
   final BibleDownloadState? download;
+  final bool updateAvailable;
+  final VoidCallback onUpdate;
   final VoidCallback onDownload;
   final VoidCallback onCancel;
   final VoidCallback onDelete;
@@ -264,6 +284,8 @@ class _VersionTile extends StatelessWidget {
   const _VersionTile({
     required this.info,
     required this.download,
+    required this.updateAvailable,
+    required this.onUpdate,
     required this.onDownload,
     required this.onCancel,
     required this.onDelete,
@@ -345,10 +367,18 @@ class _VersionTile extends StatelessWidget {
                     style: AppTheme.caption
                         .copyWith(color: context.mutedText),
                   ),
-                ] else if (isFailed && !info.isDownloaded)
+                ] else if (isFailed)
                   Text(
                     l10n(context).bibleDownloadFailed,
                     style: AppTheme.caption.copyWith(color: context.dangerText),
+                  )
+                else if (info.isDownloaded && updateAvailable)
+                  Text(
+                    l10n(context).bibleVersionUpdateAvailable,
+                    style: AppTheme.caption.copyWith(
+                      color: _green,
+                      fontWeight: FontWeight.w600,
+                    ),
                   )
                 else
                   Text(
@@ -384,7 +414,23 @@ class _VersionTile extends StatelessWidget {
               ),
               child: Text(l10n(context).download),
             )
-          else
+          else ...[
+            if (updateAvailable)
+              OutlinedButton(
+                onPressed: onUpdate,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _green,
+                  side: BorderSide(color: _green),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppTheme.spacing12,
+                      vertical: AppTheme.spacing6),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  textStyle:
+                      AppTheme.caption.copyWith(fontWeight: FontWeight.w600),
+                ),
+                child: Text(l10n(context).bibleVersionUpdate),
+              ),
             MenuAnchor(
               menuChildren: [
                 MenuItemButton(
@@ -405,6 +451,7 @@ class _VersionTile extends StatelessWidget {
                 color: context.mutedText,
               ),
             ),
+          ],
         ],
       ),
     );
