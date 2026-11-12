@@ -94,6 +94,24 @@ void main() {
           isTrue);
     });
 
+    test('the files replaced on 12 Nov 2026 are newer than any old install', () {
+      // Last-Modified of the first replaced files on the host.
+      final replaced = DateTime.utc(2026, 11, 12, 20, 12, 32);
+      expect(
+          bibleVersionNeedsUpdate(
+              installedStamp: null, remote: RemoteStamp(lastModified: replaced)),
+          isTrue);
+    });
+
+    test('TEL, the newest file never replaced (June 2026), is not an update',
+        () {
+      expect(
+          bibleVersionNeedsUpdate(
+              installedStamp: null,
+              remote: RemoteStamp(lastModified: DateTime.utc(2026, 6, 12, 11, 57))),
+          isFalse);
+    });
+
     test('an install from before stamps, and a file untouched since: none', () {
       expect(
           bibleVersionNeedsUpdate(

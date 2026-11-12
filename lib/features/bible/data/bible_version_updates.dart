@@ -6,9 +6,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../domain/models/bible_version_info.dart';
 
 /// A version installed before updates were tracked has no stamp. Every hosted
-/// file was last written before this date, so a file hosted with a later
-/// modification time is newer than any such install.
-final DateTime kBibleUpdateBaseline = DateTime.utc(2026, 11, 13);
+/// file was last written before this date (the newest, TEL, in June 2026), so a
+/// file hosted with a later modification time is newer than any such install.
+///
+/// Well before the first replaced files (written 2026-11-12 20:12 UTC): an
+/// earlier choice of 2026-11-13 UTC sat after them, so no old install was
+/// offered the update.
+final DateTime kBibleUpdateBaseline = DateTime.utc(2026, 11, 1);
 
 /// What the host says about a version's file right now.
 class RemoteStamp {
