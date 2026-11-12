@@ -154,6 +154,27 @@ void main() {
     expect(find.text('Download'), findsNWidgets(2));
   });
 
+  testWidgets('a tap on a downloaded row can be seen: the splash is inside the '
+      'card, not under its background', (tester) async {
+    await _pumpVersions(tester, versions);
+
+    for (final name in ['Kappa Bible', 'Beta Bible']) {
+      final ink = find.ancestor(
+          of: find.text(name), matching: find.byType(InkWell));
+      expect(ink, findsOneWidget, reason: '$name has a tappable row');
+      expect(tester.widget<InkWell>(ink).onTap, isNotNull,
+          reason: 'even the current default answers a touch');
+
+      // The nearest Material is the row's own, within the card's clip. The
+      // screen's Material is behind the card background, so a splash there is
+      // never seen.
+      final material = find.ancestor(of: ink, matching: find.byType(Material)).first;
+      expect(find.ancestor(of: material, matching: find.byType(ClipRRect)),
+          findsWidgets);
+      expect(tester.widget<Material>(material).color, Colors.transparent);
+    }
+  });
+
   testWidgets('the row menu only offers Remove', (tester) async {
     await _pumpVersions(tester, versions);
 

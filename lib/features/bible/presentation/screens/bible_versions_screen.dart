@@ -458,6 +458,15 @@ class _VersionTile extends StatelessWidget {
 
     // Tapping a downloaded version selects it as the default.
     if (!info.isDownloaded) return row;
-    return InkWell(onTap: info.isDefault ? null : onSetDefault, child: row);
+    //
+    // The Material is here, inside the card, on purpose. An InkWell paints its
+    // splash on the nearest Material, which used to be the screen's: the card's
+    // own background was drawn over it, so the tap showed nothing. And a row
+    // with no onTap shows no splash at all, so the current default takes a tap
+    // that does nothing, to still answer the finger.
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(onTap: info.isDefault ? () {} : onSetDefault, child: row),
+    );
   }
 }
