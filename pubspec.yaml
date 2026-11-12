@@ -1,7 +1,7 @@
 name: notify
 description: "A new Flutter project."
 publish_to: 'none'
-version: 0.2.4+53
+version: 0.2.4+54
 
 environment:
   sdk: ^3.10.7
@@ -78,3 +78,4 @@ flutter:
   generate: true
   assets:
     - assets/images/
+    - assets/bible/
