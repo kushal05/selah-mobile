@@ -350,7 +350,7 @@ class _VerseRow extends ConsumerWidget {
           // A highlighted verse that is also selected keeps its colour and
           // gets an outline, so the selection still shows.
           border: isSelected && highlight != null
-              ? Border.all(color: theme.colorScheme.primary, width: 2)
+              ? Border.all(color: AppTheme.onHighlight, width: 2)
               : null,
         ),
         child: Row(

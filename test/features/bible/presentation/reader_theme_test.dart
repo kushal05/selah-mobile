@@ -184,4 +184,55 @@ void main() {
       expect(sheetColor, ReaderTheme.slate.raised);
     });
   });
+
+  testWidgets('the settings sheet itself changes colour as a theme is chosen',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    tester.view.physicalSize = const Size(402, 874) * 3;
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        bibleRepositoryProvider.overrideWithValue(_FakeRepo()),
+        bibleTranslationsProvider.overrideWithValue(['KJV']),
+        bibleVersesProvider.overrideWith((ref, p) => []),
+        bibleChaptersProvider.overrideWith((ref, p) => [1]),
+        bibleBooksProvider.overrideWithValue([]),
+        chapterHighlightsProvider.overrideWith((ref, p) => Stream.value([])),
+        chapterNotedVersesProvider
+            .overrideWith((ref, p) => Stream.value(<int>{})),
+        chapterVerseTagsProvider
+            .overrideWith((ref, p) => <int, Set<String>>{}),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.light(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const BibleChapterScreen(
+            bookId: 1, chapter: 1, initialTranslation: 'KJV'),
+      ),
+    ));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.byTooltip('Reading settings'));
+    await tester.pumpAndSettle();
+
+    Color? sheet() => tester
+        .widget<Material>(find
+            .ancestor(
+                of: find.text('Reading settings'),
+                matching: find.byType(Material))
+            .first)
+        .color;
+
+    await tester.tap(find.bySemanticsLabel('Night'));
+    await tester.pumpAndSettle();
+    expect(sheet(), ReaderTheme.night.raised);
+
+    await tester.tap(find.bySemanticsLabel('Sepia'));
+    await tester.pumpAndSettle();
+    expect(sheet(), ReaderTheme.sepia.raised,
+        reason: 'not the colours the sheet opened in');
+  });
 }

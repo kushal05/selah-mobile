@@ -441,4 +441,47 @@ void main() {
       expect(rows.single.deleted, 0, reason: 'still highlighted');
     });
   });
+
+  testWidgets('never grows taller than the room it has (keyboard up)',
+      (tester) async {
+    tester.view.physicalSize = const Size(600, 874) * 3;
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+    for (var i = 0; i < 6; i++) {
+      await addNote(tester, 'a note number $i that takes up some room');
+    }
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        theme: AppTheme.light(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: SizedBox(
+            height: 300, // what is left above the keyboard
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: VerseSelectionPanel(
+                reference: 'John 3:16',
+                bookId: _book,
+                chapter: _chapter,
+                selected: const {_verse},
+                highlights: const [],
+                onColor: (_) {},
+                onRemoveHighlight: () {},
+                onClose: () {},
+                onAddToNotes: () {},
+                onSaveAsPromise: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    ));
+    await settle(tester);
+
+    expect(tester.getSize(find.byType(VerseSelectionPanel)).height,
+        lessThanOrEqualTo(300 * 0.9 + 0.5));
+    expect(tester.takeException(), isNull);
+  });
 }

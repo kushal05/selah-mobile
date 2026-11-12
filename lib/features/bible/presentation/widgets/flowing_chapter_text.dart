@@ -7,6 +7,7 @@ import '../../../../core/providers/reading_preferences.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/l10n.dart';
+import '../../data/bible_paragraph_data.dart';
 import '../../domain/models/bible_highlight_entity.dart';
 import '../../domain/models/bible_verse_entity.dart';
 import '../providers/bible_chapter_providers.dart';
@@ -156,6 +157,11 @@ class _FlowingChapterTextState extends ConsumerState<FlowingChapterText> {
 
     _offsets.clear();
 
+    // Where paragraphs open; one block until the data is read, and when it is missing.
+    final paragraphStarts = (ref.watch(bibleParagraphDataProvider).valueOrNull ??
+            BibleParagraphData.empty)
+        .startsFor(widget.bookId, widget.chapter);
+
     final base = TextStyle(
       fontSize: bodySize,
       height: spacing.height,
@@ -169,12 +175,26 @@ class _FlowingChapterTextState extends ConsumerState<FlowingChapterText> {
 
     for (final verse in widget.verses) {
       final n = verse.verse;
+      // A paragraph ends the line and leaves a short gap: a second, half-size
+      // line break. Both count as characters for the verse offsets below.
+      if (spans.isNotEmpty && paragraphStarts.contains(n)) {
+        spans.add(const TextSpan(text: '\n'));
+        spans.add(TextSpan(
+          text: '\n',
+          style: TextStyle(fontSize: bodySize * 0.5, height: 1),
+        ));
+        at += 2;
+      }
       final highlight = _highlightFor(n);
       final isSelected = widget.selected.contains(n);
       final isFlashing = _flashingVerse == n;
       _offsets[n] = at;
 
       final tap = _tap('v$n', () => widget.onVerseTap(verse));
+      // On a highlight the words are dark on a pastel, so the underline that
+      // marks a selection (or a jump to the verse) is dark too: the accent
+      // colour is a pale green on the dark pages and vanishes on the pastel.
+      final marked = isSelected || (isFlashing && highlight != null);
 
       Color? background;
       if (highlight != null) {
@@ -202,7 +222,7 @@ class _FlowingChapterTextState extends ConsumerState<FlowingChapterText> {
             behavior: HitTestBehavior.opaque,
             onTap: () => widget.onVerseTap(verse),
             child: Padding(
-              padding: const EdgeInsets.only(left: 4, right: 3),
+              padding: const EdgeInsetsDirectional.only(start: 4, end: 3),
               child: Text(
                 '$n',
                 style: TextStyle(
@@ -227,8 +247,9 @@ class _FlowingChapterTextState extends ConsumerState<FlowingChapterText> {
         style: TextStyle(
           color: ink,
           backgroundColor: background,
-          decoration: isSelected ? TextDecoration.underline : null,
-          decorationColor: theme.colorScheme.primary,
+          decoration: marked ? TextDecoration.underline : null,
+          decorationColor:
+              highlight != null ? AppTheme.onHighlight : theme.colorScheme.primary,
           decorationThickness: 2,
         ),
       ));

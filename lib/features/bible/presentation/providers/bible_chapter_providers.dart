@@ -1,11 +1,29 @@
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../data/bible_bookmark_repository.dart';
 import '../../data/bible_highlight_repository.dart';
+import '../../data/bible_paragraph_data.dart';
 import '../../data/bible_verse_note_repository.dart';
 import '../../domain/models/bible_highlight_entity.dart';
 import '../../domain/models/bible_verse_note_entity.dart';
+
+// =============================================================================
+// Paragraph providers
+// =============================================================================
+
+/// Where paragraphs open, for every chapter: one small bundled asset, read once.
+/// A missing or damaged asset gives [BibleParagraphData.empty] (one block of
+/// text), never an error.
+final bibleParagraphDataProvider = FutureProvider<BibleParagraphData>((ref) async {
+  try {
+    return BibleParagraphData.parse(
+        await rootBundle.loadString('assets/bible/paragraphs.json'));
+  } catch (_) {
+    return BibleParagraphData.empty;
+  }
+});
 
 // =============================================================================
 // Highlight providers

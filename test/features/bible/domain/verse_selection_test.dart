@@ -166,4 +166,59 @@ void main() {
       expect([p.orphanNotes.single.start, p.orphanNotes.single.end], [3, 4]);
     });
   });
+
+  group('planHighlight, noted and overlapping highlights', () {
+    test('cutting a noted highlight keeps its note on the first piece', () {
+      final p = planHighlight(
+          existing: [_h('a', 2, 6, note: 'n')],
+          selected: {3, 4, 5},
+          color: HighlightColor.blue);
+      final kept = p.updates.single;
+      expect(kept.highlight.id, 'a');
+      expect([kept.start, kept.end], [2, 2]);
+      expect(p.creates, containsAll([
+        const HighlightCreate(6, 6, HighlightColor.yellow),
+        const HighlightCreate(3, 5, HighlightColor.blue),
+      ]));
+      expect(p.orphanNotes, isEmpty);
+    });
+
+    test('a selection over several existing highlights recolours each part',
+        () {
+      final p = planHighlight(
+          existing: [_h('a', 1, 3), _h('b', 5, 7, color: HighlightColor.green)],
+          selected: {3, 4, 5},
+          color: HighlightColor.pink);
+      expect(p.updates.map((u) => [u.highlight.id, u.start, u.end]),
+          unorderedEquals([
+        ['a', 1, 2],
+        ['b', 6, 7],
+      ]));
+      expect(p.creates, [const HighlightCreate(3, 5, HighlightColor.pink)]);
+      expect(p.deletes, isEmpty);
+    });
+
+    test('a non-contiguous selection cuts each side separately', () {
+      final p = planHighlight(
+          existing: [_h('a', 1, 9)],
+          selected: {3, 7},
+          color: HighlightColor.blue);
+      expect(p.updates.single.start, 1);
+      expect(p.updates.single.end, 2);
+      expect(p.creates, containsAll([
+        const HighlightCreate(4, 6, HighlightColor.yellow),
+        const HighlightCreate(8, 9, HighlightColor.yellow),
+        const HighlightCreate(3, 3, HighlightColor.blue),
+        const HighlightCreate(7, 7, HighlightColor.blue),
+      ]));
+    });
+
+    test('verses already in the colour are left alone', () {
+      final p = planHighlight(
+          existing: [_h('a', 1, 5)],
+          selected: {3},
+          color: HighlightColor.yellow);
+      expect(p.isEmpty, isTrue);
+    });
+  });
 }

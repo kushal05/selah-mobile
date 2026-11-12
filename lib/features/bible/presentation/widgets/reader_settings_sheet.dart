@@ -8,20 +8,15 @@ import '../providers/bible_reader_preferences.dart';
 
 /// How the chapter text looks: size, typeface, line spacing and verse numbers.
 /// The text size is the app-wide reading size, shared with notes and lyrics.
-Future<void> showReaderSettingsSheet(BuildContext context,
-    {ThemeData? theme}) {
+Future<void> showReaderSettingsSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     useSafeArea: true,
     context: context,
     isScrollControlled: true,
-    backgroundColor:
-        (theme ?? Theme.of(context)).colorScheme.surfaceContainerHigh,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (_) => theme == null
-        ? const _ReaderSettingsSheet()
-        : Theme(data: theme, child: const _ReaderSettingsSheet()),
+    // The sheet paints itself, in the colours chosen in it, so picking a page
+    // colour here changes the sheet as well, not only the page behind it.
+    backgroundColor: Colors.transparent,
+    builder: (_) => const _ReaderSettingsSheet(),
   );
 }
 
@@ -31,12 +26,12 @@ class _ReaderSettingsSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = l10n(context);
-    final theme = Theme.of(context);
+    final readerTheme = ref.watch(readerThemeProvider);
+    final theme = readerTheme.apply(Theme.of(context));
     final size = ref.watch(readingTextSizeProvider);
     final typeface = ref.watch(readerTypefaceProvider);
     final spacing = ref.watch(readerLineSpacingProvider);
     final showNumbers = ref.watch(readerShowVerseNumbersProvider);
-    final readerTheme = ref.watch(readerThemeProvider);
 
     Widget label(String text) => Padding(
           padding: const EdgeInsets.only(bottom: 8),
@@ -51,7 +46,15 @@ class _ReaderSettingsSheet extends ConsumerWidget {
           ),
         );
 
-    return SafeArea(
+    return Theme(
+      data: theme,
+      child: Material(
+      color: theme.colorScheme.surfaceContainerHigh,
+      clipBehavior: Clip.antiAlias,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
         child: Column(
@@ -156,6 +159,8 @@ class _ReaderSettingsSheet extends ConsumerWidget {
           ],
         ),
       ),
+    ),
+    ),
     );
   }
 }

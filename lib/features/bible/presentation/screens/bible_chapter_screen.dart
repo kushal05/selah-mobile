@@ -212,6 +212,7 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     if (match == null) return; // chosen but not downloaded
     setState(() {
       _primaryTranslation = match;
+      _selected.clear();
       // Comparing: the chosen version leads, the rest follow.
       if (_isComparing) {
         _compared = [
@@ -346,8 +347,8 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
 
   /// "Add to notes": asks where, then puts the verse in the body of a new note
   /// or at the end of an existing one. Not in the title.
-  Future<void> _addVerseToNote(String bookName) async {
-    final target = await AddVerseToNoteSheet.show(context);
+  Future<void> _addVerseToNote(String bookName, ThemeData theme) async {
+    final target = await AddVerseToNoteSheet.show(context, theme: theme);
     if (target == null || !mounted) return;
 
     final messenger = ScaffoldMessenger.of(context);
@@ -514,7 +515,7 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
             // name shrinking before the chapter number does, so the chapter is
             // never the part that gets cut off.
             title: Align(
-              alignment: Alignment.centerLeft,
+              alignment: AlignmentDirectional.centerStart,
               child: Material(
                 color: theme.colorScheme.secondaryContainer,
                 borderRadius: BorderRadius.circular(20),
@@ -561,14 +562,17 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
                 TranslationSelector(
                   currentTranslation: _primaryTranslation,
                   availableTranslations: translations,
-                  onChanged: (t) => setState(() => _primaryTranslation = t),
+                  onChanged: (t) => setState(() {
+                    _primaryTranslation = t;
+                    _selected.clear();
+                  }),
                   onManage: _openVersions,
                 ),
               IconButton(
                 tooltip: l10n(context).readingSettings,
                 icon: const Icon(Icons.text_fields_rounded),
                 visualDensity: VisualDensity.compact,
-                onPressed: () => showReaderSettingsSheet(context, theme: theme),
+                onPressed: () => showReaderSettingsSheet(context),
               ),
               // Compare and version management share one menu, to leave the
               // chapter pill the width it needs at 360dp.
@@ -725,7 +729,7 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
                     onClose: _clearSelection,
                     onSaveAsPromise: () => _saveAsPromise(
                         _selectionReference(bookName), _selectionText(verses)),
-                    onAddToNotes: () => _addVerseToNote(bookName),
+                    onAddToNotes: () => _addVerseToNote(bookName, theme),
                   ),
                 ),
             ],

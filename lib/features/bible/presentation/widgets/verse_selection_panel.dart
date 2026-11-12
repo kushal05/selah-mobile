@@ -160,9 +160,15 @@ class _VerseSelectionPanelState extends ConsumerState<VerseSelectionPanel> {
           ),
     ];
 
-    final maxHeight = MediaQuery.sizeOf(context).height * 0.6;
+    final screenHeight = MediaQuery.sizeOf(context).height;
 
-    return Material(
+    // 60% of the screen, but never more than the room there is: with the
+    // keyboard up for a note the page above it is short.
+    return LayoutBuilder(builder: (context, box) {
+      final maxHeight = box.maxHeight.isFinite
+          ? (screenHeight * 0.6).clamp(0.0, box.maxHeight * 0.9)
+          : screenHeight * 0.6;
+      return Material(
       color: context.raisedSurface,
       elevation: 8,
       borderRadius: BorderRadius.circular(18),
@@ -222,7 +228,7 @@ class _VerseSelectionPanelState extends ConsumerState<VerseSelectionPanel> {
               ),
               if (touched.isNotEmpty)
                 Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerStart,
                   child: TextButton.icon(
                     onPressed: widget.onRemoveHighlight,
                     icon: const Icon(Icons.format_color_reset_outlined, size: 16),
@@ -343,6 +349,7 @@ class _VerseSelectionPanelState extends ConsumerState<VerseSelectionPanel> {
         ),
       ),
     );
+    });
   }
 }
 

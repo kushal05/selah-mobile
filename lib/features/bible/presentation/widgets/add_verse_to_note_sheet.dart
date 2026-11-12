@@ -22,15 +22,19 @@ class VerseNoteTarget {
 class AddVerseToNoteSheet extends ConsumerWidget {
   const AddVerseToNoteSheet({super.key});
 
-  static Future<VerseNoteTarget?> show(BuildContext context) {
+  static Future<VerseNoteTarget?> show(BuildContext context,
+      {ThemeData? theme}) {
     return showModalBottomSheet<VerseNoteTarget>(
+      backgroundColor: theme?.colorScheme.surfaceContainerHigh,
       context: context,
       useSafeArea: true,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (_) => const AddVerseToNoteSheet(),
+      builder: (_) => theme == null
+          ? const AddVerseToNoteSheet()
+          : Theme(data: theme, child: const AddVerseToNoteSheet()),
     );
   }
 

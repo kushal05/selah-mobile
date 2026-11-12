@@ -1,6 +1,8 @@
 // The reader as a page of text: verses run on in one paragraph, tapping selects
 // them, and the panel that appears acts on the whole selection.
 
+import 'package:notify/features/bible/presentation/widgets/add_verse_to_note_sheet.dart';
+import 'package:notify/features/bible/presentation/providers/bible_reader_preferences.dart';
 import 'dart:convert';
 
 import 'package:drift/drift.dart' show driftRuntimeOptions;
@@ -15,6 +17,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:notify/core/database/sync_database.dart';
 import 'package:notify/core/sync/providers/sync_providers.dart';
 import 'package:notify/core/theme/app_theme.dart';
+import 'package:notify/features/bible/data/bible_paragraph_data.dart';
 import 'package:notify/features/bible/data/bible_repository.dart';
 import 'package:notify/features/bible/domain/models/bible_book_entity.dart';
 import 'package:notify/features/bible/domain/models/bible_highlight_entity.dart';
@@ -66,7 +69,10 @@ void main() {
 
   setUpAll(() => driftRuntimeOptions.dontWarnAboutMultipleDatabases = true);
 
-  Future<void> build({int verseCount = 8}) async {
+  Future<void> build({
+    int verseCount = 8,
+    BibleParagraphData paragraphs = BibleParagraphData.empty,
+  }) async {
     SharedPreferences.setMockInitialValues({});
     prefs = await SharedPreferences.getInstance();
     db = SyncDatabase.forTesting(NativeDatabase.memory());
@@ -81,6 +87,7 @@ void main() {
           .overrideWith((ref, p) => _verses(p.translation, verseCount)),
       bibleChaptersProvider.overrideWith((ref, p) => [1, 2, 3]),
       bibleBooksProvider.overrideWithValue([]),
+      bibleParagraphDataProvider.overrideWith((ref) async => paragraphs),
       chapterVerseTagsProvider.overrideWith((ref, p) => <int, Set<String>>{}),
     ]);
   }
@@ -168,6 +175,39 @@ void main() {
     for (var n = 1; n <= 8; n++) {
       expect(text, contains('Words of verse $n.'));
     }
+  });
+
+  testWidgets('paragraph data splits the text where it says, and taps still land on the right verse',
+      (tester) async {
+    await build(
+        paragraphs: BibleParagraphData.parse('{"1":{"1":[3,6]}}'));
+    await pump(tester);
+
+    final text = tester
+        .renderObject<RenderParagraph>(_paragraph())
+        .text
+        .toPlainText();
+    // Two breaks, each a line end plus a short gap line.
+    expect(text.split('\n').length, 1 + 2 * 2);
+    final parts = text.split('\n\n');
+    expect(parts.length, 3);
+    expect(parts[0], allOf(contains('Words of verse 2.'), isNot(contains('Words of verse 3.'))));
+    expect(parts[1], allOf(contains('Words of verse 3.'), contains('Words of verse 5.'), isNot(contains('Words of verse 6.'))));
+    expect(parts[2], contains('Words of verse 8.'));
+
+    await tapVerse(tester, 7);
+    expect(find.text('Genesis 1:7'), findsOneWidget);
+  });
+
+  testWidgets('without paragraph data the chapter is one block', (tester) async {
+    await build();
+    await pump(tester);
+
+    final text = tester
+        .renderObject<RenderParagraph>(_paragraph())
+        .text
+        .toPlainText();
+    expect(text, isNot(contains('\n')));
   });
 
   testWidgets('tapping a verse selects it, and the panel names it',
@@ -497,5 +537,56 @@ void main() {
         of: find.byType(FlowingChapterText),
         matching: find.byType(Scrollable)));
     expect(scrollable.position.pixels, 0);
+  });
+
+  testWidgets('a selected highlighted verse is marked in dark ink, which shows '
+      'on the pastel in every page colour', (tester) async {
+    await build();
+    await tester.runAsync(() => container
+        .read(bibleHighlightRepositoryProvider)
+        .createHighlight(
+            bookId: 1,
+            chapter: 1,
+            verseStart: 3,
+            verseEnd: 3,
+            color: HighlightColor.yellow));
+    await pump(tester);
+    await tapVerse(tester, 3);
+
+    final span = verseSpan(tester, 3);
+    expect(span.style?.decoration, TextDecoration.underline);
+    expect(span.style?.decorationColor, AppTheme.onHighlight);
+  });
+
+  testWidgets('switching version clears the selection', (tester) async {
+    await build();
+    await pump(tester);
+    await tapVerse(tester, 3);
+    expect(find.byType(VerseSelectionPanel), findsOneWidget);
+
+    await tester.longPress(find.descendant(
+        of: find.byType(AppBar), matching: find.text('KJV')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('NIV').last);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(VerseSelectionPanel), findsNothing,
+        reason: 'the other version may not have the same verses');
+  });
+
+  testWidgets('add to notes opens in the reader colours', (tester) async {
+    await build();
+    await prefs.setString('bible_reader_theme', 'sepia');
+    container.invalidate(readerThemeProvider);
+    await pump(tester);
+    await tapVerse(tester, 2);
+
+    await tester.tap(find.text('Add to notes'));
+    await tester.pumpAndSettle();
+
+    final sheetTheme =
+        Theme.of(tester.element(find.byType(AddVerseToNoteSheet)));
+    expect(sheetTheme.colorScheme.surfaceContainerHigh,
+        ReaderTheme.sepia.raised);
   });
 }

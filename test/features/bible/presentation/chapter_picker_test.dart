@@ -181,4 +181,19 @@ void main() {
       expect(find.text('John'), findsOneWidget);
     });
   }
+
+  testWidgets('opens on a book far down the list, with its chapters showing',
+      (tester) async {
+    // Revelation is the last row; a lazy list has not built it at first.
+    await _open(tester, bookId: 66, chapter: 5);
+    expect(find.text('Revelation'), findsOneWidget);
+    expect(find.bySemanticsLabel('Revelation chapter 22'), findsOneWidget);
+  });
+
+  testWidgets('and on Psalms, in the middle of the Old Testament',
+      (tester) async {
+    await _open(tester, bookId: 19, chapter: 23);
+    expect(find.text('Psalms'), findsOneWidget);
+    expect(find.bySemanticsLabel('Psalms chapter 23'), findsOneWidget);
+  });
 }

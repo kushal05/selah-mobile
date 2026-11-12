@@ -60,7 +60,10 @@ class _ChapterPickerSheetState extends State<ChapterPickerSheet> {
   late Testament _testament;
   int? _expanded; // book id
   final _currentKey = GlobalKey();
-  final _scroll = ScrollController();
+
+  /// A collapsed book row: 16pt text, 14pt padding either side, a hairline.
+  static const _approxRowHeight = 53.0;
+  late final ScrollController _scroll;
 
   @override
   void initState() {
@@ -68,6 +71,14 @@ class _ChapterPickerSheetState extends State<ChapterPickerSheet> {
     _expanded = widget.bookId;
     final book = _bookById(widget.bookId);
     _testament = book?.testament ?? Testament.old;
+    // Rows are built lazily, so a book far down the list has no row yet to
+    // scroll to: start near it, then settle exactly once it is built.
+    final index = BibleBooks.books
+        .where((b) => b.testament == _testament)
+        .toList()
+        .indexOf(book ?? BibleBooks.books.first);
+    _scroll = ScrollController(
+        initialScrollOffset: index > 0 ? (index - 1) * _approxRowHeight : 0);
     _search.addListener(() => setState(() {}));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ctx = _currentKey.currentContext;
