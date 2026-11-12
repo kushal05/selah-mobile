@@ -101,7 +101,11 @@ class _ProfileSettingsScreenState
                       color: Theme.of(context).cardColor,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: ListTile(
+                    child: Material(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      clipBehavior: Clip.antiAlias,
+                      child: ListTile(
                       title: Text(
                         _usernameController.text.isNotEmpty
                             ? '@${_usernameController.text}'
@@ -118,6 +122,7 @@ class _ProfileSettingsScreenState
                         size: 20,
                       ),
                       onTap: () => _showUsernameEditDialog(context),
+                    ),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -174,7 +179,11 @@ class _ProfileSettingsScreenState
                       color: Theme.of(context).cardColor,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: SwitchListTile(
+                    child: Material(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      clipBehavior: Clip.antiAlias,
+                      child: SwitchListTile(
                       title: Text(l10n(context).allowFriendRequests),
                       subtitle: Text(
                         l10n(context).whenOffNoOneCanSendYouFriendRequests,
@@ -187,6 +196,7 @@ class _ProfileSettingsScreenState
                       },
                       activeTrackColor: AppTheme.teal.withValues(alpha: 0.5),
                     ),
+                    ),
                   ),
                   const SizedBox(height: 24),
 
@@ -196,7 +206,11 @@ class _ProfileSettingsScreenState
                       color: Theme.of(context).cardColor,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: ListTile(
+                    child: Material(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      clipBehavior: Clip.antiAlias,
+                      child: ListTile(
                       leading: Icon(Icons.block, color: context.dangerText),
                       title: Text(l10n(context).blockedUsers),
                       trailing: Icon(
@@ -204,6 +218,7 @@ class _ProfileSettingsScreenState
                         color: context.hintText,
                       ),
                       onTap: () => _showBlockedUsers(context),
+                    ),
                     ),
                   ),
                   const SizedBox(height: 32),

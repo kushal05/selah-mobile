@@ -162,7 +162,11 @@ class FriendsListScreen extends ConsumerWidget {
           color: AppTheme.teal.withValues(alpha: 0.2),
         ),
       ),
-      child: ListTile(
+      child: Material(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      clipBehavior: Clip.antiAlias,
+                      child: ListTile(
         leading: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -201,6 +205,7 @@ class FriendsListScreen extends ConsumerWidget {
         ),
         onTap: () => context.push(Routes.friendRequests),
       ),
+                    ),
     );
   }
 

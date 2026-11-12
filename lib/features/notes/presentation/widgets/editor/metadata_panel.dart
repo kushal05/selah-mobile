@@ -183,7 +183,11 @@ class _DatePickerField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    // The sheet behind this has a coloured container: the splash needs a
+    // Material of its own above it to be seen.
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
       onTap: () => _selectDate(context),
       borderRadius: BorderRadius.circular(8),
       child: Container(
@@ -219,6 +223,7 @@ class _DatePickerField extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 
