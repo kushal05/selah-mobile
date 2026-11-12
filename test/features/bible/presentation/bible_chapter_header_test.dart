@@ -1,10 +1,12 @@
 // The chapter screen's title used to wrap beside four actions at phone width
 // and lose the chapter number. It is now one line, book name ellipsised first,
-// tappable for the reference picker; the version pill opens the downloader.
+// tappable for the chapter picker; the version pill opens the downloader.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:notify/core/sync/providers/sync_providers.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:notify/core/navigation/routes.dart';
@@ -15,7 +17,7 @@ import 'package:notify/features/bible/presentation/providers/bible_chapter_provi
 import 'package:notify/features/bible/presentation/providers/bible_providers.dart';
 import 'package:notify/features/bible/presentation/providers/verse_tag_providers.dart';
 import 'package:notify/features/bible/presentation/screens/bible_chapter_screen.dart';
-import 'package:notify/features/notes/presentation/widgets/editor/bible_reference_picker.dart';
+import 'package:notify/features/bible/presentation/widgets/chapter_picker_sheet.dart';
 import 'package:notify/l10n/app_localizations.dart';
 
 class _FakeRepo implements BibleRepository {
@@ -52,8 +54,13 @@ Future<void> _pump(WidgetTester tester) async {
     ),
   ]);
 
+  SharedPreferences.setMockInitialValues({});
+
+  final prefs = await SharedPreferences.getInstance();
+
   await tester.pumpWidget(ProviderScope(
     overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
       bibleRepositoryProvider.overrideWithValue(_FakeRepo()),
       bibleTranslationsProvider.overrideWithValue(['KJV', 'NIV']),
       bibleVersesProvider.overrideWith((ref, p) => []),
@@ -85,19 +92,19 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('tapping the title opens the reference picker', (tester) async {
+  testWidgets('tapping the title opens the chapter picker', (tester) async {
     await _pump(tester);
     await tester.tap(find.descendant(
         of: find.byType(AppBar), matching: find.text(' 5')));
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.byType(BibleReferencePicker), findsNothing); // dialog content is private
-    expect(find.byType(Dialog), findsOneWidget);
+    expect(find.byType(ChapterPickerSheet), findsOneWidget);
   });
 
   testWidgets('tapping the version pill opens the versions screen',
       (tester) async {
     await _pump(tester);
-    await tester.tap(find.text('KJV'));
+    await tester.tap(find.descendant(
+        of: find.byType(AppBar), matching: find.text('KJV')));
     await tester.pumpAndSettle();
     expect(find.text('versions-screen'), findsOneWidget);
   });

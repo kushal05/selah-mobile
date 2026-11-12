@@ -100,4 +100,33 @@ void main() {
     await db.clearAllUserData();
     expect(await db.select(db.bibleVerseNotes).get(), isEmpty);
   });
+
+  test('a note written on several verses is found from each of them', () async {
+    final n = await repo.addNote(
+        bookId: 43, chapter: 3, verse: 14, verseEnd: 17, content: 'group');
+
+    expect([n.verseStart, n.verseEnd], [14, 17]);
+    for (final v in [14, 15, 16, 17]) {
+      expect(await notesOn(43, 3, v), ['group']);
+    }
+    expect(await notesOn(43, 3, 13), isEmpty);
+    expect(await notesOn(43, 3, 18), isEmpty);
+  });
+
+  test('a note written on a single verse covers only that verse', () async {
+    final n = await repo.addNote(bookId: 43, chapter: 3, verse: 16, content: 'one');
+    expect([n.verseStart, n.verseEnd], [16, 16]);
+  });
+
+  test('the chapter stream lists every note in it, newest first', () async {
+    await repo.addNote(bookId: 43, chapter: 3, verse: 1, content: 'a');
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    await repo.addNote(
+        bookId: 43, chapter: 3, verse: 2, verseEnd: 4, content: 'b');
+    await repo.addNote(bookId: 43, chapter: 4, verse: 1, content: 'other');
+
+    final list =
+        await repo.watchNotesForChapter(bookId: 43, chapter: 3).first;
+    expect(list.map((n) => n.content), ['b', 'a']);
+  });
 }

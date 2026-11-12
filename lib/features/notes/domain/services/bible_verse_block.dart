@@ -8,19 +8,22 @@ import '../models/editor_block.dart';
 import '../models/editor_document.dart';
 import '../models/note_section.dart';
 
-/// A Bible reference card for one verse, the same kind the editor's `@`
-/// picker inserts: reference only, the text is looked up when it is shown.
+/// A Bible reference card for one verse, or for [verses] when given (a
+/// selection), the same kind the editor's `@` picker inserts: reference only,
+/// the text is looked up when it is shown.
 EditorBlock buildBibleVerseBlock({
   required String book,
   required int chapter,
-  required int verse,
+  int? verse,
+  List<int>? verses,
   required String version,
 }) {
+  assert(verse != null || (verses != null && verses.isNotEmpty));
   final ref = BibleReference(
     reference: BibleVerseReference(
       book: book,
       chapter: chapter,
-      verses: [verse],
+      verses: verses ?? [verse!],
       version: version,
     ),
     text: const [],

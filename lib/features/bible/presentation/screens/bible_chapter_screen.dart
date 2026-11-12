@@ -6,26 +6,28 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/navigation/routes.dart';
 import '../../../../core/sync/providers/sync_providers.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../shared/widgets/dialogs/reading_text_size_sheet.dart';
 import '../../../../shared/widgets/selectable_chip.dart';
-import '../../domain/models/bible_books.dart';
 import '../../domain/models/bible_version_info.dart';
 import '../../domain/models/bible_highlight_entity.dart';
 import '../../domain/models/bible_verse_entity.dart';
+import '../../domain/services/verse_selection.dart';
 import '../../../../core/theme/theme_colors.dart';
 import '../providers/bible_chapter_providers.dart';
 import '../providers/verse_tag_providers.dart';
 import '../providers/bible_providers.dart';
+import '../providers/bible_reader_preferences.dart';
 import '../widgets/add_verse_to_note_sheet.dart';
 import '../widgets/chapter_verse_list.dart';
-import '../widgets/highlight_bottom_sheet.dart';
+import '../widgets/chapter_picker_sheet.dart';
+import '../widgets/flowing_chapter_text.dart';
+import '../widgets/reader_settings_sheet.dart';
+import '../widgets/verse_selection_panel.dart';
 import '../widgets/translation_selector.dart';
 import '../../../notes/domain/models/editor_block.dart';
 import '../../../notes/domain/models/editor_document.dart';
 import '../../../notes/domain/models/note.dart';
 import '../../../notes/domain/services/bible_verse_block.dart';
 import '../../../notes/presentation/providers/database_provider.dart';
-import '../../../notes/presentation/widgets/editor/bible_reference_picker.dart';
 import '../../../../l10n/l10n.dart';
 
 /// Full chapter reading screen with highlight support and a compare view.
@@ -60,11 +62,18 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
   late int _chapter;
   late String _primaryTranslation;
 
+  /// A verse to scroll to when the reader opens. Used once: moving to another
+  /// chapter, or switching views, must not scroll to it again.
+  int? _scrollToVerse;
+
   /// Compare view: several versions of each verse, one after another.
   bool _isComparing = false;
 
   /// The versions being compared, in the order they are shown.
   List<String> _compared = [];
+
+  /// Verse numbers the user has selected; the panel acts on these.
+  final Set<int> _selected = {};
 
   final _primaryScrollController = ScrollController();
 
@@ -77,6 +86,7 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     _bookId = widget.bookId;
     _chapter = widget.chapter;
     _primaryTranslation = widget.initialTranslation;
+    _scrollToVerse = widget.scrollToVerse;
 
     // Log initial chapter view to reading history
     _logBibleReference();
@@ -114,6 +124,8 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     setState(() {
       _bookId = bookId;
       _chapter = chapter;
+      _selected.clear();
+      _scrollToVerse = null;
     });
     // Reset scroll positions
     if (_primaryScrollController.hasClients) {
@@ -123,21 +135,16 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     _logBibleReference();
   }
 
-  /// Opens the reference picker from the title; on a result, jumps there.
-  /// The picker also returns a verse and version, which this screen has no
-  /// way to apply (it scrolls to a verse only via its constructor argument).
-  Future<void> _openReferencePicker(String bookName) async {
-    final selection = await BibleReferencePicker.show(
+  /// Opens the chapter picker from the title; on a result, jumps there.
+  Future<void> _openChapterPicker(ThemeData theme) async {
+    final choice = await showChapterPicker(
       context,
-      defaultVersion: _primaryTranslation,
-      initialBook: BibleBooks.findBook(bookName),
-      initialChapter: _chapter,
+      theme: theme,
+      bookId: _bookId,
+      chapter: _chapter,
     );
-    if (selection == null || !mounted) return;
-    // The picker's books are the canonical 66, in the database's id order.
-    final bookId = BibleBooks.books.indexOf(selection.book) + 1;
-    if (bookId < 1) return;
-    _navigateToChapter(bookId, selection.chapter);
+    if (choice == null || !mounted) return;
+    _navigateToChapter(choice.bookId, choice.chapter);
   }
 
   void _goToPreviousChapter() {
@@ -222,6 +229,7 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
   void _toggleCompare(List<String> translations) {
     setState(() {
       _isComparing = !_isComparing;
+      _scrollToVerse = null;
       if (_isComparing) {
         final other = translations.firstWhere(
           (t) => t != _primaryTranslation,
@@ -247,78 +255,65 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     });
   }
 
-  // ── Highlights ───────────────────────────────────────────────────────
+  // ── Selection and highlights ─────────────────────────────────────────
 
-  void _showHighlightSheet(
-    BibleVerseEntity verse,
-    List<BibleHighlightEntity> highlights,
-  ) {
-    final book = ref.read(bibleRepositoryProvider).getBookById(_bookId);
-    final bookName = book?.name ?? 'Book $_bookId';
-    final reference = '$bookName ${verse.chapter}:${verse.verse}';
+  void _toggleVerse(BibleVerseEntity verse) {
+    setState(() {
+      if (!_selected.remove(verse.verse)) _selected.add(verse.verse);
+    });
+  }
 
-    // Check if this verse is already highlighted
-    BibleHighlightEntity? existing;
-    for (final h in highlights) {
-      if (h.coversVerse(verse.verse)) {
-        existing = h;
-        break;
+  void _clearSelection() {
+    if (_selected.isEmpty) return;
+    setState(_selected.clear);
+  }
+
+  /// "Genesis 1:4–6" for the selected verses.
+  String _selectionReference(String bookName) =>
+      '$bookName $_chapter:${formatVerses(_selected)}';
+
+  /// The selected verses' text, in order, as one passage.
+  String _selectionText(List<BibleVerseEntity> verses) => [
+        for (final v in verses)
+          if (_selected.contains(v.verse)) v.text,
+      ].join(' ');
+
+  /// Highlight writes run one after another. A second tap while one is still
+  /// saving would otherwise be planned from the same stale list and write two
+  /// updates at the same version.
+  Future<void> _highlightQueue = Future.value();
+
+  /// Makes every selected verse [color] (or clears them when it is null),
+  /// leaving every other verse as it was. The selection stays, so a colour can
+  /// be changed again.
+  Future<void> _applyHighlight(HighlightColor? color) {
+    final verses = {..._selected};
+    final messenger = ScaffoldMessenger.of(context);
+    final t = l10n(context);
+    final repo = ref.read(bibleHighlightRepositoryProvider);
+    final notes = ref.read(bibleVerseNoteRepositoryProvider);
+    final bookId = _bookId;
+    final chapter = _chapter;
+
+    return _highlightQueue = _highlightQueue.then((_) async {
+      try {
+        // Read what is stored now, not what the screen last drew.
+        final stored = await repo.getHighlightsForChapter(
+            bookId: bookId, chapter: chapter);
+        final plan =
+            planHighlight(existing: stored, selected: verses, color: color);
+        if (plan.isEmpty) return;
+        await repo.applyPlan(plan,
+            bookId: bookId, chapter: chapter, notes: notes);
+      } catch (_) {
+        messenger.showSnackBar(SnackBar(
+          content: Text(color == null
+              ? t.couldNotRemoveHighlight
+              : t.couldNotSaveHighlight),
+          behavior: SnackBarBehavior.floating,
+        ));
       }
-    }
-
-    HighlightBottomSheet.show(
-      context,
-      reference: reference,
-      verseText: verse.text,
-      bookId: _bookId,
-      chapter: verse.chapter,
-      verse: verse.verse,
-      existingHighlight: existing,
-      // These were fire-and-forget. The sheet closed, the write was never
-      // awaited, and a failure had nowhere to go — the highlight simply did
-      // not appear, or would not delete, with nothing said.
-      onSave: (color) async {
-        final messenger = ScaffoldMessenger.of(context);
-        final failed = l10n(context).couldNotSaveHighlight;
-        final repo = ref.read(bibleHighlightRepositoryProvider);
-        try {
-          if (existing != null) {
-            await repo.updateHighlight(existing.copyWithUpdate(color: color));
-          } else {
-            await repo.createHighlight(
-              bookId: _bookId,
-              chapter: _chapter,
-              verseStart: verse.verse,
-              verseEnd: verse.verse,
-              color: color,
-            );
-          }
-        } catch (_) {
-          messenger.showSnackBar(SnackBar(
-            content: Text(failed),
-            behavior: SnackBarBehavior.floating,
-          ));
-        }
-      },
-      onRemove: existing != null
-          ? () async {
-              final messenger = ScaffoldMessenger.of(context);
-              final failed = l10n(context).couldNotRemoveHighlight;
-              try {
-                await ref
-                    .read(bibleHighlightRepositoryProvider)
-                    .deleteHighlight(existing!.id);
-              } catch (_) {
-                messenger.showSnackBar(SnackBar(
-                  content: Text(failed),
-                  behavior: SnackBarBehavior.floating,
-                ));
-              }
-            }
-          : null,
-      onSaveToPromises: (ref_, text) => _saveAsPromise(ref_, text),
-      onSaveToNotes: (ref_, text) => _addVerseToNote(bookName, verse),
-    );
+    });
   }
 
   Future<void> _saveAsPromise(String reference, String verseText) async {
@@ -351,7 +346,7 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
 
   /// "Add to notes": asks where, then puts the verse in the body of a new note
   /// or at the end of an existing one. Not in the title.
-  Future<void> _addVerseToNote(String bookName, BibleVerseEntity verse) async {
+  Future<void> _addVerseToNote(String bookName) async {
     final target = await AddVerseToNoteSheet.show(context);
     if (target == null || !mounted) return;
 
@@ -361,8 +356,8 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
     final repo = ref.read(notesRepositoryProvider);
     final block = buildBibleVerseBlock(
       book: bookName,
-      chapter: verse.chapter,
-      verse: verse.verse,
+      chapter: _chapter,
+      verses: ([..._selected]..sort()),
       version: _primaryTranslation,
     );
 
@@ -451,7 +446,7 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
       }
     }
 
-    final theme = parentTheme.copyWith(
+    final autoTheme = parentTheme.copyWith(
       colorScheme: parentTheme.colorScheme.copyWith(
         primary: _bibleGreen,
         onPrimary: AppTheme.onAccent(_bibleGreen),
@@ -462,178 +457,279 @@ class _BibleChapterScreenState extends ConsumerState<BibleChapterScreen> {
       ),
     );
 
+    // The reader's own page colours (sepia, night...), or the app's theme.
+    final theme = ref.watch(readerThemeProvider).apply(autoTheme);
+
     final canCompare = translations.length > 1;
+    final selecting = _selected.isNotEmpty;
+    // The panel can grow to 60% of the screen; keep the text scrollable above it.
+    final panelRoom = MediaQuery.sizeOf(context).height * 0.6 + 24;
+    final typeface = ref.watch(readerTypefaceProvider);
+
+    final chapterHeader = Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$bookName $_chapter',
+            style: TextStyle(
+              fontSize: 28,
+              height: 1.15,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.2,
+              fontFamily: typeface.family,
+              fontFamilyFallback: typeface.fallback,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            bibleVersionDisplayName(_primaryTranslation),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
 
     return Theme(
       data: theme,
-      child: Scaffold(
-        appBar: AppBar(
-          backgroundColor: parentTheme.scaffoldBackgroundColor,
-          elevation: 0,
-          titleSpacing: 0,
-          // One line, book name shrinking before the chapter number does, so
-          // the chapter is never the part that gets cut off.
-          title: InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: () => _openReferencePicker(bookName),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppTheme.spacing8),
-              child: Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      bookName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      softWrap: false,
-                      style: AppTheme.headingMedium,
-                    ),
-                  ),
-                  Text(' $_chapter',
-                      maxLines: 1, style: AppTheme.headingMedium),
-                  const Icon(Icons.arrow_drop_down, size: 20),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            // Version pill: tap opens the downloader, long-press switches.
-            if (!comparing)
-              TranslationSelector(
-                currentTranslation: _primaryTranslation,
-                availableTranslations: translations,
-                onChanged: (t) => setState(() => _primaryTranslation = t),
-                onManage: _openVersions,
-              ),
-            // Text size, compare toggle and version management share one
-            // menu, to leave the title the width it needs at 360dp.
-            PopupMenuButton<String>(
-              tooltip: l10n(context).moreOptions,
-              onSelected: (v) {
-                switch (v) {
-                  case 'textSize':
-                    showReadingTextSizeSheet(context);
-                  case 'compare':
-                    _toggleCompare(translations);
-                  case 'versions':
-                    _openVersions();
-                }
-              },
-              itemBuilder: (_) => [
-                PopupMenuItem(
-                  value: 'textSize',
-                  child: Text(l10n(context).textSize),
-                ),
-                PopupMenuItem(
-                  value: 'compare',
-                  enabled: canCompare,
-                  child: Text(comparing
-                      ? l10n(context).singleVersion
-                      : l10n(context).compareVersions),
-                ),
-                PopupMenuItem(
-                  value: 'versions',
-                  child: Text(l10n(context).bibleVersions),
-                ),
-              ],
-            ),
-          ],
-        ),
-        body: Stack(
-          children: [
-            if (highlightsFailed)
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Material(
-                  color: AppTheme.warning.withValues(alpha: 0.12),
+      child: PopScope(
+        // Back clears a selection before it leaves the chapter.
+        canPop: !selecting,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _clearSelection();
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            backgroundColor: theme.scaffoldBackgroundColor,
+            elevation: 0,
+            titleSpacing: 12,
+            // The chapter as a pill: tap to choose another. One line, the book
+            // name shrinking before the chapter number does, so the chapter is
+            // never the part that gets cut off.
+            title: Align(
+              alignment: Alignment.centerLeft,
+              child: Material(
+                color: theme.colorScheme.secondaryContainer,
+                borderRadius: BorderRadius.circular(20),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () => _openChapterPicker(theme),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: AppTheme.spacing16,
-                        vertical: AppTheme.spacing8),
+                    padding: const EdgeInsets.fromLTRB(12, 7, 6, 7),
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Expanded(
+                        Flexible(
                           child: Text(
-                            l10n(context).highlightsCouldntBeLoaded,
-                            style: AppTheme.caption
-                                .copyWith(color: context.warningText),
+                            bookName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            softWrap: false,
+                            style: AppTheme.bodyBase.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.onSecondaryContainer,
+                            ),
                           ),
                         ),
-                        TextButton(
-                          onPressed: () => ref.invalidate(
-                            chapterHighlightsProvider(
-                                (bookId: _bookId, chapter: _chapter)),
+                        Text(
+                          ' $_chapter',
+                          maxLines: 1,
+                          style: AppTheme.bodyBase.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSecondaryContainer,
                           ),
-                          style: TextButton.styleFrom(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 8),
-                            minimumSize: const Size(0, 32),
-                            tapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          child: Text(l10n(context).retry),
                         ),
+                        Icon(Icons.expand_more,
+                            size: 18,
+                            color: theme.colorScheme.onSecondaryContainer),
                       ],
                     ),
                   ),
                 ),
               ),
-            Positioned.fill(
-              child: Column(
-                children: [
-                  // Compare view: pick the versions here, and they are laid
-                  // out one after another under each verse.
-                  if (comparing)
-                    _CompareVersionsBar(
-                      available: translations,
-                      selected: compared,
-                      onToggle: _toggleComparedVersion,
-                    ),
-                  Expanded(
-                    child: ChapterVerseList(
-                      verses: verses,
-                      highlights: highlights,
-                      verseTags: verseTags,
-                      onTagTap: _openNotesWithTag,
-                      scrollController: _primaryScrollController,
-                      scrollToVerse: widget.scrollToVerse,
-                      versionLabel: comparing
-                          ? bibleVersionDisplayName(compared.first)
-                          : null,
-                      otherVersions: otherVersions,
-                      onVerseTap: (verse) =>
-                          _showHighlightSheet(verse, highlights),
-                      onVerseLongPress: (verse) =>
-                          _showHighlightSheet(verse, highlights),
-                    ),
+            ),
+            actions: [
+              // Version pill: tap opens the downloader, long-press switches.
+              if (!comparing)
+                TranslationSelector(
+                  currentTranslation: _primaryTranslation,
+                  availableTranslations: translations,
+                  onChanged: (t) => setState(() => _primaryTranslation = t),
+                  onManage: _openVersions,
+                ),
+              IconButton(
+                tooltip: l10n(context).readingSettings,
+                icon: const Icon(Icons.text_fields_rounded),
+                visualDensity: VisualDensity.compact,
+                onPressed: () => showReaderSettingsSheet(context, theme: theme),
+              ),
+              // Compare and version management share one menu, to leave the
+              // chapter pill the width it needs at 360dp.
+              PopupMenuButton<String>(
+                tooltip: l10n(context).moreOptions,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                onSelected: (v) {
+                  switch (v) {
+                    case 'compare':
+                      _toggleCompare(translations);
+                    case 'versions':
+                      _openVersions();
+                  }
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'compare',
+                    enabled: canCompare,
+                    child: Text(comparing
+                        ? l10n(context).singleVersion
+                        : l10n(context).compareVersions),
+                  ),
+                  PopupMenuItem(
+                    value: 'versions',
+                    child: Text(l10n(context).bibleVersions),
                   ),
                 ],
               ),
-            ),
-            // Floating prev/next navigation
-            Positioned(
-              left: AppTheme.spacing16,
-              bottom: AppTheme.spacing24,
-              child: _NavButton(
-                heroTag: 'prev_chapter',
-                icon: Icons.chevron_left,
-                onPressed: _goToPreviousChapter,
-                color: theme.colorScheme.onSurface,
+            ],
+          ),
+          body: Stack(
+            children: [
+              if (highlightsFailed)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: Material(
+                    color: AppTheme.warning.withValues(alpha: 0.12),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: AppTheme.spacing16,
+                          vertical: AppTheme.spacing8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              l10n(context).highlightsCouldntBeLoaded,
+                              style: AppTheme.caption
+                                  .copyWith(color: context.warningText),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => ref.invalidate(
+                              chapterHighlightsProvider(
+                                  (bookId: _bookId, chapter: _chapter)),
+                            ),
+                            style: TextButton.styleFrom(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8),
+                              minimumSize: const Size(0, 32),
+                              tapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: Text(l10n(context).retry),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              Positioned.fill(
+                child: Column(
+                  children: [
+                    // Compare view: pick the versions here, and they are laid
+                    // out one after another under each verse.
+                    if (comparing)
+                      _CompareVersionsBar(
+                        available: translations,
+                        selected: compared,
+                        onToggle: _toggleComparedVersion,
+                      ),
+                    Expanded(
+                      child: comparing
+                          ? ChapterVerseList(
+                              verses: verses,
+                              highlights: highlights,
+                              selected: _selected,
+                              verseTags: verseTags,
+                              onTagTap: _openNotesWithTag,
+                              scrollController: _primaryScrollController,
+                              scrollToVerse: _scrollToVerse,
+                              versionLabel:
+                                  bibleVersionDisplayName(compared.first),
+                              otherVersions: otherVersions,
+                              bottomInset: selecting ? panelRoom : 12,
+                              onVerseTap: _toggleVerse,
+                              onVerseLongPress: _toggleVerse,
+                            )
+                          : FlowingChapterText(
+                              header: chapterHeader,
+                              bookId: _bookId,
+                              chapter: _chapter,
+                              verses: verses,
+                              highlights: highlights,
+                              selected: _selected,
+                              verseTags: verseTags,
+                              onTagTap: _openNotesWithTag,
+                              scrollController: _primaryScrollController,
+                              scrollToVerse: _scrollToVerse,
+                              bottomInset: selecting ? panelRoom : 96,
+                              onVerseTap: _toggleVerse,
+                            ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Positioned(
-              right: AppTheme.spacing16,
-              bottom: AppTheme.spacing24,
-              child: _NavButton(
-                heroTag: 'next_chapter',
-                icon: Icons.chevron_right,
-                onPressed: _goToNextChapter,
-                color: theme.colorScheme.onSurface,
-              ),
-            ),
-          ],
+              if (!selecting) ...[
+                // Floating prev/next navigation
+                Positioned(
+                  left: AppTheme.spacing16,
+                  bottom: AppTheme.spacing24,
+                  child: _NavButton(
+                    heroTag: 'prev_chapter',
+                    icon: Icons.chevron_left,
+                    onPressed: _goToPreviousChapter,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+                Positioned(
+                  right: AppTheme.spacing16,
+                  bottom: AppTheme.spacing24,
+                  child: _NavButton(
+                    heroTag: 'next_chapter',
+                    icon: Icons.chevron_right,
+                    onPressed: _goToNextChapter,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+              ],
+              if (selecting)
+                Positioned(
+                  left: 10,
+                  right: 10,
+                  bottom: 10 + MediaQuery.paddingOf(context).bottom,
+                  child: VerseSelectionPanel(
+                    reference: _selectionReference(bookName),
+                    bookId: _bookId,
+                    chapter: _chapter,
+                    selected: {..._selected},
+                    highlights: highlights,
+                    onColor: _applyHighlight,
+                    onRemoveHighlight: () => _applyHighlight(null),
+                    onClose: _clearSelection,
+                    onSaveAsPromise: () => _saveAsPromise(
+                        _selectionReference(bookName), _selectionText(verses)),
+                    onAddToNotes: () => _addVerseToNote(bookName),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

@@ -106,6 +106,9 @@ Future<void> _menu(WidgetTester tester, String item) async {
 double _top(WidgetTester tester, String text) =>
     tester.getTopLeft(find.text(text)).dy;
 
+/// The one-version page sets all verses in a single paragraph of rich text.
+Finder _single(String text) => find.textContaining(text, findRichText: true);
+
 Finder _chip(String code) => find.descendant(
     of: find.byType(SelectableChip), matching: find.text(code));
 
@@ -115,8 +118,8 @@ void main() {
     await _pump(tester);
 
     expect(find.byType(SelectableChip), findsNothing);
-    expect(find.text('In the beginning (KJV)'), findsOneWidget);
-    expect(find.text('In the beginning (NIV)'), findsNothing);
+    expect(_single('In the beginning (KJV)'), findsOneWidget);
+    expect(_single('In the beginning (NIV)'), findsNothing);
   });
 
   testWidgets('Compare versions shows a bar to pick from, KJV and NIV chosen',
@@ -230,8 +233,8 @@ void main() {
     await _menu(tester, 'Single version');
 
     expect(find.byType(SelectableChip), findsNothing);
-    expect(find.text('In the beginning (NIV)'), findsNothing);
-    expect(find.text('In the beginning (KJV)'), findsOneWidget);
+    expect(_single('In the beginning (NIV)'), findsNothing);
+    expect(_single('In the beginning (KJV)'), findsOneWidget);
     expect(
         find.descendant(of: find.byType(AppBar), matching: find.text('KJV')),
         findsOneWidget);

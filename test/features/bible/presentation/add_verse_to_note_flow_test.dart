@@ -81,7 +81,7 @@ void main() {
 
   Future<void> settle(WidgetTester tester) async {
     await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 80)));
+        () => Future<void>.delayed(const Duration(milliseconds: 150)));
     await tester.pump(const Duration(milliseconds: 100));
   }
 
@@ -112,7 +112,10 @@ void main() {
     ));
     await settle(tester);
 
-    await tester.tap(find.textContaining('For God so loved'));
+    // Tap on the first line of the verse: the text is one paragraph, and the
+    // middle of its box can fall in the blank end of its last line.
+    await tester.tapAt(tester.getTopLeft(find.textContaining('For God so loved')) +
+        const Offset(70, 10));
     for (var i = 0; i < 5; i++) {
       await settle(tester); // let the sheet finish sliding in
     }

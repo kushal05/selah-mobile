@@ -135,10 +135,14 @@ class BibleHighlightEntity extends Equatable implements SyncEntity {
   BibleHighlightEntity copyWithUpdate({
     HighlightColor? color,
     String? note,
+    int? verseStart,
+    int? verseEnd,
   }) {
     return copyWith(
       color: color,
       note: note,
+      verseStart: verseStart,
+      verseEnd: verseEnd,
       version: version + 1,
       updatedAt: DateTime.now().millisecondsSinceEpoch,
     );

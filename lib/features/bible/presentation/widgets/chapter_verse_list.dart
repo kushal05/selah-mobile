@@ -24,6 +24,12 @@ class ChapterVerseList extends StatefulWidget {
   final void Function(BibleVerseEntity verse)? onVerseTap;
   final int? scrollToVerse;
 
+  /// Verses the user has selected, drawn with a tint.
+  final Set<int> selected;
+
+  /// Room under the last verse, for the selection panel.
+  final double bottomInset;
+
   /// Tags your notes have put on these verses, by verse number.
   final Map<int, Set<String>> verseTags;
 
@@ -46,6 +52,8 @@ class ChapterVerseList extends StatefulWidget {
     this.onVerseLongPress,
     this.onVerseTap,
     this.scrollToVerse,
+    this.selected = const {},
+    this.bottomInset = 12,
     this.verseTags = const {},
     this.onTagTap,
     this.versionLabel,
@@ -120,7 +128,7 @@ class _ChapterVerseListState extends State<ChapterVerseList> {
 
     return ListView.builder(
       controller: widget.scrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, widget.bottomInset),
       itemCount: widget.verses.length,
       itemBuilder: (context, index) {
         final verse = widget.verses[index];
@@ -135,6 +143,7 @@ class _ChapterVerseListState extends State<ChapterVerseList> {
           verse: verse,
           highlight: highlight,
           isFlashing: isFlashing,
+          isSelected: widget.selected.contains(verse.verse),
           tagIds: widget.verseTags[verse.verse] ?? const {},
           versionLabel: widget.versionLabel,
           others: widget.otherVersions[verse.verse] ?? const [],
@@ -169,6 +178,7 @@ class _VerseRow extends ConsumerWidget {
   final void Function(String tagId)? onTagTap;
   final BibleHighlightEntity? highlight;
   final bool isFlashing;
+  final bool isSelected;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
 
@@ -179,6 +189,7 @@ class _VerseRow extends ConsumerWidget {
     this.others = const [],
     this.highlight,
     this.isFlashing = false,
+    this.isSelected = false,
     this.onTap,
     this.onLongPress,
     this.tagIds = const {},
@@ -315,10 +326,12 @@ class _VerseRow extends ConsumerWidget {
         false;
 
     Color? bgColor;
-    if (isFlashing) {
-      bgColor = theme.colorScheme.primary.withAlpha(30);
-    } else if (highlight != null) {
+    if (highlight != null) {
       bgColor = highlight!.color.backgroundColor;
+    } else if (isSelected) {
+      bgColor = theme.colorScheme.primary.withAlpha(48);
+    } else if (isFlashing) {
+      bgColor = theme.colorScheme.primary.withAlpha(30);
     }
 
     return Semantics(
@@ -334,6 +347,11 @@ class _VerseRow extends ConsumerWidget {
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(6),
+          // A highlighted verse that is also selected keeps its colour and
+          // gets an outline, so the selection still shows.
+          border: isSelected && highlight != null
+              ? Border.all(color: theme.colorScheme.primary, width: 2)
+              : null,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,

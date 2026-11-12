@@ -57,6 +57,16 @@ final verseNotesProvider = StreamProvider.family<List<BibleVerseNoteEntity>,
       );
 });
 
+/// Every note written in a chapter, newest first (reactive stream). A note
+/// covers verseStart..verseEnd, so a selection finds its notes by overlap.
+final chapterVerseNotesProvider = StreamProvider.family<
+    List<BibleVerseNoteEntity>, ({int bookId, int chapter})>((ref, params) {
+  return ref.watch(bibleVerseNoteRepositoryProvider).watchNotesForChapter(
+        bookId: params.bookId,
+        chapter: params.chapter,
+      );
+});
+
 /// The verses of a chapter that have at least one note (reactive stream), for
 /// the marker beside them in the chapter list.
 final chapterNotedVersesProvider = StreamProvider.family<Set<int>,

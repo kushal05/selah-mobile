@@ -7,6 +7,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:notify/core/sync/providers/sync_providers.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:notify/core/navigation/routes.dart';
@@ -52,8 +54,11 @@ Future<_FakeStates> _pumpVersions(
   List<BibleVersionInfo> versions,
 ) async {
   final repo = _FakeStates();
+  SharedPreferences.setMockInitialValues({});
+  final prefs = await SharedPreferences.getInstance();
   await tester.pumpWidget(ProviderScope(
     overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
       bibleVersionStateRepositoryProvider.overrideWithValue(repo),
       bibleVersionStatesProvider
           .overrideWith((ref) => Stream.value(versions)),
@@ -189,8 +194,13 @@ void main() {
       ),
     ]);
 
+    SharedPreferences.setMockInitialValues({});
+
+    final prefs = await SharedPreferences.getInstance();
+
     await tester.pumpWidget(ProviderScope(
       overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
         bibleRepositoryProvider.overrideWithValue(_FakeRepo()),
         bibleTranslationsProvider.overrideWithValue(['KJV', 'NIV']),
         bibleVersionStatesProvider.overrideWith((ref) => states.stream),
@@ -246,8 +256,13 @@ void main() {
       ),
     ]);
 
+    SharedPreferences.setMockInitialValues({});
+
+    final prefs = await SharedPreferences.getInstance();
+
     await tester.pumpWidget(ProviderScope(
       overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
         bibleRepositoryProvider.overrideWithValue(_FakeRepo()),
         bibleTranslationsProvider.overrideWithValue(['KJV', 'NIV']),
         bibleVersionStatesProvider.overrideWith((ref) => states.stream),

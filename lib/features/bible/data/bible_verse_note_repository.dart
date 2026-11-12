@@ -44,21 +44,40 @@ class BibleVerseNoteRepository
     return query.watch().map((rows) => rows.map(_toEntity).toList());
   }
 
-  /// Save a note on a single verse and record an INSERT oplog entry.
+  /// Watch every note in a chapter, newest first.
+  Stream<List<BibleVerseNoteEntity>> watchNotesForChapter({
+    required int bookId,
+    required int chapter,
+  }) {
+    final query = _db.select(_db.bibleVerseNotes)
+      ..where(
+        (n) =>
+            n.bookId.equals(bookId) &
+            n.chapter.equals(chapter) &
+            n.deleted.equals(0),
+      )
+      ..orderBy([(n) => OrderingTerm.desc(n.createdAt)]);
+    return query.watch().map((rows) => rows.map(_toEntity).toList());
+  }
+
+  /// Save a note on [verse] (through [verseEnd] for a run of verses) and
+  /// record an INSERT oplog entry.
   Future<BibleVerseNoteEntity> addNote({
     required int bookId,
     required int chapter,
     required int verse,
+    int? verseEnd,
     required String content,
   }) async {
+    final end = verseEnd ?? verse;
     final now = DateTime.now().millisecondsSinceEpoch;
     final entity = BibleVerseNoteEntity(
       id: const Uuid().v4(),
       userId: _userId,
       bookId: bookId,
       chapter: chapter,
-      verseStart: verse,
-      verseEnd: verse,
+      verseStart: verse <= end ? verse : end,
+      verseEnd: verse <= end ? end : verse,
       content: content,
       version: 1,
       createdAt: now,

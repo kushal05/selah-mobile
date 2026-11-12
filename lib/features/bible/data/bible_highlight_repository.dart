@@ -5,6 +5,8 @@ import '../../../core/database/sync_database.dart';
 import '../../../core/sync/models/oplog_entry.dart';
 import '../../../core/sync/repositories/base_sync_repository.dart';
 import '../domain/models/bible_highlight_entity.dart';
+import '../domain/services/verse_selection.dart';
+import 'bible_verse_note_repository.dart';
 
 /// Repository for Bible verse highlights.
 ///
@@ -103,6 +105,49 @@ class BibleHighlightRepository
     });
 
     return entity;
+  }
+
+  /// Carries out a [HighlightPlan] in one transaction, so a split or a
+  /// recolour over several highlights is all done or not done at all.
+  ///
+  /// A note that belonged to a highlight the plan removes is written through
+  /// [notes] inside the same transaction, so it is never lost if that fails.
+  Future<void> applyPlan(
+    HighlightPlan plan, {
+    required int bookId,
+    required int chapter,
+    required BibleVerseNoteRepository notes,
+  }) async {
+    await _db.transaction(() async {
+      for (final u in plan.updates) {
+        await updateHighlight(u.highlight.copyWithUpdate(
+          color: u.color,
+          verseStart: u.start,
+          verseEnd: u.end,
+        ));
+      }
+      for (final c in plan.creates) {
+        await createHighlight(
+          bookId: bookId,
+          chapter: chapter,
+          verseStart: c.start,
+          verseEnd: c.end,
+          color: c.color,
+        );
+      }
+      for (final id in plan.deletes) {
+        await deleteHighlight(id);
+      }
+      for (final n in plan.orphanNotes) {
+        await notes.addNote(
+          bookId: bookId,
+          chapter: chapter,
+          verse: n.start,
+          verseEnd: n.end,
+          content: n.text,
+        );
+      }
+    });
   }
 
   /// Update an existing highlight and record an UPDATE oplog entry.

@@ -1,103 +1,56 @@
-import '../../../../core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../shared/widgets/drag_handle.dart';
-import '../../domain/models/bible_highlight_entity.dart';
-import '../../../../l10n/l10n.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_colors.dart';
+import '../../../../l10n/l10n.dart';
+import '../../domain/models/bible_highlight_entity.dart';
+import '../../domain/services/verse_selection.dart';
 import '../providers/bible_chapter_providers.dart';
 
-/// Bottom sheet for a tapped Bible verse: highlight colour, the user's notes on
-/// the verse, and shortcuts to save it as a promise or to a note.
+/// The panel that appears over the chapter when verses are selected: highlight
+/// colours (one tap applies), the notes on the selected verses, and the actions
+/// to add a note, save the passage as a promise or add it to a note.
 ///
-/// Shown on tap or long-press of a verse in the chapter reading view.
-class HighlightBottomSheet extends ConsumerStatefulWidget {
-  /// Human-readable verse reference (e.g., "Genesis 1:1").
+/// Acts on the whole selection. A note can only be written when the selected
+/// verses are next to each other, so it is never shown against a verse it was
+/// not written on.
+class VerseSelectionPanel extends ConsumerStatefulWidget {
+  /// "Genesis 1:4–6", for the heading.
   final String reference;
-
-  /// Full verse text — used by the Notes/Promise shortcuts.
-  final String verseText;
-
-  /// Which verse this is, to find and save its notes.
   final int bookId;
   final int chapter;
-  final int verse;
+  final Set<int> selected;
 
-  /// Existing highlight if editing, null if creating.
-  final BibleHighlightEntity? existingHighlight;
+  /// Highlights in the chapter, to show the current colour.
+  final List<BibleHighlightEntity> highlights;
 
-  /// Called when user saves a highlight.
-  final void Function(HighlightColor color) onSave;
+  final void Function(HighlightColor color) onColor;
+  final VoidCallback onRemoveHighlight;
+  final VoidCallback onClose;
+  final VoidCallback onSaveAsPromise;
+  final VoidCallback onAddToNotes;
 
-  /// Called when user removes an existing highlight.
-  final VoidCallback? onRemove;
-
-  /// Called when user taps "Save as Promise". Receives (reference, verseText).
-  final void Function(String reference, String verseText)? onSaveToPromises;
-
-  /// Called when user taps "Add to Notes". Receives (reference, verseText).
-  final void Function(String reference, String verseText)? onSaveToNotes;
-
-  const HighlightBottomSheet({
+  const VerseSelectionPanel({
     super.key,
     required this.reference,
-    required this.verseText,
     required this.bookId,
     required this.chapter,
-    required this.verse,
-    this.existingHighlight,
-    required this.onSave,
-    this.onRemove,
-    this.onSaveToPromises,
-    this.onSaveToNotes,
+    required this.selected,
+    required this.highlights,
+    required this.onColor,
+    required this.onRemoveHighlight,
+    required this.onClose,
+    required this.onSaveAsPromise,
+    required this.onAddToNotes,
   });
 
-  /// Show the highlight bottom sheet and return the result.
-  static Future<void> show(
-    BuildContext context, {
-    required String reference,
-    required String verseText,
-    required int bookId,
-    required int chapter,
-    required int verse,
-    BibleHighlightEntity? existingHighlight,
-    required void Function(HighlightColor color) onSave,
-    VoidCallback? onRemove,
-    void Function(String reference, String verseText)? onSaveToPromises,
-    void Function(String reference, String verseText)? onSaveToNotes,
-  }) {
-    return showModalBottomSheet(
-      // Defaults to false: a scroll-controlled sheet otherwise draws its
-      // top edge behind the notch or Dynamic Island.
-      useSafeArea: true,
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => HighlightBottomSheet(
-        reference: reference,
-        verseText: verseText,
-        bookId: bookId,
-        chapter: chapter,
-        verse: verse,
-        existingHighlight: existingHighlight,
-        onSave: onSave,
-        onRemove: onRemove,
-        onSaveToPromises: onSaveToPromises,
-        onSaveToNotes: onSaveToNotes,
-      ),
-    );
-  }
-
   @override
-  ConsumerState<HighlightBottomSheet> createState() =>
-      _HighlightBottomSheetState();
+  ConsumerState<VerseSelectionPanel> createState() =>
+      _VerseSelectionPanelState();
 }
 
-class _HighlightBottomSheetState extends ConsumerState<HighlightBottomSheet> {
-  late HighlightColor _selectedColor;
+class _VerseSelectionPanelState extends ConsumerState<VerseSelectionPanel> {
   final _noteController = TextEditingController();
   bool _showNoteField = false;
   bool _savingNote = false;
@@ -105,9 +58,18 @@ class _HighlightBottomSheetState extends ConsumerState<HighlightBottomSheet> {
   @override
   void initState() {
     super.initState();
-    _selectedColor =
-        widget.existingHighlight?.color ?? HighlightColor.yellow;
     _noteController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void didUpdateWidget(VerseSelectionPanel old) {
+    super.didUpdateWidget(old);
+    // The note belongs to the verses it was started on.
+    if (old.selected.length != widget.selected.length ||
+        !old.selected.containsAll(widget.selected)) {
+      _showNoteField = false;
+      _noteController.clear();
+    }
   }
 
   @override
@@ -116,19 +78,10 @@ class _HighlightBottomSheetState extends ConsumerState<HighlightBottomSheet> {
     super.dispose();
   }
 
-  void _save() {
-    widget.onSave(_selectedColor);
-    Navigator.of(context).pop();
-  }
-
-  void _remove() {
-    widget.onRemove?.call();
-    Navigator.of(context).pop();
-  }
-
   Future<void> _saveNote() async {
     final text = _noteController.text.trim();
-    if (text.isEmpty || _savingNote) return;
+    if (text.isEmpty || _savingNote || !isConsecutive(widget.selected)) return;
+    final runs = verseRuns(widget.selected).single;
     final messenger = ScaffoldMessenger.of(context);
     final failed = l10n(context).couldNotSaveVerseNote;
     setState(() => _savingNote = true);
@@ -136,7 +89,8 @@ class _HighlightBottomSheetState extends ConsumerState<HighlightBottomSheet> {
       await ref.read(bibleVerseNoteRepositoryProvider).addNote(
             bookId: widget.bookId,
             chapter: widget.chapter,
-            verse: widget.verse,
+            verse: runs.start,
+            verseEnd: runs.end,
             content: text,
           );
       if (!mounted) return;
@@ -158,99 +112,134 @@ class _HighlightBottomSheetState extends ConsumerState<HighlightBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isEditing = widget.existingHighlight != null;
-    final notes = ref
-            .watch(verseNotesProvider(
-                (bookId: widget.bookId, chapter: widget.chapter, verse: widget.verse)))
+    final t = l10n(context);
+    final selected = widget.selected;
+    final consecutive = isConsecutive(selected);
+
+    final touched = [
+      for (final h in widget.highlights)
+        if (selected.any(h.coversVerse)) h,
+    ];
+    // The colour is "current" when every selected verse has the same one.
+    final allCovered =
+        selected.every((v) => widget.highlights.any((h) => h.coversVerse(v)));
+    final colors = touched.map((h) => h.color).toSet();
+    final current = allCovered && colors.length == 1 ? colors.single : null;
+
+    final noteRepo = ref.read(bibleVerseNoteRepositoryProvider);
+    final highlightRepo = ref.read(bibleHighlightRepositoryProvider);
+    final chapterNotes = ref
+            .watch(chapterVerseNotesProvider(
+                (bookId: widget.bookId, chapter: widget.chapter)))
             .valueOrNull ??
         const [];
     // A note typed into a highlight before verses could have several. It is
-    // still the user's writing, so it stays visible (and editable), oldest, at
-    // the end. Read from the live highlight, so editing it updates the list.
-    final highlights = ref
-        .watch(chapterHighlightsProvider(
-            (bookId: widget.bookId, chapter: widget.chapter)))
-        .valueOrNull;
-    final highlight = highlights
-            ?.where((h) => h.coversVerse(widget.verse))
-            .firstOrNull ??
-        widget.existingHighlight;
-    final noteRepo = ref.read(bibleVerseNoteRepositoryProvider);
-    final highlightRepo = ref.read(bibleHighlightRepositoryProvider);
+    // still the user's writing, so it stays visible (and editable).
     final items = <_NoteItem>[
-      for (final n in notes)
-        _NoteItem(
-          key: n.id,
-          text: n.content,
-          onEdit: (text) => noteRepo.updateNote(n, text),
-          onDelete: () => noteRepo.deleteNote(n),
-        ),
-      if (highlight != null && highlight.note.isNotEmpty)
-        _NoteItem(
-          key: highlight.id,
-          text: highlight.note,
-          onEdit: (text) =>
-              highlightRepo.updateHighlight(highlight.copyWithUpdate(note: text)),
-          onDelete: () =>
-              highlightRepo.updateHighlight(highlight.copyWithUpdate(note: '')),
-        ),
+      for (final n in chapterNotes)
+        if (selected.any((v) => v >= n.verseStart && v <= n.verseEnd))
+          _NoteItem(
+            key: n.id,
+            start: n.verseStart,
+            end: n.verseEnd,
+            text: n.content,
+            onEdit: (text) => noteRepo.updateNote(n, text),
+            onDelete: () => noteRepo.deleteNote(n),
+          ),
+      for (final h in touched)
+        if (h.note.isNotEmpty)
+          _NoteItem(
+            key: h.id,
+            start: h.verseStart,
+            end: h.verseEnd,
+            text: h.note,
+            onEdit: (text) =>
+                highlightRepo.updateHighlight(h.copyWithUpdate(note: text)),
+            onDelete: () =>
+                highlightRepo.updateHighlight(h.copyWithUpdate(note: '')),
+          ),
     ];
 
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          top: 16,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-        ),
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.6;
+
+    return Material(
+      color: context.raisedSurface,
+      elevation: 8,
+      borderRadius: BorderRadius.circular(18),
+      shadowColor: Colors.black54,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
         child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const DragHandle(),
-
-              // Header
-              Text(
-                widget.reference,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                isEditing ? 'Edit highlight' : 'Highlight verse',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Color palette
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: HighlightColor.values
-                    .map((color) => _ColorSwatch(
-                          color: color,
-                          isSelected: color == _selectedColor,
-                          onTap: () =>
-                              setState(() => _selectedColor = color),
-                        ))
-                    .toList(),
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.reference,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                        Text(
+                          t.versesSelectedCount(selected.length),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: t.clearSelection,
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: widget.onClose,
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-
-              // New note
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  for (final c in HighlightColor.values)
+                    _ColorSwatch(
+                      color: c,
+                      isSelected: c == current,
+                      onTap: () => widget.onColor(c),
+                    ),
+                ],
+              ),
+              if (touched.isNotEmpty)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: widget.onRemoveHighlight,
+                    icon: const Icon(Icons.format_color_reset_outlined, size: 16),
+                    label: Text(t.removeHighlight),
+                    style: TextButton.styleFrom(
+                      foregroundColor: theme.colorScheme.error,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 8),
               if (_showNoteField) ...[
                 TextField(
                   controller: _noteController,
                   autofocus: true,
                   decoration: InputDecoration(
-                    hintText: l10n(context).addANote,
+                    hintText: t.addANote,
                     filled: true,
                     fillColor: theme.colorScheme.surfaceContainerHighest,
                     border: OutlineInputBorder(
@@ -258,9 +247,7 @@ class _HighlightBottomSheetState extends ConsumerState<HighlightBottomSheet> {
                       borderSide: BorderSide.none,
                     ),
                     contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
+                        horizontal: 14, vertical: 12),
                   ),
                   maxLines: 3,
                   textCapitalization: TextCapitalization.sentences,
@@ -268,86 +255,59 @@ class _HighlightBottomSheetState extends ConsumerState<HighlightBottomSheet> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: _noteController.text.trim().isEmpty || _savingNote
-                        ? null
-                        : _saveNote,
-                    child: Text(l10n(context).saveNote),
+                    onPressed:
+                        _noteController.text.trim().isEmpty || _savingNote
+                            ? null
+                            : _saveNote,
+                    child: Text(t.saveNote),
                   ),
                 ),
-                const SizedBox(height: 8),
               ],
-
-              // Quick-save shortcuts (Notes / Promise)
-              if (widget.onSaveToNotes != null ||
-                  widget.onSaveToPromises != null) ...[
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    if (widget.onSaveToPromises != null)
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          widget.onSaveToPromises!(
-                              widget.reference, widget.verseText);
-                        },
-                        icon: const Icon(Icons.bookmark_outline, size: 16),
-                        label: Text(l10n(context).saveAsPromise),
-                        style: OutlinedButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      ),
-                    if (widget.onSaveToNotes != null)
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          widget.onSaveToNotes!(
-                              widget.reference, widget.verseText);
-                        },
-                        icon: const Icon(Icons.edit_note, size: 16),
-                        label: Text(l10n(context).addToNotes),
-                        style: OutlinedButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-              ],
-
-              // Actions
               Row(
                 children: [
-                  if (isEditing)
-                    TextButton(
-                      onPressed: _remove,
-                      child: Text(
-                        l10n(context).remove,
-                        style: TextStyle(color: theme.colorScheme.error),
+                  if (!_showNoteField)
+                    Expanded(
+                      child: _PanelAction(
+                        icon: Icons.edit_outlined,
+                        label: t.addNote,
+                        onTap: consecutive
+                            ? () => setState(() => _showNoteField = true)
+                            : null,
                       ),
                     ),
-                  const Spacer(),
-                  if (!_showNoteField)
-                    TextButton(
-                      onPressed: () =>
-                          setState(() => _showNoteField = true),
-                      child: Text(l10n(context).addNote),
+                  Expanded(
+                    child: _PanelAction(
+                      icon: Icons.bookmark_outline,
+                      label: t.saveAsPromise,
+                      onTap: widget.onSaveAsPromise,
                     ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: _save,
-                    child: Text(isEditing ? 'Update' : 'Highlight'),
+                  ),
+                  Expanded(
+                    child: _PanelAction(
+                      icon: Icons.edit_note,
+                      label: t.addToNotes,
+                      onTap: widget.onAddToNotes,
+                    ),
                   ),
                 ],
               ),
-
-              // Your notes, below all the options
+              if (!consecutive && !_showNoteField)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    t.noteNeedsNeighbouringVerses,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
               if (items.isNotEmpty) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 Divider(height: 1, color: context.hairline),
                 const SizedBox(height: 12),
                 Text(
-                  l10n(context).yourNotes,
+                  t.yourNotes,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -357,6 +317,19 @@ class _HighlightBottomSheetState extends ConsumerState<HighlightBottomSheet> {
                 for (var i = 0; i < items.length; i++) ...[
                   if (i > 0) Divider(height: 24, color: context.hairline),
                   if (i == 0) const SizedBox(height: 8),
+                  // Which verses it was written on, so a note on a group is
+                  // never mistaken for one on a single verse.
+                  Text(
+                    items[i].start == items[i].end
+                        ? t.noteOnVerse('${items[i].start}')
+                        : t.noteOnVerses(
+                            formatVerseRange(items[i].start, items[i].end)),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
                   VerseNoteTile(
                     key: ValueKey(items[i].key),
                     text: items[i].text,
@@ -373,16 +346,70 @@ class _HighlightBottomSheetState extends ConsumerState<HighlightBottomSheet> {
   }
 }
 
-/// One note as the sheet lists it, and what to do when it is changed.
+/// One of the panel's actions: an icon over a label.
+class _PanelAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  const _PanelAction({required this.icon, required this.label, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final enabled = onTap != null;
+    final color = enabled
+        ? theme.colorScheme.onSurface
+        : theme.colorScheme.onSurface.withValues(alpha: 0.38);
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: label,
+      child: ExcludeSemantics(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 22, color: color),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One note as the panel lists it, and what to do when it is changed.
 class _NoteItem {
   /// Stable id, so a note keeps its own editing state as the list changes.
   final String key;
+  final int start;
+  final int end;
   final String text;
   final Future<void> Function(String text) onEdit;
   final Future<void> Function() onDelete;
 
   const _NoteItem({
     required this.key,
+    required this.start,
+    required this.end,
     required this.text,
     required this.onEdit,
     required this.onDelete,
@@ -629,9 +656,14 @@ class _ColorSwatch extends StatelessWidget {
           '${isSelected ? ", selected" : ""}',
       child: GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
+      behavior: HitTestBehavior.opaque,
+      // A 44dp touch target around the 36dp disc.
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: Center(child: Container(
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
           color: color.backgroundColor,
           shape: BoxShape.circle,
@@ -649,7 +681,7 @@ class _ColorSwatch extends StatelessWidget {
                 color: AppTheme.onHighlight,
               )
             : null,
-      ),
+      ))),
     ),
     );
   }
